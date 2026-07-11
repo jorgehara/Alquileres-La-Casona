@@ -1,0 +1,322 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasUserProfile() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return hasUserProfile()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function tenantId() {
+      return hasUserProfile()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId
+        : null;
+    }
+
+    function ownPropertyId() {
+      return isTenant()
+        && exists(/databases/$(database)/documents/tenants/$(tenantId()))
+        ? get(/databases/$(database)/documents/tenants/$(tenantId())).data.propertyId
+        : null;
+    }
+
+    function ownPropertyType() {
+      return ownPropertyId() != null
+        && exists(/databases/$(database)/documents/properties/$(ownPropertyId()))
+        ? get(/databases/$(database)/documents/properties/$(ownPropertyId())).data.unitType
+        : null;
+    }
+
+    function ownPropertyCode() {
+      return ownPropertyId() != null
+        && exists(/databases/$(database)/documents/properties/$(ownPropertyId()))
+        ? get(/databases/$(database)/documents/properties/$(ownPropertyId())).data.unitCode
+        : null;
+    }
+
+    function utilityBillMatchesTenant() {
+      return (
+        resource.data.billingGroup == "electricity_house" && ownPropertyType() == "Casa"
+      ) || (
+        resource.data.billingGroup == "electricity_local_1" && ownPropertyType() == "Local" && ownPropertyCode() == "1"
+      ) || (
+        resource.data.billingGroup == "electricity_local_2" && ownPropertyType() == "Local" && ownPropertyCode() == "2"
+      ) || (
+        resource.data.billingGroup == "electricity_local_3" && ownPropertyType() == "Local" && ownPropertyCode() == "3"
+      ) || (
+        resource.data.billingGroup == "electricity_local_4" && ownPropertyType() == "Local" && ownPropertyCode() == "4"
+      ) || (
+        resource.data.billingGroup == "water_departments_local_1"
+        && (ownPropertyType() == "Departamento" || (ownPropertyType() == "Local" && ownPropertyCode() == "1"))
+      ) || (
+        resource.data.billingGroup == "water_locals_2_3"
+        && ownPropertyType() == "Local"
+        && (ownPropertyCode() == "2" || ownPropertyCode() == "3")
+      ) || (
+        resource.data.billingGroup == "water_house" && ownPropertyType() == "Casa"
+      );
+    }
+
+    function isSuperadmin() {
+      return isSignedIn() && userRole() == "superadmin";
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (userRole() == "admin" || isSuperadmin());
+    }
+
+    function adminOwnerScope() {
+      return hasUserProfile()
+        ? (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ownerScope != null
+          ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ownerScope
+          : "all")
+        : "all";
+    }
+
+    function normalizeOwnerScope(ownerScopeValue, ownerIdValue, transferBlockValue) {
+      return ownerScopeValue == "enzo" || ownerScopeValue == "ivo"
+        ? ownerScopeValue
+        : ownerIdValue == "enzo" || ownerIdValue == "owner_block_1"
+          ? "enzo"
+          : ownerIdValue == "ivo" || ownerIdValue == "owner_block_2"
+            ? "ivo"
+            : transferBlockValue == "block_2"
+              ? "ivo"
+              : "enzo";
+    }
+
+    function adminCanAccessScope(scope) {
+      return isSuperadmin()
+        || (isAdmin()
+        && (adminOwnerScope() == "all" || adminOwnerScope() == scope));
+    }
+
+    function propertyOwnerScopeById(propertyId) {
+      return propertyId != null
+        && exists(/databases/$(database)/documents/properties/$(propertyId))
+        ? normalizeOwnerScope(
+            get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerScope,
+            get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId,
+            get(/databases/$(database)/documents/properties/$(propertyId)).data.transferBlock
+          )
+        : null;
+    }
+
+    function adminCanAccessProperty(propertyId) {
+      return propertyId != null
+        && adminCanAccessScope(propertyOwnerScopeById(propertyId));
+    }
+
+    function tenantPropertyIdByTenant(targetTenantId) {
+      return targetTenantId != null
+        && exists(/databases/$(database)/documents/tenants/$(targetTenantId))
+        ? get(/databases/$(database)/documents/tenants/$(targetTenantId)).data.propertyId
+        : null;
+    }
+
+    function adminCanAccessTenant(targetTenantId) {
+      return adminCanAccessProperty(tenantPropertyIdByTenant(targetTenantId));
+    }
+
+    function chargePropertyIdByCharge(chargeId) {
+      return chargeId != null
+        && exists(/databases/$(database)/documents/charges/$(chargeId))
+        ? get(/databases/$(database)/documents/charges/$(chargeId)).data.propertyId
+        : null;
+    }
+
+    function adminCanAccessCharge(chargeId) {
+      return adminCanAccessProperty(chargePropertyIdByCharge(chargeId));
+    }
+
+    function paymentChargeIdByPayment(paymentId) {
+      return paymentId != null
+        && exists(/databases/$(database)/documents/payments/$(paymentId))
+        ? get(/databases/$(database)/documents/payments/$(paymentId)).data.chargeId
+        : null;
+    }
+
+    function adminCanAccessPayment(paymentId) {
+      return adminCanAccessCharge(paymentChargeIdByPayment(paymentId));
+    }
+
+    function isTenant() {
+      return isSignedIn() && userRole() == "tenant";
+    }
+
+    function isOwnTenant(targetTenantId) {
+      return isTenant() && tenantId() == targetTenantId;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function bootstrapNotInitialized() {
+      return !exists(/databases/$(database)/documents/settings/bootstrap);
+    }
+
+    function hasInvitation() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/tenantInvitations/$(request.auth.token.email));
+    }
+
+    function invitationTenantId() {
+      return hasInvitation()
+        ? get(/databases/$(database)/documents/tenantInvitations/$(request.auth.token.email)).data.tenantId
+        : null;
+    }
+
+    function tenantCanUpdateOwnProfile() {
+      return isOwnTenant(resource.id)
+        && changedKeys().hasOnly(["email", "phone", "updatedAt"]);
+    }
+
+    match /users/{userId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow create: if isAdmin()
+        || (isSignedIn()
+        && request.auth.uid == userId
+        && hasInvitation()
+        && request.resource.data.role == "tenant"
+        && request.resource.data.tenantId == invitationTenantId()
+        && request.resource.data.email == request.auth.token.email);
+      allow update, delete: if isAdmin();
+    }
+
+    match /properties/{propertyId} {
+      allow read: if (isAdmin() && adminCanAccessScope(normalizeOwnerScope(resource.data.ownerScope, resource.data.ownerId, resource.data.transferBlock)))
+        || (isTenant() && ownPropertyId() == propertyId);
+      allow create, update: if isSuperadmin()
+        || (isAdmin()
+        && adminCanAccessScope(normalizeOwnerScope(request.resource.data.ownerScope, request.resource.data.ownerId, request.resource.data.transferBlock)));
+      allow delete: if isSuperadmin()
+        || (isAdmin()
+        && adminCanAccessScope(normalizeOwnerScope(resource.data.ownerScope, resource.data.ownerId, resource.data.transferBlock)));
+    }
+
+    match /owners/{ownerId} {
+      allow read: if isSuperadmin()
+        || (isAdmin()
+        && adminCanAccessScope(normalizeOwnerScope(resource.data.ownerScope, ownerId, resource.data.transferBlock)));
+      allow create, update: if isSuperadmin()
+        || (isAdmin()
+        && adminCanAccessScope(normalizeOwnerScope(request.resource.data.ownerScope, ownerId, request.resource.data.transferBlock)));
+      allow delete: if isSuperadmin()
+        || (isAdmin()
+        && adminCanAccessScope(normalizeOwnerScope(resource.data.ownerScope, ownerId, resource.data.transferBlock)));
+    }
+
+    match /tenants/{tenantDocId} {
+      allow read: if (isAdmin() && adminCanAccessProperty(resource.data.propertyId)) || isOwnTenant(tenantDocId);
+      allow create: if isAdmin() && adminCanAccessProperty(request.resource.data.propertyId);
+      allow update: if (isAdmin() && adminCanAccessProperty(resource.data.propertyId) && adminCanAccessProperty(request.resource.data.propertyId)) || tenantCanUpdateOwnProfile();
+      allow delete: if isAdmin() && adminCanAccessProperty(resource.data.propertyId);
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && settingId == "bootstrap");
+      allow create: if isSuperadmin()
+        || (isAdmin() && settingId == "bankAccounts");
+      allow update: if isSuperadmin()
+        || (isAdmin() && settingId == "bankAccounts");
+      allow delete: if isSuperadmin();
+    }
+
+    match /charges/{chargeId} {
+      allow read: if (isAdmin() && adminCanAccessProperty(resource.data.propertyId)) || (isTenant() && resource.data.tenantId == tenantId());
+      allow create, update: if isSuperadmin()
+        || (isAdmin() && adminCanAccessProperty(request.resource.data.propertyId));
+      allow delete: if isSuperadmin()
+        || (isAdmin() && adminCanAccessProperty(resource.data.propertyId));
+    }
+
+    match /payments/{paymentId} {
+      allow read: if (isAdmin() && adminCanAccessCharge(resource.data.chargeId)) || (isTenant() && resource.data.tenantId == tenantId());
+      allow create: if (isAdmin() && adminCanAccessCharge(request.resource.data.chargeId))
+        || (isTenant()
+        && request.resource.data.tenantId == tenantId()
+        && request.resource.data.method in ["transfer", "mercado_pago"]);
+      allow update: if isSuperadmin()
+        || (isAdmin() && adminCanAccessCharge(resource.data.chargeId));
+      allow delete: if isSuperadmin();
+    }
+
+    match /paymentReceipts/{receiptId} {
+      allow read: if (isAdmin() && adminCanAccessPayment(resource.data.paymentId)) || (isTenant() && resource.data.tenantId == tenantId());
+      allow create: if (isAdmin() && (
+          adminCanAccessPayment(request.resource.data.paymentId)
+          || adminCanAccessTenant(request.resource.data.tenantId)
+        ))
+        || (isTenant() && request.resource.data.tenantId == tenantId());
+      allow update: if isSuperadmin()
+        || (isAdmin() && adminCanAccessPayment(resource.data.paymentId));
+      allow delete: if isSuperadmin();
+    }
+
+    match /utilityBills/{billId} {
+      allow read: if isAdmin()
+        || (isTenant() && utilityBillMatchesTenant());
+      allow write: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if (isAdmin() && adminCanAccessTenant(resource.data.tenantId))
+        || (isTenant() && resource.data.tenantId == tenantId());
+      allow create: if isAdmin() && adminCanAccessTenant(request.resource.data.tenantId);
+      allow update: if isSuperadmin()
+        || (isAdmin() && adminCanAccessTenant(resource.data.tenantId));
+      allow delete: if isSuperadmin();
+    }
+
+    match /rentReceipts/{receiptId} {
+      allow read: if (isAdmin()
+        && adminCanAccessScope(normalizeOwnerScope(resource.data.ownerScope, resource.data.ownerId, resource.data.transferBlock)))
+        || (isTenant() && resource.data.tenantId == tenantId());
+      allow create, update: if isSuperadmin()
+        || (isAdmin()
+        && adminCanAccessScope(normalizeOwnerScope(request.resource.data.ownerScope, request.resource.data.ownerId, request.resource.data.transferBlock)));
+      allow delete: if isSuperadmin();
+    }
+
+    match /tenantInvitations/{invitationId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && request.auth.token.email == invitationId);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isSignedIn()
+        && request.auth.token.email == invitationId
+        && request.resource.data.tenantId == resource.data.tenantId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status",
+          "claimedAt",
+          "claimedBy"
+        ]));
+    }
+
+    match /paymentAccessTokens/{tokenId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

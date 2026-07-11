@@ -1,0 +1,182 @@
+?<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alquileres La Casona</title>
+    <meta
+      name="description"
+      content="Acceso seguro a La Casona Alquileres."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="session-pending">
+    <section id="auth-screen" class="auth-screen">
+      <div class="auth-brand-pattern" aria-hidden="true">
+        <span class="pattern-item strong item-1">La Casona</span>
+        <span class="pattern-item item-2">La Casona</span>
+        <span class="pattern-item item-3">La Casona</span>
+        <span class="pattern-item soft item-4">La Casona</span>
+        <span class="pattern-item item-5">La Casona</span>
+        <span class="pattern-item strong item-6">La Casona</span>
+        <span class="pattern-item soft item-7">La Casona</span>
+        <span class="pattern-item item-8">La Casona</span>
+        <span class="pattern-item soft item-9">La Casona</span>
+        <span class="pattern-item item-10">La Casona</span>
+        <span class="pattern-item strong item-11">La Casona</span>
+        <span class="pattern-item soft item-12">La Casona</span>
+        <span class="pattern-item item-13">La Casona</span>
+        <span class="pattern-item soft item-14">La Casona</span>
+        <span class="pattern-item item-15">La Casona</span>
+        <span class="pattern-item soft item-16">La Casona</span>
+        <span class="pattern-item item-17">La Casona</span>
+        <span class="pattern-item soft item-18">La Casona</span>
+        <span class="pattern-item item-19">La Casona</span>
+        <span class="pattern-item soft item-20">La Casona</span>
+        <span class="pattern-item item-21">La Casona</span>
+      </div>
+
+            <div id="loading-session-panel" class="auth-panel centered">
+        <div class="auth-card">
+          <p class="eyebrow">Acceso seguro</p>
+          <h2>Verificando sesión</h2>
+          <p class="auth-copy">
+            Estamos preparando tu acceso de forma segura.
+          </p>
+        </div>
+      </div>
+
+      <div id="login-panel" class="auth-panel centered hidden">
+        <div class="auth-card">
+          <p class="eyebrow">Acceso seguro</p>
+          <h2>Ingresar</h2>
+          <p class="auth-copy">
+            Usa tu correo para entrar al panel de administración o a tu portal
+            personal.
+          </p>
+
+          <form id="auth-form" class="form-card auth-form" method="post" action="javascript:void(0)" autocomplete="off">
+            <label>
+              Correo electrónico
+              <input id="auth-email" name="email" type="email" required />
+            </label>
+            <label>
+              Contraseña
+              <input id="auth-password" name="password" type="password" required />
+            </label>
+            <div class="auth-actions">
+              <button class="primary-action" type="submit">Ingresar</button>
+              <button id="register-button" class="ghost-action" type="button">
+                Crear cuenta
+              </button>
+              <button id="tenant-profile-button" class="ghost-action" type="button">
+                Crear perfil de inquilino
+              </button>
+            </div>
+          </form>
+
+          <p id="auth-message" class="app-message" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div id="tenant-onboarding-panel" class="auth-panel centered hidden">
+        <div class="auth-card auth-card-wide">
+          <p class="eyebrow">Configurar perfil</p>
+          <h2>Configura tu alquiler</h2>
+          <p class="auth-copy">
+            Ingresá tus datos para finalizar tu perfil de inquilino.
+          </p>
+
+          <form id="tenant-onboarding-form" class="form-card auth-form" method="post" action="javascript:void(0)" autocomplete="off">
+            <label>
+              Correo electrónico
+              <input id="tenant-onboarding-email" name="email" type="email" required />
+            </label>
+            <label>
+              Contraseña
+              <input id="tenant-onboarding-password" name="password" type="password" required />
+            </label>
+            <label>
+              Tipo de propiedad
+              <select id="tenant-property-type" name="propertyType" required>
+                <option value="">Seleccionar</option>
+                <option value="Departamento">Departamento</option>
+                <option value="Local">Local</option>
+                <option value="Casa">Casa</option>
+              </select>
+            </label>
+            <label id="tenant-property-code-label">
+              Propiedad correspondiente
+              <select id="tenant-property-code" name="propertyCode" required>
+                <option value="">Primero elegí el tipo</option>
+              </select>
+            </label>
+            <label>
+              Nombre completo
+              <input name="fullName" type="text" required />
+            </label>
+            <label>
+              DNI
+              <input name="dni" type="text" required />
+            </label>
+            <label>
+              Número de contacto
+              <input name="phone" type="tel" required />
+            </label>
+            <label>
+              Fecha de fin de contrato
+              <input name="contractEndDate" type="date" required />
+            </label>
+            <div class="auth-actions">
+              <button class="primary-action" type="submit">Guardar perfil</button>
+              <button id="tenant-onboarding-back" class="ghost-action" type="button">
+                Volver al ingreso
+              </button>
+            </div>
+          </form>
+
+          <p id="tenant-onboarding-message" class="app-message" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div id="payment-token-panel" class="auth-panel centered hidden">
+        <div class="auth-card auth-card-wide">
+          <p class="eyebrow">Acceso directo</p>
+          <h2>Pago del período</h2>
+          <p class="auth-copy" id="payment-token-copy">
+            Estamos buscando el detalle del cobro.
+          </p>
+          <div id="payment-token-card" class="form-card token-card"></div>
+          <p id="payment-token-message" class="app-message" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div id="access-denied-panel" class="auth-panel centered hidden">
+        <div class="auth-card auth-card-wide">
+          <p class="eyebrow">Acceso</p>
+          <h2 id="access-denied-title">No pudimos habilitar tu acceso</h2>
+          <p id="access-denied-copy" class="auth-copy">Revisa tu sesión o comunícate con administración.</p>
+          <div id="access-denied-actions" class="auth-actions hidden">
+            <button id="bootstrap-button" class="primary-action hidden" type="button"></button>
+          </div>
+          <p id="access-denied-message" class="app-message" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <div id="private-app-host"></div>
+
+    <script src="./firebase-config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
+
+
+
+

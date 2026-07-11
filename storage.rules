@@ -1,0 +1,55 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return request.auth.token.role;
+    }
+
+    function tenantId() {
+      return request.auth.token.tenantId;
+    }
+
+    function isSuperadmin() {
+      return isSignedIn() && userRole() == "superadmin";
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (userRole() == "admin" || isSuperadmin());
+    }
+
+    function isTenant() {
+      return isSignedIn() && userRole() == "tenant";
+    }
+
+    match /utility-bills/{billingGroup}/{billId}/{fileName} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /payment-receipts/{userId}/{paymentId}/{fileName} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /contracts/{leaseId}/{fileName} {
+      allow read, write: if isAdmin();
+    }
+
+    match /message-attachments/{messageId}/{fileName} {
+      allow read, write: if isAdmin();
+    }
+
+    match /rent-receipts/{tenantIdValue}/{receiptId}/{fileName} {
+      allow read: if isAdmin() || (isTenant() && tenantId() == tenantIdValue);
+      allow write: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

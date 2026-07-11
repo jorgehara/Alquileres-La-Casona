@@ -1,0 +1,8 @@
+{
+  "name": "alquileres-la-casona",
+  "private": true,
+  "scripts": {
+    "build:functions": "npm --prefix functions run build",
+    "lint:functions": "npm --prefix functions run lint"
+  }
+}

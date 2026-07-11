@@ -1,0 +1,9 @@
+<svg width="480" height="120" viewBox="0 0 480 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="480" height="120" rx="24" fill="#17382F"/>
+  <circle cx="68" cy="60" r="28" fill="#F6F1DF"/>
+  <path d="M68 40L82 54V80H54V54L68 40Z" fill="#17382F"/>
+  <path d="M58 60H78" stroke="#F6F1DF" stroke-width="4" stroke-linecap="round"/>
+  <path d="M68 49V71" stroke="#F6F1DF" stroke-width="4" stroke-linecap="round"/>
+  <text x="118" y="52" fill="#F6F1DF" font-family="Arial, sans-serif" font-size="16" letter-spacing="4">LA CASONA</text>
+  <text x="118" y="84" fill="#F6F1DF" font-family="Georgia, serif" font-size="34" font-style="italic">Alquileres</text>
+</svg>

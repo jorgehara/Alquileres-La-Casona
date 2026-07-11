@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verificar comprobante | La Casona</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="receipt-verify-body">
+    <main class="receipt-verify-shell">
+      <section class="receipt-verify-card">
+        <p class="eyebrow">La Casona Alquileres</p>
+        <h1>Verificar comprobante</h1>
+        <p class="auth-copy">
+          Ingresá el código de verificación o abrí esta página desde el QR del comprobante.
+        </p>
+
+        <form id="receipt-verify-form" class="form-card receipt-verify-form">
+          <label>
+            Código único de verificación
+            <input id="receipt-verify-code" type="text" placeholder="LC-8F3K92X1" required />
+          </label>
+          <button class="primary-action" type="submit">Verificar comprobante</button>
+        </form>
+
+        <div id="receipt-verify-message" class="app-message" aria-live="polite"></div>
+        <div id="receipt-verify-result" class="entity-list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./verify-receipt.js"></script>
+  </body>
+</html>

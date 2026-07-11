@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="faviconTitle">
+  <title id="faviconTitle">La Casona</title>
+  <rect width="64" height="64" rx="16" fill="#173F2C"/>
+  <path d="M18 17h7v22h13v8H18V17z" fill="#F6F7F4"/>
+  <path d="M50 19c-2-1.4-5-2.4-8.6-2.4-8.6 0-14.4 5.8-14.4 15.4 0 9.5 5.7 15.3 14.4 15.3 3.6 0 6.4-.8 8.6-2.2v-8.1c-2 1.9-4.5 3-7.5 3-4.8 0-8.1-3.2-8.1-8s3.2-8 8.1-8c3 0 5.5 1 7.5 3v-8z" fill="#DDEADF"/>
+</svg>
