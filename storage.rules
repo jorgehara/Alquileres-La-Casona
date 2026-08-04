@@ -9,21 +9,38 @@ service firebase.storage {
       return request.auth.token.role;
     }
 
+    function ownerScope() {
+      return request.auth.token.ownerScope;
+    }
+
     function tenantId() {
       return request.auth.token.tenantId;
     }
 
+    function hasValidProjectedClaims() {
+      return isSignedIn()
+        && (
+          userRole() == "superadmin"
+          || (userRole() == "admin" && (ownerScope() == null || ownerScope() in ["all", "enzo", "ivo"]))
+          || (userRole() == "tenant" && tenantId() != null)
+        );
+    }
+
     function isSuperadmin() {
-      return isSignedIn() && userRole() == "superadmin";
+      return hasValidProjectedClaims() && userRole() == "superadmin";
     }
 
     function isAdmin() {
-      return isSignedIn() && (userRole() == "admin" || isSuperadmin());
+      return hasValidProjectedClaims() && (userRole() == "admin" || isSuperadmin());
     }
 
     function isTenant() {
-      return isSignedIn() && userRole() == "tenant";
+      return hasValidProjectedClaims() && userRole() == "tenant";
     }
+
+    // Storage rules cannot read Firestore `users/{uid}`. These checks use custom
+    // claims only as the derived projection written from the canonical profile.
+    // Stale broad claims must be corrected by Functions/frontend token refresh.
 
     match /utility-bills/{billingGroup}/{billId}/{fileName} {
       allow read: if isAdmin();

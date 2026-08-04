@@ -102,6 +102,7 @@ export const resendProfileCreatedEmail = onCall(async (request) => {
   await assertOwnerScopeAccess(request, propertyId);
 
   const tenantName = String(tenantDoc.get("fullName") ?? "inquilino");
+  const tenantEmail = String(tenantDoc.get("email") ?? "").trim().toLowerCase();
   const result = await sendTenantNotification({
     tenantId,
     type: "profile_created",
@@ -109,6 +110,19 @@ export const resendProfileCreatedEmail = onCall(async (request) => {
     channel: "email",
     createdBy: request.auth?.uid ?? "system"
   });
+
+  if (tenantEmail) {
+    const invitationRef = db.collection("tenantInvitations").doc(tenantEmail);
+    const invitationDoc = await invitationRef.get();
+    if (invitationDoc.exists && String(invitationDoc.get("tenantId") ?? "") === tenantId) {
+      await invitationRef.set({
+        lastResentAt: nowIso(),
+        lastResentBy: request.auth?.uid ?? "system",
+        resendCount: Number(invitationDoc.get("resendCount") ?? 0) + 1,
+        updatedAt: nowIso()
+      }, { merge: true });
+    }
+  }
 
   return {
     ok: result.ok,

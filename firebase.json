@@ -16,6 +16,36 @@
           }
         ]
       }
+    ],
+    "rewrites": [
+      {
+        "source": "/api/resolvePaymentAccessToken",
+        "function": {
+          "functionId": "resolvePaymentAccessToken",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/createCheckoutFromPaymentAccessToken",
+        "function": {
+          "functionId": "createCheckoutFromPaymentAccessToken",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/submitTransferFromPaymentAccessToken",
+        "function": {
+          "functionId": "submitTransferFromPaymentAccessToken",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/verifyPaymentReceipt",
+        "function": {
+          "functionId": "verifyPaymentReceipt",
+          "region": "us-central1"
+        }
+      }
     ]
   },
   "firestore": {
@@ -27,5 +57,27 @@
   },
   "functions": {
     "source": "functions"
+  },
+  "emulators": {
+    "hosting": {
+      "port": 5000
+    },
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "auth": {
+      "port": 9099
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
   }
 }

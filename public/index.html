@@ -90,10 +90,10 @@
 
       <div id="tenant-onboarding-panel" class="auth-panel centered hidden">
         <div class="auth-card auth-card-wide">
-          <p class="eyebrow">Configurar perfil</p>
-          <h2>Configura tu alquiler</h2>
+          <p class="eyebrow">Reclamar acceso</p>
+          <h2>Activá tu portal</h2>
           <p class="auth-copy">
-            Ingresá tus datos para finalizar tu perfil de inquilino.
+            Usá el mismo correo que administración registró en tu invitación. Sin invitación activa no se crea ningún perfil.
           </p>
 
           <form id="tenant-onboarding-form" class="form-card auth-form" method="post" action="javascript:void(0)" autocomplete="on">
@@ -105,39 +105,8 @@
               Contraseña
               <input id="tenant-onboarding-password" name="password" type="password" autocomplete="new-password" required />
             </label>
-            <label>
-              Tipo de propiedad
-              <select id="tenant-property-type" name="propertyType" required>
-                <option value="">Seleccionar</option>
-                <option value="Departamento">Departamento</option>
-                <option value="Local">Local</option>
-                <option value="Casa">Casa</option>
-              </select>
-            </label>
-            <label id="tenant-property-code-label">
-              Propiedad correspondiente
-              <select id="tenant-property-code" name="propertyCode" required>
-                <option value="">Primero elegí el tipo</option>
-              </select>
-            </label>
-            <label>
-              Nombre completo
-              <input name="fullName" type="text" autocomplete="name" required />
-            </label>
-            <label>
-              DNI
-              <input name="dni" type="text" inputmode="numeric" required />
-            </label>
-            <label>
-              Número de contacto
-              <input name="phone" type="tel" autocomplete="tel" inputmode="tel" required />
-            </label>
-            <label>
-              Fecha de fin de contrato
-              <input name="contractEndDate" type="date" required />
-            </label>
             <div class="auth-actions">
-              <button class="primary-action" type="submit">Guardar perfil</button>
+              <button class="primary-action" type="submit">Reclamar acceso</button>
               <button id="tenant-onboarding-back" class="ghost-action" type="button">
                 Volver al ingreso
               </button>
@@ -176,9 +145,8 @@
     <div id="private-app-host"></div>
 
     <script src="./firebase-config.js?v=20260701-7"></script>
+    <script src="./runtime-config.js?v=20260701-7"></script>
     <script type="module" src="./app.js?v=20260701-7"></script>
   </body>
 </html>
-
-
 

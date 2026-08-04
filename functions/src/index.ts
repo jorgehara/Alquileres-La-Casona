@@ -7,8 +7,13 @@ export {
   claimTenantAccess,
   updateTenantContactSettings,
   updateTenantContract,
+  createTenantAdminProfile,
   updateTenantAdminProfile,
   createAdministrativeUser,
+  updateUserAuthority,
+  deleteUserAccess,
+  deactivateTenant,
+  deleteTenantProfile,
   checkBootstrapEligibility,
   bootstrapInitialAdmin
 } from "./modules/tenants.js";

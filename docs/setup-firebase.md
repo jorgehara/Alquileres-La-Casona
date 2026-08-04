@@ -59,12 +59,14 @@ Cuando conectemos custom claims para roles, conviene endurecer esas reglas.
 
 ## Flujo actual de inquilino
 
-1. el admin crea el inquilino con su correo real
-2. el sistema genera una invitacion simple en Firestore
-3. el inquilino crea su cuenta con ese mismo correo
-4. en el primer login, la app vincula automaticamente esa cuenta con su `tenantId`
+1. el admin crea el inquilino con su correo real y propiedad asignada
+2. el backend genera `tenantInvitations/{correo-normalizado}` como invitacion canonica
+3. el inquilino crea su cuenta o inicia sesion con ese mismo correo
+4. en el primer login, `claimTenantAccess` vincula `users/{uid}`, custom claims y `tenantId`
 
 No hace falta enviar email automatico todavia. En esta etapa la invitacion funciona por coincidencia de correo.
+
+El alta self-service por tipo/codigo de propiedad queda deshabilitada: si no hay invitacion activa, la app debe mostrar que administracion debe preparar o corregir el acceso.
 
 ## Funciones creadas en esta base
 
@@ -75,6 +77,9 @@ No hace falta enviar email automatico todavia. En esta etapa la invitacion funci
 ### Inquilinos
 
 - `inviteTenantUser`
+- `claimTenantAccess`
+- `createTenantProfile` (compatibilidad: reclama invitacion existente, no crea perfiles self-service)
+- `createTenantAdminProfile`
 
 ### Cobros
 

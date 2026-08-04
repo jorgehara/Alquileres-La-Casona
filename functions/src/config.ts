@@ -1,11 +1,11 @@
 import { defineString } from "firebase-functions/params";
 
 export const webAppUrl = defineString("WEBAPP_URL", {
-  default: "https://example.web.app"
+  default: "http://127.0.0.1:5000"
 });
 
 export const backendBaseUrl = defineString("BACKEND_BASE_URL", {
-  default: ""
+  default: "http://127.0.0.1:5001/demo-alquileres-la-casona/us-central1"
 });
 
 export const mercadoPagoAccessToken = defineString("MERCADO_PAGO_ACCESS_TOKEN", {

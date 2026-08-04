@@ -10,14 +10,22 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function userRole() {
+    function hasActiveUserProfile() {
       return hasUserProfile()
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == null
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active"
+        );
+    }
+
+    function userRole() {
+      return hasActiveUserProfile()
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
         : null;
     }
 
     function tenantId() {
-      return hasUserProfile()
+      return hasActiveUserProfile()
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId
         : null;
     }
@@ -75,11 +83,13 @@ service cloud.firestore {
     }
 
     function adminOwnerScope() {
-      return hasUserProfile()
+      return isSuperadmin()
+        ? "all"
+        : hasActiveUserProfile()
         ? (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ownerScope != null
           ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ownerScope
           : "all")
-        : "all";
+        : null;
     }
 
     function normalizeOwnerScope(ownerScopeValue, ownerIdValue, transferBlockValue) {
@@ -165,14 +175,14 @@ service cloud.firestore {
       return !exists(/databases/$(database)/documents/settings/bootstrap);
     }
 
-    function hasInvitation() {
+    function hasCanonicalInvitation() {
       return isSignedIn()
         && request.auth.token.email != null
         && exists(/databases/$(database)/documents/tenantInvitations/$(request.auth.token.email));
     }
 
-    function invitationTenantId() {
-      return hasInvitation()
+    function canonicalInvitationTenantId() {
+      return hasCanonicalInvitation()
         ? get(/databases/$(database)/documents/tenantInvitations/$(request.auth.token.email)).data.tenantId
         : null;
     }
@@ -182,24 +192,49 @@ service cloud.firestore {
         && changedKeys().hasOnly(["email", "phone", "updatedAt"]);
     }
 
+    function userCanUpdateOwnProfile(userId) {
+      return isSignedIn()
+        && request.auth.uid == userId
+        && changedKeys().hasOnly(["displayName", "email", "phone", "updatedAt"]);
+    }
+
+    function tenantInvitationSelfClaimUpdate(invitationId) {
+      return isSignedIn()
+        && request.auth.token.email == invitationId
+        && request.resource.data.tenantId == resource.data.tenantId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.email == invitationId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status",
+          "claimedAt",
+          "claimedBy"
+        ])
+        && (resource.data.status == null || resource.data.status == "pending" || resource.data.status == "accepted")
+        && request.resource.data.status == "claimed"
+        && request.resource.data.claimedBy == request.auth.uid;
+    }
+
+    function adminCanUpdatePropertyWithoutOccupancyChange() {
+      return (isSuperadmin()
+        || (isAdmin()
+        && adminCanAccessScope(normalizeOwnerScope(request.resource.data.ownerScope, request.resource.data.ownerId, request.resource.data.transferBlock))))
+        && !changedKeys().hasAny(["currentTenantId"]);
+    }
+
     match /users/{userId} {
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
-      allow create: if isAdmin()
-        || (isSignedIn()
-        && request.auth.uid == userId
-        && hasInvitation()
-        && request.resource.data.role == "tenant"
-        && request.resource.data.tenantId == invitationTenantId()
-        && request.resource.data.email == request.auth.token.email);
-      allow update, delete: if isAdmin();
+      allow create: if false;
+      allow update: if userCanUpdateOwnProfile(userId);
+      allow delete: if false;
     }
 
     match /properties/{propertyId} {
       allow read: if (isAdmin() && adminCanAccessScope(normalizeOwnerScope(resource.data.ownerScope, resource.data.ownerId, resource.data.transferBlock)))
         || (isTenant() && ownPropertyId() == propertyId);
-      allow create, update: if isSuperadmin()
+      allow create: if isSuperadmin()
         || (isAdmin()
         && adminCanAccessScope(normalizeOwnerScope(request.resource.data.ownerScope, request.resource.data.ownerId, request.resource.data.transferBlock)));
+      allow update: if adminCanUpdatePropertyWithoutOccupancyChange();
       allow delete: if isSuperadmin()
         || (isAdmin()
         && adminCanAccessScope(normalizeOwnerScope(resource.data.ownerScope, resource.data.ownerId, resource.data.transferBlock)));
@@ -219,9 +254,9 @@ service cloud.firestore {
 
     match /tenants/{tenantDocId} {
       allow read: if (isAdmin() && adminCanAccessProperty(resource.data.propertyId)) || isOwnTenant(tenantDocId);
-      allow create: if isAdmin() && adminCanAccessProperty(request.resource.data.propertyId);
-      allow update: if (isAdmin() && adminCanAccessProperty(resource.data.propertyId) && adminCanAccessProperty(request.resource.data.propertyId)) || tenantCanUpdateOwnProfile();
-      allow delete: if isAdmin() && adminCanAccessProperty(resource.data.propertyId);
+      allow create: if false;
+      allow update: if tenantCanUpdateOwnProfile();
+      allow delete: if false;
     }
 
     match /settings/{settingId} {
@@ -293,17 +328,8 @@ service cloud.firestore {
     match /tenantInvitations/{invitationId} {
       allow read: if isAdmin()
         || (isSignedIn() && request.auth.token.email == invitationId);
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin()
-        || (isSignedIn()
-        && request.auth.token.email == invitationId
-        && request.resource.data.tenantId == resource.data.tenantId
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "status",
-          "claimedAt",
-          "claimedBy"
-        ]));
+      allow create, delete: if false;
+      allow update: if tenantInvitationSelfClaimUpdate(invitationId);
     }
 
     match /paymentAccessTokens/{tokenId} {

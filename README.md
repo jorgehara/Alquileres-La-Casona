@@ -84,3 +84,25 @@ Luego sumar:
 1. webhook de Mercado Pago
 2. validacion automatica de comprobantes
 3. lectura automatica de facturas
+
+## Desarrollo local con emuladores Firebase
+
+Prerequisitos: Node.js 20, npm 10 y JDK 21 o superior para emuladores que usan Java. No hace falta instalar Firebase CLI globalmente: el repo usa `firebase-tools` versionado en el `package.json` raíz.
+
+Desde la raíz del repo:
+
+```bash
+npm install
+npm run install:functions
+cp functions/.env.example functions/.env.alquileres-la-casona
+npm run build:functions
+npm run emulators
+```
+
+El archivo `.firebaserc.example` usa `demo-alquileres-la-casona`; si necesitás `.firebaserc`, copialo desde el ejemplo y mantenelo sin versionar. Esta guía local no agrega flujo de login ni deploy.
+
+Puertos esperados: Hosting `http://127.0.0.1:5000`, Emulator UI `http://127.0.0.1:4000`, Functions `http://127.0.0.1:5001/demo-alquileres-la-casona/us-central1`, Firestore `8080`, Auth `9099`, Storage `9199`.
+
+Al abrir `http://127.0.0.1:5000`, Auth, Firestore, Storage y Functions usan emuladores. Si el runtime detecta proyecto productivo, puertos faltantes o fallback a `cloudfunctions.net` en modo local, bloquea el inicio antes de autenticar o tocar datos.
+
+Runbook completo: `docs/local-tenant-emulator-flow.md`.

@@ -27,9 +27,7 @@ async function verifyReceipt(rawCode) {
   result.innerHTML = `<article class="entity-card"><p>Buscando datos del comprobante...</p></article>`;
 
   try {
-    const response = await fetch(
-      `https://us-central1-alquileres-la-casona.cloudfunctions.net/verifyPaymentReceipt?code=${encodeURIComponent(code)}`
-    );
+    const response = await fetch(resolveRuntimeApiUrl("verifyPaymentReceipt", { code }));
     const payload = await response.json();
 
     if (!response.ok || !payload.ok) {
@@ -61,6 +59,16 @@ async function verifyReceipt(rawCode) {
     setMessage(error.message || "No pudimos verificar el comprobante.", "error");
     result.innerHTML = "";
   }
+}
+
+function resolveRuntimeApiUrl(functionName, params = {}) {
+  if (!window.LaCasonaRuntime?.resolveApiUrl) {
+    throw new Error(
+      "No se pudo resolver el endpoint de verificación. Revisá la configuración pública del sitio."
+    );
+  }
+
+  return window.LaCasonaRuntime.resolveApiUrl(functionName, params);
 }
 
 function setMessage(text, tone = "info") {

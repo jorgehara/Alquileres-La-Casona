@@ -1,10 +1,311 @@
-﻿import { onCall, HttpsError } from "firebase-functions/https";
+﻿import { onCall, HttpsError, type CallableRequest } from "firebase-functions/https";
 import { getAuth } from "firebase-admin/auth";
 import { db } from "../firebase.js";
-import { normalizeOwnerScope, requireRole } from "../lib/auth.js";
+import { assertOwnerScopeAccess, claimsFromProfile, normalizeOwnerScope, requireRole } from "../lib/auth.js";
 import { nowIso, randomToken } from "../lib/utils.js";
-import { ensureCurrentChargeForTenant } from "./charges.js";
+import type { AppRole, OwnerScope, TenantInvitationRecord, TenantInvitationStatus, UserAuthProfile } from "../types.js";
 import { sendTenantNotification } from "./notifications.js";
+
+type ResolvedTenantInvitation = {
+  tenantId: string;
+  email: string;
+  displayName: string;
+  status: TenantInvitationStatus;
+  source: "canonical" | "legacyInvitation" | "legacyTenantEmail";
+  sourceId?: string;
+  legacyInvitationToken?: string;
+};
+
+type ServerAuditInput = {
+  action: string;
+  entityType: string;
+  entityId: string;
+  summary: string;
+  metadata?: Record<string, unknown>;
+};
+
+function normalizeEmail(value: unknown) {
+  const email = String(value ?? "").trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpsError("invalid-argument", "El correo del inquilino no es valido.");
+  }
+  return email;
+}
+
+function canonicalInvitationId(email: string) {
+  return normalizeEmail(email);
+}
+
+function isClaimableInvitationStatus(status: string) {
+  return !status || status === "pending" || status === "claimed" || status === "accepted";
+}
+
+function withoutUndefined<T extends object>(value: T) {
+  return Object.fromEntries(Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)) as Partial<T>;
+}
+
+function normalizeUserStatus(value: unknown): UserAuthProfile["status"] {
+  const status = String(value ?? "active").trim().toLowerCase();
+  return status === "active" ? "active" : status === "disabled" ? "disabled" : "inactive";
+}
+
+function buildServerAudit(actor: Awaited<ReturnType<typeof requireRole>>, input: ServerAuditInput) {
+  return {
+    action: input.action,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    summary: input.summary,
+    metadata: input.metadata ?? {},
+    actorUid: actor.uid,
+    actorEmail: actor.profile.email ?? "",
+    actorName: actor.profile.displayName ?? actor.profile.email ?? "Administrador",
+    createdAt: nowIso()
+  };
+}
+
+async function writeServerAudit(actor: Awaited<ReturnType<typeof requireRole>>, input: ServerAuditInput) {
+  const logRef = await db.collection("auditLogs").add(buildServerAudit(actor, input));
+  return logRef.id;
+}
+
+async function clearAuthClaimsIfPresent(uid: string) {
+  try {
+    await getAuth().setCustomUserClaims(uid, null);
+  } catch {
+    // Firestore authority is canonical. Missing Auth accounts should not block cleanup of app access.
+  }
+}
+
+function buildCanonicalAuthProfile({
+  role,
+  tenantId,
+  ownerScope,
+  status = "active",
+  email,
+  displayName,
+  createdAt,
+  updatedBy
+}: {
+  role: AppRole;
+  tenantId?: string;
+  ownerScope?: OwnerScope | string;
+  status?: UserAuthProfile["status"];
+  email?: string;
+  displayName?: string;
+  createdAt?: unknown;
+  updatedBy?: string;
+}) {
+  const profile = withoutUndefined({
+    role,
+    tenantId: role === "tenant" ? tenantId : undefined,
+    ownerScope: role === "tenant" ? undefined : role === "superadmin" ? "all" : normalizeOwnerScope(ownerScope),
+    email,
+    displayName,
+    status,
+    createdAt,
+    updatedAt: nowIso(),
+    updatedBy
+  });
+
+  return profile as UserAuthProfile & { createdAt?: unknown };
+}
+
+async function assertNoDuplicateActiveTenantEmail(email: string, expectedTenantId = "") {
+  const tenantSnapshot = await db
+    .collection("tenants")
+    .where("email", "==", email)
+    .where("status", "==", "active")
+    .limit(3)
+    .get();
+
+  const conflictingTenants = tenantSnapshot.docs.filter((tenantDoc) => tenantDoc.id !== expectedTenantId);
+  if (conflictingTenants.length > 0) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Ya existe un inquilino activo con este correo. Un administrador debe revisar el dato."
+    );
+  }
+}
+
+async function assertInvitationAvailable(email: string, tenantId: string) {
+  const invitationDoc = await db.collection("tenantInvitations").doc(canonicalInvitationId(email)).get();
+  if (!invitationDoc.exists) {
+    return;
+  }
+
+  const existingTenantId = String(invitationDoc.get("tenantId") ?? "");
+  const status = String(invitationDoc.get("status") ?? "pending");
+  if (existingTenantId && existingTenantId !== tenantId && ["pending", "claimed", "accepted"].includes(status)) {
+    throw new HttpsError(
+      "already-exists",
+      "Ese correo ya tiene una invitacion activa para otro inquilino. Un administrador debe revisarlo."
+    );
+  }
+}
+
+async function upsertTenantInvitation({
+  tenantId,
+  email,
+  displayName,
+  status,
+  actorUid,
+  userId,
+  legacyInvitationToken
+}: {
+  tenantId: string;
+  email: string;
+  displayName?: string;
+  status: TenantInvitationStatus;
+  actorUid: string;
+  userId?: string;
+  legacyInvitationToken?: string;
+}) {
+  const normalizedEmail = canonicalInvitationId(email);
+  await assertInvitationAvailable(normalizedEmail, tenantId);
+
+  const ref = db.collection("tenantInvitations").doc(normalizedEmail);
+  const existingDoc = await ref.get();
+  const existingData = existingDoc.data() ?? {};
+  const record: TenantInvitationRecord = {
+    tenantId,
+    email: normalizedEmail,
+    displayName,
+    status,
+    userId,
+    createdAt: (existingData.createdAt as TenantInvitationRecord["createdAt"]) ?? nowIso(),
+    createdBy: String(existingData.createdBy ?? actorUid),
+    updatedAt: nowIso(),
+    legacyInvitationToken
+  };
+
+  await ref.set(withoutUndefined(record), { merge: true });
+  return { id: ref.id, record };
+}
+
+async function linkTenantUser({
+  uid,
+  email,
+  tenantId,
+  displayName
+}: {
+  uid: string;
+  email: string;
+  tenantId: string;
+  displayName: string;
+}) {
+  const userRef = db.collection("users").doc(uid);
+  const userDoc = await userRef.get();
+  const profile = buildCanonicalAuthProfile({
+    role: "tenant",
+    tenantId,
+    displayName,
+    email,
+    createdAt: userDoc.exists ? userDoc.get("createdAt") ?? nowIso() : nowIso()
+  });
+  await userRef.set(
+    profile,
+    { merge: true }
+  );
+  await getAuth().setCustomUserClaims(uid, claimsFromProfile(profile));
+}
+
+async function resolveTenantInvitationForClaim(email: string): Promise<ResolvedTenantInvitation> {
+  const normalizedEmail = canonicalInvitationId(email);
+  const activeTenantEmailSnapshot = await db
+    .collection("tenants")
+    .where("email", "==", normalizedEmail)
+    .where("status", "==", "active")
+    .limit(3)
+    .get();
+
+  if (activeTenantEmailSnapshot.size > 1) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Hay mas de un inquilino activo con este correo. Un administrador debe revisar el dato."
+    );
+  }
+
+  const canonicalDoc = await db.collection("tenantInvitations").doc(normalizedEmail).get();
+  if (canonicalDoc.exists) {
+    const tenantId = String(canonicalDoc.get("tenantId") ?? "");
+    if (!activeTenantEmailSnapshot.empty && activeTenantEmailSnapshot.docs[0].id !== tenantId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "La invitacion y el inquilino activo no coinciden. Un administrador debe revisar el dato."
+      );
+    }
+    const status = String(canonicalDoc.get("status") ?? "pending");
+    if (status === "revoked") {
+      throw new HttpsError("permission-denied", "La invitacion de este correo fue revocada por administracion.");
+    }
+    if (!isClaimableInvitationStatus(status)) {
+      throw new HttpsError("failed-precondition", "La invitacion no esta disponible para reclamar.");
+    }
+
+    return {
+      tenantId,
+      email: normalizedEmail,
+      displayName: String(canonicalDoc.get("displayName") ?? ""),
+      status: status === "accepted" ? "claimed" : (status as TenantInvitationStatus),
+      source: "canonical",
+      sourceId: canonicalDoc.id,
+      legacyInvitationToken: String(canonicalDoc.get("legacyInvitationToken") ?? "") || undefined
+    };
+  }
+
+  const legacyInvitationSnapshot = await db
+    .collection("tenantInvitations")
+    .where("email", "==", normalizedEmail)
+    .limit(3)
+    .get();
+  const legacyCandidates = legacyInvitationSnapshot.docs.filter((docSnap) => docSnap.id !== normalizedEmail);
+  if (legacyCandidates.length > 1) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Hay mas de una invitacion historica para este correo. Un administrador debe revisar el dato."
+    );
+  }
+  if (legacyCandidates.length === 1) {
+    const legacyDoc = legacyCandidates[0];
+    const tenantId = String(legacyDoc.get("tenantId") ?? "");
+    if (!activeTenantEmailSnapshot.empty && activeTenantEmailSnapshot.docs[0].id !== tenantId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "La invitacion historica y el inquilino activo no coinciden. Un administrador debe revisar el dato."
+      );
+    }
+    const status = String(legacyDoc.get("status") ?? "pending");
+    if (!isClaimableInvitationStatus(status)) {
+      throw new HttpsError("permission-denied", "La invitacion historica no esta disponible para reclamar.");
+    }
+    return {
+      tenantId,
+      email: normalizedEmail,
+      displayName: String(legacyDoc.get("displayName") ?? ""),
+      status: status === "accepted" ? "claimed" : (status as TenantInvitationStatus),
+      source: "legacyInvitation",
+      sourceId: legacyDoc.id,
+      legacyInvitationToken: legacyDoc.id
+    };
+  }
+
+  if (activeTenantEmailSnapshot.empty) {
+    throw new HttpsError(
+      "permission-denied",
+      "No encontramos una invitacion activa para este correo. Pedile a administracion que prepare tu acceso."
+    );
+  }
+
+  const tenantDoc = activeTenantEmailSnapshot.docs[0];
+  return {
+    tenantId: tenantDoc.id,
+    email: normalizedEmail,
+    displayName: String(tenantDoc.get("fullName") ?? ""),
+    status: "pending",
+    source: "legacyTenantEmail",
+    sourceId: tenantDoc.id
+  };
+}
 
 export const inviteTenantUser = onCall(async (request) => {
   await requireRole(request, ["admin", "superadmin"]);
@@ -19,62 +320,68 @@ export const inviteTenantUser = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "tenantId y email son obligatorios.");
   }
 
+  const email = normalizeEmail(data.email);
+
   const tenantDoc = await db.collection("tenants").doc(data.tenantId).get();
   if (!tenantDoc.exists) {
     throw new HttpsError("not-found", "No existe el inquilino indicado.");
   }
 
-  let userRecord;
+  const invitationToken = randomToken(32);
+  await assertNoDuplicateActiveTenantEmail(email, data.tenantId);
+  await assertInvitationAvailable(email, data.tenantId);
 
+  let userRecord;
   try {
-    userRecord = await getAuth().getUserByEmail(data.email);
+    userRecord = await getAuth().getUserByEmail(email);
   } catch {
-    userRecord = await getAuth().createUser({
-      email: data.email,
-      displayName: data.displayName
+    userRecord = null;
+  }
+
+  if (userRecord) {
+    const existingUserDoc = await db.collection("users").doc(userRecord.uid).get();
+    const existingTenantId = String(existingUserDoc.get("tenantId") ?? "");
+    const existingRole = String(existingUserDoc.get("role") ?? "");
+    if (existingUserDoc.exists && existingRole && (existingRole !== "tenant" || (existingTenantId && existingTenantId !== data.tenantId))) {
+      throw new HttpsError(
+        "already-exists",
+        "Ese correo ya pertenece a otro perfil. Un administrador debe revisar el acceso."
+      );
+    }
+
+    await linkTenantUser({
+      uid: userRecord.uid,
+      email,
+      tenantId: data.tenantId,
+      displayName: data.displayName ?? tenantDoc.get("fullName") ?? email.split("@")[0]
     });
   }
 
-  await getAuth().setCustomUserClaims(userRecord.uid, {
-    role: "tenant",
-    tenantId: data.tenantId
-  });
-
-  const invitationToken = randomToken(32);
-
-  await db.collection("tenantInvitations").doc(invitationToken).set({
+  await upsertTenantInvitation({
     tenantId: data.tenantId,
-    userId: userRecord.uid,
-    email: data.email,
-    createdAt: nowIso(),
-    createdBy: request.auth?.uid ?? "system",
-    status: "pending"
+    email,
+    displayName: data.displayName ?? tenantDoc.get("fullName") ?? "",
+    status: userRecord ? "claimed" : "pending",
+    actorUid: request.auth?.uid ?? "system",
+    userId: userRecord?.uid,
+    legacyInvitationToken: invitationToken
   });
-
-  await db.collection("users").doc(userRecord.uid).set(
-    {
-      role: "tenant",
-      tenantId: data.tenantId,
-      email: data.email,
-      displayName: data.displayName ?? tenantDoc.get("fullName") ?? "",
-      status: "active",
-      updatedAt: nowIso()
-    },
-    { merge: true }
-  );
 
   await tenantDoc.ref.set(
-    {
-      invitationStatus: "pending",
-      invitationToken,
-      updatedAt: nowIso()
-    },
+      {
+        invitationStatus: userRecord ? "claimed" : "pending",
+        invitationToken,
+        email,
+        updatedAt: nowIso()
+      },
     { merge: true }
   );
 
   return {
     ok: true,
-    invitationToken
+    invitationToken,
+    invitationId: email,
+    status: userRecord ? "claimed" : "pending"
   };
 });
 
@@ -123,118 +430,33 @@ export const createTenantProfile = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Necesitas una cuenta autenticada.");
   }
 
-  const userRef = db.collection("users").doc(request.auth.uid);
-  const existingUser = await userRef.get();
-  if (existingUser.exists) {
-    throw new HttpsError("already-exists", "Esa cuenta ya tiene un perfil configurado.");
-  }
-
-  const data = request.data as {
-    propertyType?: string;
-    propertyCode?: string;
-    fullName?: string;
-    dni?: string;
-    phone?: string;
-    contractEndDate?: string;
-  };
-
-  const propertyType = String(data.propertyType ?? "").trim();
-  const propertyCode = String(data.propertyCode ?? "").trim();
-  const fullName = String(data.fullName ?? "").trim();
-  const dni = String(data.dni ?? "").trim();
-  const phone = String(data.phone ?? "").trim();
-  const contractEndDate = String(data.contractEndDate ?? "").trim();
-
-  if (!propertyType || !fullName || !dni || !phone || !contractEndDate) {
-    throw new HttpsError("invalid-argument", "Faltan datos obligatorios para crear el perfil.");
-  }
-
-  const catalog = buildPropertyCatalog(propertyType);
-  const selectedUnit = catalog.find((unit) => unit.unitCode === (propertyCode || catalog[0]?.unitCode));
-
-  if (!selectedUnit) {
-    throw new HttpsError("invalid-argument", "La propiedad elegida no es valida.");
-  }
-
-  let propertyRef = await findOrCreateProperty(selectedUnit);
-  const defaultBaseRent = await resolveDefaultBaseRent(selectedUnit.unitType);
-
-  const activeTenantSnapshot = await db
-    .collection("tenants")
-    .where("propertyId", "==", propertyRef.id)
-    .where("status", "==", "active")
-    .limit(1)
-    .get();
-
-  if (!activeTenantSnapshot.empty) {
-    throw new HttpsError("already-exists", "Esa propiedad ya fue tomada por otro perfil.");
-  }
-
-  const tenantRef = db.collection("tenants").doc();
-  await tenantRef.set({
-    fullName,
-    dni,
-    phone,
-    email: request.auth.token.email,
-    propertyId: propertyRef.id,
-    baseRent: defaultBaseRent,
-    dueDayOfMonth: null,
-    rentSchedule: {
-      frequency: "quarterly",
-      nextAdjustmentPeriod: null
-    },
-    contractStartDate: nowIso().slice(0, 10),
-    contractEndDate,
-    invitationStatus: "self_registered",
-    profileSetupCompleted: true,
-    status: "active",
-    createdAt: nowIso(),
-    updatedAt: nowIso()
-  });
-
-  await propertyRef.set(
-    {
-      currentTenantId: tenantRef.id,
-      updatedAt: nowIso()
-    },
-    { merge: true }
-  );
-
-  await userRef.set({
-    role: "tenant",
-    tenantId: tenantRef.id,
-    displayName: fullName,
-    email: request.auth.token.email,
-    status: "active",
-    createdAt: nowIso(),
-    updatedAt: nowIso()
-  });
-
-  await ensureCurrentChargeForTenant(tenantRef.id, request.auth.uid);
-
-  await sendTenantNotification({
-    tenantId: tenantRef.id,
-    type: "profile_created",
-    body: `Hola ${fullName}, tu perfil de inquilino en La Casona ya quedo configurado.`,
-    channel: "email",
-    createdBy: request.auth.uid
-  });
-
-  return { ok: true, tenantId: tenantRef.id };
+  return claimTenantAccessForRequest(request);
 });
 
-export const claimTenantAccess = onCall(async (request) => {
+export const claimTenantAccess = onCall(async (request) => claimTenantAccessForRequest(request));
+
+async function claimTenantAccessForRequest(request: CallableRequest) {
   if (!request.auth?.uid || !request.auth.token.email) {
     throw new HttpsError("unauthenticated", "Necesitas iniciar sesiÃ³n para vincular tu perfil.");
   }
 
-  const email = String(request.auth.token.email).trim().toLowerCase();
+  const email = normalizeEmail(request.auth.token.email);
   const userRef = db.collection("users").doc(request.auth.uid);
   const userDoc = await userRef.get();
 
   if (userDoc.exists) {
     const role = String(userDoc.get("role") ?? "");
     if (role) {
+      if (role === "tenant") {
+        const linkedTenantId = String(userDoc.get("tenantId") ?? "");
+        const userStatus = String(userDoc.get("status") ?? "active");
+        const linkedTenantDoc = linkedTenantId ? await db.collection("tenants").doc(linkedTenantId).get() : null;
+        const tenantStatus = linkedTenantDoc?.exists ? String(linkedTenantDoc.get("status") ?? "active") : "inactive";
+        const invitationStatus = linkedTenantDoc?.exists ? String(linkedTenantDoc.get("invitationStatus") ?? "") : "";
+        if (userStatus !== "active" || tenantStatus !== "active" || invitationStatus === "revoked") {
+          throw new HttpsError("permission-denied", "El acceso de este inquilino no esta activo.");
+        }
+      }
       return {
         ok: true,
         alreadyLinked: true,
@@ -244,41 +466,9 @@ export const claimTenantAccess = onCall(async (request) => {
     }
   }
 
-  let tenantId = "";
-  let displayName = "";
-
-  const invitationDoc = await db.collection("tenantInvitations").doc(email).get();
-  if (invitationDoc.exists) {
-    tenantId = String(invitationDoc.get("tenantId") ?? "");
-    displayName = String(invitationDoc.get("displayName") ?? "");
-  }
-
-  if (!tenantId) {
-    const tenantSnapshot = await db
-      .collection("tenants")
-      .where("email", "==", email)
-      .where("status", "==", "active")
-      .limit(2)
-      .get();
-
-    if (tenantSnapshot.size > 1) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Hay mÃ¡s de un inquilino activo con este correo. Un administrador debe revisar el dato."
-      );
-    }
-
-    if (tenantSnapshot.empty) {
-      throw new HttpsError(
-        "permission-denied",
-        "No encontramos un perfil de inquilino activo asociado a este correo."
-      );
-    }
-
-    const tenantDoc = tenantSnapshot.docs[0];
-    tenantId = tenantDoc.id;
-    displayName = String(tenantDoc.get("fullName") ?? "");
-  }
+  const resolvedInvitation = await resolveTenantInvitationForClaim(email);
+  const tenantId = resolvedInvitation.tenantId;
+  let displayName = resolvedInvitation.displayName;
 
   if (!tenantId) {
     throw new HttpsError("permission-denied", "No se pudo identificar el perfil del inquilino.");
@@ -289,68 +479,75 @@ export const claimTenantAccess = onCall(async (request) => {
     throw new HttpsError("permission-denied", "El perfil del inquilino no estÃ¡ activo.");
   }
 
-  await getAuth().setCustomUserClaims(request.auth.uid, {
-    role: "tenant",
-    tenantId
-  });
+  displayName = displayName || String(tenantDoc.get("fullName") ?? email.split("@")[0]);
 
-  await userRef.set(
-    {
-      role: "tenant",
-      tenantId,
-      displayName: displayName || String(tenantDoc.get("fullName") ?? email.split("@")[0]),
-      email,
-      status: "active",
-      createdAt: userDoc.exists ? userDoc.get("createdAt") ?? nowIso() : nowIso(),
-      updatedAt: nowIso()
-    },
+  const userProfile = buildCanonicalAuthProfile({
+    role: "tenant",
+    tenantId,
+    displayName,
+    email,
+    createdAt: userDoc.exists ? userDoc.get("createdAt") ?? nowIso() : nowIso()
+  });
+  const batch = db.batch();
+  batch.set(
+    userRef,
+    userProfile,
     { merge: true }
   );
-
-  await db.collection("tenantInvitations").doc(email).set(
-    {
+  batch.set(
+    db.collection("tenantInvitations").doc(email),
+    withoutUndefined({
       tenantId,
       email,
-      displayName: displayName || String(tenantDoc.get("fullName") ?? ""),
+      displayName,
       status: "claimed",
       claimedAt: nowIso(),
       claimedBy: request.auth.uid,
-      updatedAt: nowIso()
-    },
+      updatedAt: nowIso(),
+      migratedFromLegacyId: resolvedInvitation.source === "legacyInvitation" ? resolvedInvitation.sourceId : undefined,
+      legacyInvitationToken: resolvedInvitation.legacyInvitationToken
+    }),
     { merge: true }
   );
-
-  await db.collection("tenants").doc(tenantId).set(
+  if (resolvedInvitation.source === "legacyInvitation" && resolvedInvitation.sourceId && resolvedInvitation.sourceId !== email) {
+    batch.set(
+      db.collection("tenantInvitations").doc(resolvedInvitation.sourceId),
+      {
+        status: "claimed",
+        migratedToInvitationId: email,
+        claimedAt: nowIso(),
+        claimedBy: request.auth.uid,
+        updatedAt: nowIso()
+      },
+      { merge: true }
+    );
+  }
+  batch.set(
+    db.collection("tenants").doc(tenantId),
     {
       invitationStatus: "claimed",
       updatedAt: nowIso()
     },
     { merge: true }
   );
+  await batch.commit();
+  await getAuth().setCustomUserClaims(request.auth.uid, claimsFromProfile(userProfile));
 
   return {
     ok: true,
     tenantId,
     role: "tenant"
   };
-});
+}
 
 export const updateTenantContactSettings = onCall(async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Necesitas iniciar sesion.");
-  }
-
-  const userDoc = await db.collection("users").doc(request.auth.uid).get();
-  if (!userDoc.exists || userDoc.get("role") !== "tenant") {
-    throw new HttpsError("permission-denied", "Solo un inquilino puede editar estos datos.");
-  }
-
-  const tenantId = String(userDoc.get("tenantId") ?? "");
+  const claims = await requireRole(request, ["tenant"]);
+  const tenantId = String(claims.tenantId ?? "");
   const data = request.data as { email?: string; phone?: string };
 
-  await db.collection("users").doc(request.auth.uid).set(
+  await db.collection("users").doc(claims.uid).set(
     {
-      email: String(data.email ?? request.auth.token.email ?? ""),
+      email: String(data.email ?? request.auth?.token.email ?? ""),
       updatedAt: nowIso()
     },
     { merge: true }
@@ -358,7 +555,7 @@ export const updateTenantContactSettings = onCall(async (request) => {
 
   await db.collection("tenants").doc(tenantId).set(
     {
-      email: String(data.email ?? request.auth.token.email ?? ""),
+      email: String(data.email ?? request.auth?.token.email ?? ""),
       phone: String(data.phone ?? ""),
       updatedAt: nowIso()
     },
@@ -414,8 +611,120 @@ export const updateTenantContract = onCall(async (request) => {
   return { ok: true };
 });
 
+export const createTenantAdminProfile = onCall(async (request) => {
+  const actor = await requireRole(request, ["admin", "superadmin"]);
+
+  const data = request.data as {
+    fullName?: string;
+    dni?: string;
+    phone?: string;
+    email?: string;
+    propertyId?: string;
+    baseRent?: number;
+    dueDayOfMonth?: number | null;
+    rentUpdateFrequency?: string | null;
+    nextAdjustmentPeriod?: string | null;
+    contractStartDate?: string | null;
+    contractEndDate?: string | null;
+  };
+
+  const fullName = String(data.fullName ?? "").trim();
+  const dni = String(data.dni ?? "").trim();
+  const phone = String(data.phone ?? "").trim();
+  const rawEmail = String(data.email ?? "").trim();
+  const email = rawEmail ? normalizeEmail(rawEmail) : "";
+  const propertyId = String(data.propertyId ?? "").trim();
+  const baseRent = Number(data.baseRent ?? 0);
+  const dueDayOfMonth = normalizeDueDayOfMonth(data.dueDayOfMonth);
+  const rentUpdateFrequency = normalizeRentScheduleFrequency(data.rentUpdateFrequency);
+  const nextAdjustmentPeriod = normalizePeriodValue(data.nextAdjustmentPeriod);
+
+  if (!fullName || !phone || !propertyId || !Number.isFinite(baseRent) || baseRent < 0) {
+    throw new HttpsError("invalid-argument", "Faltan datos obligatorios para crear el inquilino.");
+  }
+
+  const targetPropertyRef = db.collection("properties").doc(propertyId);
+  const targetPropertyDoc = await targetPropertyRef.get();
+  if (!targetPropertyDoc.exists) {
+    throw new HttpsError("not-found", "No existe la propiedad seleccionada.");
+  }
+  await assertOwnerScopeAccess(request, propertyId);
+
+  const propertyTenants = await db.collection("tenants").where("propertyId", "==", propertyId).get();
+  const occupiedByActiveTenant = propertyTenants.docs.some((docSnap) => {
+    const status = String(docSnap.get("status") ?? "active");
+    return !["inactive", "deleted"].includes(status);
+  });
+  if (occupiedByActiveTenant) {
+    throw new HttpsError("already-exists", "La propiedad seleccionada ya esta ocupada.");
+  }
+
+  const tenantRef = db.collection("tenants").doc();
+  if (email) {
+    await assertNoDuplicateActiveTenantEmail(email, tenantRef.id);
+    await assertInvitationAvailable(email, tenantRef.id);
+  }
+
+  await tenantRef.set({
+    fullName,
+    dni,
+    phone,
+    email,
+    propertyId,
+    baseRent,
+    dueDayOfMonth,
+    rentSchedule: {
+      frequency: rentUpdateFrequency,
+      nextAdjustmentPeriod
+    },
+    rentUpdateConfig: {
+      frequency: rentUpdateFrequency,
+      nextAdjustmentPeriod
+    },
+    contractStartDate: data.contractStartDate || null,
+    contractEndDate: data.contractEndDate || null,
+    invitationStatus: email ? "pending" : "not_sent",
+    status: "active",
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  });
+
+  await targetPropertyRef.set(
+    {
+      currentTenantId: tenantRef.id,
+      updatedAt: nowIso()
+    },
+    { merge: true }
+  );
+
+  if (email) {
+    await upsertTenantInvitation({
+      tenantId: tenantRef.id,
+      email,
+      displayName: fullName,
+      status: "pending",
+      actorUid: request.auth?.uid ?? "system"
+    });
+  }
+
+  await writeServerAudit(actor, {
+    action: "tenant_created",
+    entityType: "tenant",
+    entityId: tenantRef.id,
+    summary: `Creo la ficha de ${fullName}.`,
+    metadata: {
+      tenantName: fullName,
+      propertyId,
+      email,
+      invitationStatus: email ? "pending" : "not_sent"
+    }
+  });
+
+  return { ok: true, tenantId: tenantRef.id, invitationStatus: email ? "pending" : "not_sent" };
+});
+
 export const updateTenantAdminProfile = onCall(async (request) => {
-  await requireRole(request, ["admin", "superadmin"]);
+  const actor = await requireRole(request, ["admin", "superadmin"]);
 
   const data = request.data as {
     tenantId?: string;
@@ -436,7 +745,8 @@ export const updateTenantAdminProfile = onCall(async (request) => {
   const fullName = String(data.fullName ?? "").trim();
   const dni = String(data.dni ?? "").trim();
   const phone = String(data.phone ?? "").trim();
-  const email = String(data.email ?? "").trim().toLowerCase();
+  const rawEmail = String(data.email ?? "").trim();
+  const email = rawEmail ? normalizeEmail(rawEmail) : "";
   const propertyId = String(data.propertyId ?? "").trim();
   const baseRent = Number(data.baseRent ?? 0);
   const dueDayOfMonth = normalizeDueDayOfMonth(data.dueDayOfMonth);
@@ -463,6 +773,10 @@ export const updateTenantAdminProfile = onCall(async (request) => {
   if (!targetPropertyDoc.exists) {
     throw new HttpsError("not-found", "No existe la propiedad seleccionada.");
   }
+  if (previousPropertyId) {
+    await assertOwnerScopeAccess(request, previousPropertyId);
+  }
+  await assertOwnerScopeAccess(request, propertyId);
 
   const propertyTenants = await db.collection("tenants").where("propertyId", "==", propertyId).get();
   const occupiedByOtherTenant = propertyTenants.docs.some((docSnap) => {
@@ -476,6 +790,11 @@ export const updateTenantAdminProfile = onCall(async (request) => {
 
   if (occupiedByOtherTenant) {
     throw new HttpsError("already-exists", "La propiedad seleccionada ya esta ocupada.");
+  }
+
+  if (email) {
+    await assertNoDuplicateActiveTenantEmail(email, tenantId);
+    await assertInvitationAvailable(email, tenantId);
   }
 
   await tenantRef.set(
@@ -525,12 +844,15 @@ export const updateTenantAdminProfile = onCall(async (request) => {
   const linkedUserDoc = linkedUserSnapshot.docs[0];
 
   if (linkedUserDoc) {
+    const linkedUserProfile = buildCanonicalAuthProfile({
+      role: "tenant",
+      tenantId,
+      displayName: fullName,
+      email,
+      createdAt: linkedUserDoc.get("createdAt") ?? nowIso()
+    });
     await linkedUserDoc.ref.set(
-      {
-        displayName: fullName,
-        email,
-        updatedAt: nowIso()
-      },
+      linkedUserProfile,
       { merge: true }
     );
 
@@ -539,6 +861,7 @@ export const updateTenantAdminProfile = onCall(async (request) => {
       authUpdates.email = email;
     }
     await getAuth().updateUser(linkedUserDoc.id, authUpdates);
+    await getAuth().setCustomUserClaims(linkedUserDoc.id, claimsFromProfile(linkedUserProfile));
   }
 
   if (previousEmail && previousEmail !== email) {
@@ -546,17 +869,14 @@ export const updateTenantAdminProfile = onCall(async (request) => {
   }
 
   if (email) {
-    await db.collection("tenantInvitations").doc(email).set(
-      {
-        tenantId,
-        email,
-        displayName: fullName,
-        status: linkedUserDoc ? "accepted" : "pending",
-        updatedAt: nowIso(),
-        createdBy: request.auth?.uid ?? "system"
-      },
-      { merge: true }
-    );
+    await upsertTenantInvitation({
+      tenantId,
+      email,
+      displayName: fullName,
+      status: linkedUserDoc ? "claimed" : "pending",
+      actorUid: request.auth?.uid ?? "system",
+      userId: linkedUserDoc?.id
+    });
   }
 
   await updateOpenChargesForTenantOpenChargeConfig(
@@ -567,6 +887,22 @@ export const updateTenantAdminProfile = onCall(async (request) => {
     },
     request.auth?.uid ?? "system"
   );
+
+  await writeServerAudit(actor, {
+    action: "tenant_updated",
+    entityType: "tenant",
+    entityId: tenantId,
+    summary: `Actualizo la ficha de ${fullName || tenant.fullName || "un inquilino"}.`,
+    metadata: {
+      tenantName: fullName,
+      previousBaseRent: Number(tenant.baseRent ?? 0),
+      newBaseRent: baseRent,
+      previousPropertyId,
+      newPropertyId: propertyId,
+      previousEmail,
+      newEmail: email
+    }
+  });
 
   return { ok: true };
 });
@@ -635,23 +971,35 @@ export const createAdministrativeUser = onCall(async (request) => {
     displayName
   });
 
-  await getAuth().setCustomUserClaims(userRecord.uid, {
-    role,
-    ownerScope
+  const profile = buildCanonicalAuthProfile({
+    role: role as AppRole,
+    ownerScope: role === "superadmin" ? "all" : ownerScope,
+    email,
+    displayName,
+    createdAt: existingUserData.createdAt ?? nowIso(),
+    updatedBy: request.auth?.uid ?? "system"
   });
-
   await db.collection("users").doc(userRecord.uid).set(
-    {
-      role,
-      ownerScope,
-      email,
-      displayName,
-      status: "active",
-      updatedAt: nowIso(),
-      updatedBy: request.auth?.uid ?? "system"
-    },
+    profile,
     { merge: true }
   );
+  await getAuth().setCustomUserClaims(userRecord.uid, claimsFromProfile(profile));
+
+  await writeServerAudit(claims, {
+    action: mode === "created" ? "user_created" : "user_permissions_updated",
+    entityType: "user",
+    entityId: userRecord.uid,
+    summary:
+      mode === "created"
+        ? `Creo el usuario ${role} ${displayName}.`
+        : `Actualizo la cuenta existente ${displayName} como ${role}.`,
+    metadata: {
+      email,
+      role,
+      ownerScope: profile.ownerScope ?? "all",
+      mode
+    }
+  });
 
   return {
     ok: true,
@@ -720,22 +1068,19 @@ export const bootstrapInitialAdmin = onCall(async (request) => {
     String(request.auth.token.email).split("@")[0] ||
     "Administrador inicial";
 
-  await getAuth().setCustomUserClaims(request.auth.uid, {
-    role: "superadmin"
+  const bootstrapProfile = buildCanonicalAuthProfile({
+    role: "superadmin",
+    ownerScope: "all",
+    displayName,
+    email: request.auth.token.email,
+    createdAt: existingUserData.createdAt ?? nowIso(),
+    updatedBy: request.auth.uid
   });
-
   await userRef.set(
-    {
-      role: "superadmin",
-      displayName,
-      email: request.auth.token.email,
-      status: "active",
-      createdAt: existingUserData.createdAt ?? nowIso(),
-      updatedAt: nowIso(),
-      updatedBy: request.auth.uid
-    },
+    bootstrapProfile,
     { merge: true }
   );
+  await getAuth().setCustomUserClaims(request.auth.uid, claimsFromProfile(bootstrapProfile));
 
   await bootstrapRef.set({
     initialized: true,
@@ -760,6 +1105,302 @@ export const bootstrapInitialAdmin = onCall(async (request) => {
     role: "superadmin",
     message: "Administrador inicial activado correctamente."
   };
+});
+
+export const deleteUserAccess = onCall(async (request) => {
+  const actor = await requireRole(request, ["admin", "superadmin"]);
+  const userId = String(request.data?.userId ?? "").trim();
+
+  if (!userId) {
+    throw new HttpsError("invalid-argument", "userId es obligatorio.");
+  }
+
+  if (userId === request.auth?.uid) {
+    throw new HttpsError("permission-denied", "No podes eliminar tu propio usuario desde esta pantalla.");
+  }
+
+  const userRef = db.collection("users").doc(userId);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) {
+    throw new HttpsError("not-found", "No existe el usuario indicado.");
+  }
+
+  const targetUser = userDoc.data() ?? {};
+  const targetRole = String(targetUser.role ?? "");
+  if (["admin", "superadmin"].includes(targetRole) && actor.role !== "superadmin") {
+    throw new HttpsError("permission-denied", "Solo un superadmin puede eliminar usuarios administrativos.");
+  }
+
+  const tenantId = String(targetUser.tenantId ?? "");
+  const email = String(targetUser.email ?? "").trim().toLowerCase();
+  let tenantName = "";
+  let tenantPropertyId = "";
+  if (tenantId) {
+    const tenantDoc = await db.collection("tenants").doc(tenantId).get();
+    if (tenantDoc.exists) {
+      tenantName = String(tenantDoc.get("fullName") ?? "");
+      tenantPropertyId = String(tenantDoc.get("propertyId") ?? "");
+      if (tenantPropertyId) {
+        await assertOwnerScopeAccess(request, tenantPropertyId);
+      }
+    }
+  }
+
+  const batch = db.batch();
+  if (tenantId) {
+    batch.set(
+      db.collection("tenants").doc(tenantId),
+      {
+        status: "inactive",
+        invitationStatus: "revoked",
+        updatedAt: nowIso()
+      },
+      { merge: true }
+    );
+  }
+
+  if (email) {
+    batch.delete(db.collection("tenantInvitations").doc(canonicalInvitationId(email)));
+  }
+
+  batch.delete(userRef);
+
+  const auditRef = db.collection("auditLogs").doc();
+  batch.set(auditRef, buildServerAudit(actor, {
+    action: "user_deleted",
+    entityType: "user",
+    entityId: userId,
+    summary: `Elimino definitivamente el acceso de ${String(targetUser.displayName ?? "") || email || userId}.`,
+    metadata: {
+      email,
+      role: targetRole,
+      tenantId,
+      tenantName,
+      propertyId: tenantPropertyId
+    }
+  }));
+
+  await batch.commit();
+  await clearAuthClaimsIfPresent(userId);
+
+  return { ok: true, auditLogId: auditRef.id };
+});
+
+export const deactivateTenant = onCall(async (request) => {
+  const actor = await requireRole(request, ["admin", "superadmin"]);
+  const tenantId = String(request.data?.tenantId ?? "").trim();
+  if (!tenantId) {
+    throw new HttpsError("invalid-argument", "tenantId es obligatorio.");
+  }
+
+  const tenantRef = db.collection("tenants").doc(tenantId);
+  const tenantDoc = await tenantRef.get();
+  if (!tenantDoc.exists) {
+    throw new HttpsError("not-found", "No existe el inquilino indicado.");
+  }
+
+  const tenant = tenantDoc.data() ?? {};
+  const propertyId = String(tenant.propertyId ?? "");
+  if (propertyId) {
+    await assertOwnerScopeAccess(request, propertyId);
+  }
+
+  const email = String(tenant.email ?? "").trim().toLowerCase();
+  const linkedUsers = await db.collection("users").where("tenantId", "==", tenantId).get();
+  const batch = db.batch();
+  batch.set(tenantRef, {
+    status: "inactive",
+    contractStatus: "terminated",
+    invitationStatus: "revoked",
+    updatedAt: nowIso()
+  }, { merge: true });
+
+  if (propertyId) {
+    batch.set(db.collection("properties").doc(propertyId), {
+      currentTenantId: null,
+      updatedAt: nowIso()
+    }, { merge: true });
+  }
+
+  if (email) {
+    batch.set(db.collection("tenantInvitations").doc(canonicalInvitationId(email)), {
+      status: "revoked",
+      updatedAt: nowIso()
+    }, { merge: true });
+  }
+
+  linkedUsers.docs.forEach((linkedUserDoc) => {
+    batch.set(linkedUserDoc.ref, {
+      status: "inactive",
+      updatedAt: nowIso(),
+      updatedBy: actor.uid
+    }, { merge: true });
+  });
+
+  const auditRef = db.collection("auditLogs").doc();
+  batch.set(auditRef, buildServerAudit(actor, {
+    action: "tenant_deactivated",
+    entityType: "tenant",
+    entityId: tenantId,
+    summary: `Dio de baja al inquilino ${String(tenant.fullName ?? "") || tenantId}.`,
+    metadata: {
+      tenantName: String(tenant.fullName ?? ""),
+      propertyId,
+      email,
+      linkedUsers: linkedUsers.size
+    }
+  }));
+
+  await batch.commit();
+  await Promise.all(linkedUsers.docs.map((linkedUserDoc) => clearAuthClaimsIfPresent(linkedUserDoc.id)));
+
+  return { ok: true, auditLogId: auditRef.id, linkedUsers: linkedUsers.size };
+});
+
+export const deleteTenantProfile = onCall(async (request) => {
+  const actor = await requireRole(request, ["admin", "superadmin"]);
+  const tenantId = String(request.data?.tenantId ?? "").trim();
+  if (!tenantId) {
+    throw new HttpsError("invalid-argument", "tenantId es obligatorio.");
+  }
+
+  const tenantRef = db.collection("tenants").doc(tenantId);
+  const tenantDoc = await tenantRef.get();
+  if (!tenantDoc.exists) {
+    throw new HttpsError("not-found", "No existe el inquilino indicado.");
+  }
+
+  const tenant = tenantDoc.data() ?? {};
+  const propertyId = String(tenant.propertyId ?? "");
+  if (propertyId) {
+    await assertOwnerScopeAccess(request, propertyId);
+  }
+
+  const email = String(tenant.email ?? "").trim().toLowerCase();
+  const linkedUsers = await db.collection("users").where("tenantId", "==", tenantId).get();
+  const batch = db.batch();
+
+  if (propertyId) {
+    batch.set(db.collection("properties").doc(propertyId), {
+      currentTenantId: null,
+      updatedAt: nowIso()
+    }, { merge: true });
+  }
+
+  if (email) {
+    batch.delete(db.collection("tenantInvitations").doc(canonicalInvitationId(email)));
+  }
+
+  linkedUsers.docs.forEach((linkedUserDoc) => batch.delete(linkedUserDoc.ref));
+  batch.delete(tenantRef);
+
+  const auditRef = db.collection("auditLogs").doc();
+  batch.set(auditRef, buildServerAudit(actor, {
+    action: "tenant_deleted",
+    entityType: "tenant",
+    entityId: tenantId,
+    summary: `Elimino definitivamente el perfil de ${String(tenant.fullName ?? "") || tenantId}.`,
+    metadata: {
+      tenantName: String(tenant.fullName ?? ""),
+      propertyId,
+      email,
+      linkedUsers: linkedUsers.size
+    }
+  }));
+
+  await batch.commit();
+  await Promise.all(linkedUsers.docs.map((linkedUserDoc) => clearAuthClaimsIfPresent(linkedUserDoc.id)));
+
+  return { ok: true, auditLogId: auditRef.id, linkedUsers: linkedUsers.size };
+});
+
+export const updateUserAuthority = onCall(async (request) => {
+  const actor = await requireRole(request, ["admin", "superadmin"]);
+
+  const data = request.data as {
+    userId?: string;
+    role?: string;
+    status?: string;
+    ownerScope?: string;
+  };
+  const userId = String(data.userId ?? "").trim();
+  const role = String(data.role ?? "").trim() as AppRole;
+  const status = normalizeUserStatus(data.status);
+  const ownerScope = role === "superadmin" ? "all" : normalizeOwnerScope(data.ownerScope);
+
+  if (!userId) {
+    throw new HttpsError("invalid-argument", "userId es obligatorio.");
+  }
+
+  if (userId === request.auth?.uid) {
+    throw new HttpsError("permission-denied", "No podes modificar tu propio rol o estado desde esta pantalla.");
+  }
+
+  if (!["superadmin", "admin", "tenant"].includes(role)) {
+    throw new HttpsError("invalid-argument", "Rol invalido.");
+  }
+
+  const userRef = db.collection("users").doc(userId);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) {
+    throw new HttpsError("not-found", "No existe el usuario indicado.");
+  }
+
+  const currentData = userDoc.data() ?? {};
+  const currentRole = String(currentData.role ?? "") as AppRole;
+  if (actor.role !== "superadmin" && currentRole !== "tenant") {
+    throw new HttpsError("permission-denied", "Solo un superadmin puede modificar usuarios administrativos.");
+  }
+
+  if (actor.role !== "superadmin" && role !== "tenant") {
+    throw new HttpsError("permission-denied", "Solo un superadmin puede asignar permisos administrativos.");
+  }
+
+  if (role === "tenant" && !currentData.tenantId) {
+    throw new HttpsError("failed-precondition", "El usuario inquilino no tiene tenantId canonico.");
+  }
+
+  if (role === "tenant") {
+    const tenantDoc = await db.collection("tenants").doc(String(currentData.tenantId ?? "")).get();
+    const propertyId = String(tenantDoc.get("propertyId") ?? "");
+    if (!tenantDoc.exists || !propertyId) {
+      throw new HttpsError("failed-precondition", "No se pudo validar la unidad del inquilino.");
+    }
+    await assertOwnerScopeAccess(request, propertyId);
+  }
+
+  const profile = buildCanonicalAuthProfile({
+    role,
+    status,
+    tenantId: role === "tenant" ? String(currentData.tenantId ?? "") : undefined,
+    ownerScope: role === "tenant" ? undefined : ownerScope,
+    email: String(currentData.email ?? "") || undefined,
+    displayName: String(currentData.displayName ?? "") || undefined,
+    createdAt: currentData.createdAt ?? nowIso(),
+    updatedBy: request.auth?.uid ?? "system"
+  });
+
+  await userRef.set(profile, { merge: true });
+  await getAuth().setCustomUserClaims(userId, status === "active" ? claimsFromProfile(profile) : null);
+
+  await writeServerAudit(actor, {
+    action: "user_permissions_updated",
+    entityType: "user",
+    entityId: userId,
+    summary: `Actualizo permisos de ${profile.displayName || profile.email || "un usuario"}.`,
+    metadata: {
+      previousRole: currentRole,
+      nextRole: role,
+      previousOwnerScope: String(currentData.ownerScope ?? "all"),
+      nextOwnerScope: profile.ownerScope ?? "",
+      previousStatus: String(currentData.status ?? "active"),
+      nextStatus: status,
+      email: profile.email ?? "",
+      tenantId: profile.tenantId ?? ""
+    }
+  });
+
+  return { ok: true, role: profile.role, status: profile.status, ownerScope: profile.ownerScope ?? null };
 });
 
 function buildPropertyCatalog(propertyType: string) {
@@ -954,5 +1595,3 @@ async function resolveDefaultBaseRent(unitType: string) {
   const configuredValue = Number(defaultRents[String(unitType)] ?? 0);
   return Number.isFinite(configuredValue) && configuredValue > 0 ? configuredValue : 0;
 }
-
-

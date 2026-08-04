@@ -1,0 +1,37 @@
+# SDD configuration for Alquileres La Casona
+schema: spec-driven
+
+context: |
+  Stack: Firebase Hosting + Vanilla JS frontend, Firebase Cloud Functions TypeScript on Node 20.
+  Data/Auth/Storage: Firestore, Firebase Authentication, Firebase Storage with Firebase emulators configured.
+  Architecture: public SPA (`public/app.js`) plus modular Functions backend under `functions/src/modules`.
+  Testing/validation: TypeScript strict lint/build, custom validation scripts, Firebase emulator workflows.
+  Style: npm scripts, TypeScript NodeNext strict mode, no frontend framework.
+
+workflow:
+  mode: sdd-new
+  artifact_store: in-repo
+  delivery_strategy: chained-slices
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load relevant coding skills for the project stack
+  verify:
+    - Run tests if test infrastructure exists
+    - Compare implementation against every spec scenario
+  archive:
+    - Warn before merging destructive deltas (large removals)

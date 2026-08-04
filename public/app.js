@@ -10,6 +10,7 @@ import {
   signOut,
   setPersistence,
   browserLocalPersistence,
+  connectAuthEmulator,
   updateEmail,
   updatePassword
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
@@ -26,25 +27,103 @@ import {
   query,
   where,
   orderBy,
+  connectFirestoreEmulator,
   onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import {
   getStorage,
   ref,
+  connectStorageEmulator,
   uploadBytes,
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
 import {
   getFunctions,
+  connectFunctionsEmulator,
   httpsCallable
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-functions.js";
 
-const firebaseApp = initializeApp(window.__FIREBASE_CONFIG__);
+const runtimeConfig = assertRuntimeIsSafe();
+const firebaseApp = initializeApp(runtimeConfig.firebase);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 const storage = getStorage(firebaseApp);
-const functions = getFunctions(firebaseApp);
+const functions = getFunctions(firebaseApp, runtimeConfig.functions.region);
+
+connectFirebaseEmulatorsIfNeeded();
+
+function assertRuntimeIsSafe() {
+  try {
+    if (!window.LaCasonaRuntime?.assertSafeRuntime) {
+      throw new Error("No se cargó LaCasonaRuntime. Revisá el orden de scripts: firebase-config.js, runtime-config.js y app.js.");
+    }
+    return window.LaCasonaRuntime.assertSafeRuntime();
+  } catch (error) {
+    renderRuntimeStartupFailure(error);
+    throw error;
+  }
+}
+
+function connectFirebaseEmulatorsIfNeeded() {
+  try {
+    window.LaCasonaRuntime.connectEmulatorsIfNeeded({
+      auth,
+      db,
+      storage,
+      functions,
+      connectors: {
+        connectAuthEmulator,
+        connectFirestoreEmulator,
+        connectStorageEmulator,
+        connectFunctionsEmulator
+      }
+    });
+  } catch (error) {
+    renderRuntimeStartupFailure(error);
+    throw error;
+  }
+}
+
+function renderRuntimeStartupFailure(error) {
+  console.error("La Casona runtime configuration is unsafe", error?.details || error);
+  document.body.classList.add("session-pending");
+  document.querySelector("#loading-session-panel")?.classList.add("hidden");
+  document.querySelector("#login-panel")?.classList.add("hidden");
+  document.querySelector("#tenant-onboarding-panel")?.classList.add("hidden");
+  document.querySelector("#payment-token-panel")?.classList.add("hidden");
+
+  const accessDeniedPanel = document.querySelector("#access-denied-panel");
+  accessDeniedPanel?.classList.remove("hidden");
+
+  const title = document.querySelector("#access-denied-title");
+  const copy = document.querySelector("#access-denied-copy");
+  const message = document.querySelector("#access-denied-message");
+  let mode = "desconocido";
+  try {
+    mode = window.LaCasonaRuntime?.getMode ? window.LaCasonaRuntime.getMode() : "desconocido";
+  } catch (_) {
+    mode = "inválido";
+  }
+  const origin = window.location?.origin || "origen desconocido";
+  const details = error?.details;
+
+  if (title) {
+    title.textContent = "Configuración local insegura";
+  }
+  if (copy) {
+    copy.textContent = "La app bloqueó el inicio antes de autenticar o leer datos para evitar mezclar emuladores con Firebase productivo.";
+  }
+  if (message) {
+    message.classList.add("error");
+    message.textContent = [
+      error?.message || "Revisá la configuración pública de Firebase.",
+      `Modo: ${mode}. Origen: ${origin}.`,
+      details?.field ? `Campo: ${details.field}.` : "",
+      details?.expected ? `Esperado: ${details.expected}.` : ""
+    ].filter(Boolean).join(" ");
+  }
+}
 
 const state = {
   authUser: null,
@@ -296,7 +375,7 @@ function bindStaticEvents() {
   elements.tenantProfileButton?.addEventListener("click", showTenantOnboarding);
   elements.tenantOnboardingBack.addEventListener("click", showLoginPanel);
   elements.tenantOnboardingForm.addEventListener("submit", handleTenantOnboardingSubmit);
-  elements.tenantPropertyType.addEventListener("change", handlePropertyTypeChange);
+  elements.tenantPropertyType?.addEventListener("change", handlePropertyTypeChange);
   elements.bootstrapButton?.addEventListener("click", handleAccessDeniedPrimaryAction);
 }
 
@@ -898,7 +977,7 @@ function normalizeVisibleText() {
   const paymentTokenTitle = elements.paymentTokenPanel?.querySelector("h2");
 
   if (tenantOnboardingCopy) {
-    tenantOnboardingCopy.textContent = "Ingresá tus datos para finalizar tu perfil de inquilino.";
+    tenantOnboardingCopy.textContent = "Creá o ingresá con el correo que administración ya invitó. Si no hay invitación, no se crea ningún perfil.";
   }
 
   if (paymentTokenTitle) {
@@ -1717,9 +1796,7 @@ async function maybeRenderTokenPortal() {
   elements.paymentTokenCard.innerHTML = `<p>Cargando cobro...</p>`;
 
   try {
-    const response = await fetch(
-      `https://us-central1-alquileres-la-casona.cloudfunctions.net/resolvePaymentAccessToken?token=${encodeURIComponent(token)}`
-    );
+    const response = await fetch(resolveRuntimeApiUrl("resolvePaymentAccessToken", { token }));
     const payload = await response.json();
 
     if (!response.ok || !payload.ok) {
@@ -1835,7 +1912,7 @@ async function maybeRenderTokenPortal() {
       try {
         elements.paymentTokenMessage.textContent = "Preparando pago con tarjeta...";
         const checkoutResponse = await fetch(
-          `https://us-central1-alquileres-la-casona.cloudfunctions.net/createCheckoutFromPaymentAccessToken?token=${encodeURIComponent(button.dataset.tokenPay)}`,
+          resolveRuntimeApiUrl("createCheckoutFromPaymentAccessToken", { token: button.dataset.tokenPay }),
           { method: "POST" }
         );
         const checkoutPayload = await checkoutResponse.json();
@@ -1886,7 +1963,7 @@ async function maybeRenderTokenPortal() {
         );
 
         const submitResponse = await fetch(
-          `https://us-central1-alquileres-la-casona.cloudfunctions.net/submitTransferFromPaymentAccessToken?token=${encodeURIComponent(token)}`,
+          resolveRuntimeApiUrl("submitTransferFromPaymentAccessToken", { token }),
           {
             method: "POST",
             headers: {
@@ -1930,6 +2007,16 @@ async function maybeRenderTokenPortal() {
     elements.paymentTokenCopy.textContent = "No pudimos resolver el link.";
     elements.paymentTokenCard.innerHTML = `<p>Hubo un problema al abrir este acceso único.</p>`;
   }
+}
+
+function resolveRuntimeApiUrl(functionName, params = {}) {
+  if (!window.LaCasonaRuntime?.resolveApiUrl) {
+    throw new Error(
+      "No se pudo resolver el endpoint de funciones. Revisá que runtime-config.js cargue antes de app.js."
+    );
+  }
+
+  return window.LaCasonaRuntime.resolveApiUrl(functionName, params);
 }
 
 function readFileAsDataUrl(file) {
@@ -2043,6 +2130,9 @@ function showLoginPanel() {
 }
 
 async function handlePropertyTypeChange() {
+  if (!elements.tenantPropertyType || !elements.tenantPropertyCode) {
+    return;
+  }
   const propertyType = elements.tenantPropertyType.value;
   elements.tenantPropertyCode.innerHTML = `<option value="">Cargando opciones...</option>`;
 
@@ -2086,13 +2176,9 @@ async function handleTenantOnboardingSubmit(event) {
   }
 
   setTenantOnboardingPending(true);
-  setTenantOnboardingMessage("Creando perfil...");
+  setTenantOnboardingMessage("Verificando invitacion...");
 
   const formData = new FormData(event.currentTarget);
-  const getFieldValue = (name) => {
-    const field = event.currentTarget?.elements?.namedItem?.(name);
-    return typeof field?.value === "string" ? field.value.trim() : String(formData.get(name) ?? "").trim();
-  };
   const email = (
     elements.tenantOnboardingEmail?.value?.trim()
     || String(formData.get("email") ?? "").trim()
@@ -2109,29 +2195,8 @@ async function handleTenantOnboardingSubmit(event) {
     Boolean(auth.currentUser?.uid)
     && String(auth.currentUser?.email || "").trim().toLowerCase() === email.toLowerCase();
   let createdAuthAccountInThisAttempt = false;
-  const propertyType = getFieldValue("propertyType");
-  const propertyCode = getFieldValue("propertyCode");
-  const fullName = getFieldValue("fullName");
-  const dni = getFieldValue("dni");
-  const phone = getFieldValue("phone");
-  const contractEndDate = getFieldValue("contractEndDate");
-
   if (!email || (!password && !hasAuthenticatedSessionForEmail)) {
-    setTenantOnboardingMessage("Completa correo y contraseña para crear el perfil.", "error");
-    setTenantOnboardingPending(false);
-    return;
-  }
-
-  const missingFields = [];
-  if (!propertyType) missingFields.push("tipo de propiedad");
-  if (!propertyCode) missingFields.push("propiedad correspondiente");
-  if (!fullName) missingFields.push("nombre completo");
-  if (!dni) missingFields.push("DNI");
-  if (!phone) missingFields.push("número de contacto");
-  if (!contractEndDate) missingFields.push("fecha de fin de contrato");
-
-  if (missingFields.length) {
-    setTenantOnboardingMessage(`Completa estos datos para crear el perfil: ${missingFields.join(", ")}.`, "error");
+    setTenantOnboardingMessage("Completá correo y contraseña para reclamar tu acceso.", "error");
     setTenantOnboardingPending(false);
     return;
   }
@@ -2154,21 +2219,18 @@ async function handleTenantOnboardingSubmit(event) {
 
     await auth.currentUser?.getIdToken(true);
     const createProfile = httpsCallable(functions, "createTenantProfile");
-    await createProfile({
-      propertyType,
-      propertyCode,
-      fullName,
-      dni,
-      phone,
-      contractEndDate
-    });
-    setTenantOnboardingMessage("Perfil creado. Estamos preparando tu portal.", "success");
+    await createProfile();
+    await auth.currentUser?.getIdToken(true);
+    setTenantOnboardingMessage("Acceso vinculado. Estamos preparando tu portal.", "success");
   } catch (error) {
     console.error(error);
     if (createdAuthAccountInThisAttempt) {
       await rollbackTenantOnboardingAccount(email);
     }
-    setTenantOnboardingMessage(humanizeAuthError(error), "error");
+    setTenantOnboardingMessage(
+      humanizeFunctionError(error) || humanizeAuthError(error) || "No encontramos una invitacion para este correo. Pedile a administracion que prepare tu acceso.",
+      "error"
+    );
   } finally {
     setTenantOnboardingPending(false);
   }
@@ -2264,13 +2326,7 @@ function ensureTenantEditSchedulingFields() {
 
 async function loadUserProfile(userId) {
   const tokenResult = state.authUser ? await getIdTokenResult(state.authUser) : null;
-  state.authClaims = tokenResult?.claims
-    ? {
-        role: tokenResult.claims.role || null,
-        tenantId: tokenResult.claims.tenantId || null,
-        ownerScope: tokenResult.claims.ownerScope || null
-      }
-    : null;
+  state.authClaims = extractAuthorityClaims(tokenResult?.claims);
 
   const userRef = doc(db, "users", userId);
   const userSnap = await getDoc(userRef);
@@ -2290,7 +2346,7 @@ async function loadUserProfile(userId) {
   }
 
   state.profile = { id: userSnap.id, ...userSnap.data() };
-  state.role = state.profile.role ?? state.authClaims?.role ?? null;
+  state.role = state.profile.role ?? null;
 
   if (state.profile.status && state.profile.status !== "active") {
     state.profile = null;
@@ -2300,6 +2356,27 @@ async function loadUserProfile(userId) {
       copy: "Tu usuario ya no está activo. Contacta a administración."
     });
     return;
+  }
+
+  if (state.authUser && sessionClaimsNeedRefresh(state.profile, state.authClaims)) {
+    await state.authUser.getIdToken(true);
+    const refreshedTokenResult = await getIdTokenResult(state.authUser, true);
+    state.authClaims = extractAuthorityClaims(refreshedTokenResult?.claims);
+
+    if (sessionClaimsNeedRefresh(state.profile, state.authClaims)) {
+      state.profile = null;
+      state.role = null;
+      renderAccessDenied({
+        title: "Tu sesión necesita actualizar permisos",
+        copy: "Actualizamos tu perfil, pero tu token todavía no refleja los permisos vigentes.",
+        message: "Cerrá sesión y volvé a ingresar para continuar sin usar permisos antiguos.",
+        primaryAction: {
+          label: "Volver al ingreso",
+          intent: "sign-out-and-return"
+        }
+      });
+      return;
+    }
   }
 
   if (!["superadmin", "admin", "tenant"].includes(String(state.role || ""))) {
@@ -2316,6 +2393,40 @@ async function loadUserProfile(userId) {
   subscribeRoleData();
 }
 
+function extractAuthorityClaims(claims) {
+  return claims
+    ? {
+        role: claims.role || null,
+        tenantId: claims.tenantId || null,
+        ownerScope: claims.ownerScope || null,
+        authVersion: typeof claims.authVersion === "number" ? claims.authVersion : null
+      }
+    : null;
+}
+
+function sessionClaimsNeedRefresh(profile, claims) {
+  if (!profile) {
+    return false;
+  }
+
+  if (!claims?.role || claims.role !== profile.role) {
+    return true;
+  }
+
+  if (profile.role === "tenant") {
+    return !profile.tenantId || claims.tenantId !== profile.tenantId;
+  }
+
+  const profileScope = profile.role === "superadmin" ? "all" : normalizeOwnerScope(profile.ownerScope);
+  if (claims.ownerScope && normalizeOwnerScope(claims.ownerScope) !== profileScope) {
+    return true;
+  }
+
+  return typeof profile.authVersion === "number"
+    && typeof claims.authVersion === "number"
+    && claims.authVersion !== profile.authVersion;
+}
+
 async function tryClaimTenantAccess() {
   const email = state.authUser?.email;
 
@@ -2326,7 +2437,11 @@ async function tryClaimTenantAccess() {
   try {
     const claimAccess = httpsCallable(functions, "claimTenantAccess");
     const result = await claimAccess();
-    return Boolean(result.data?.ok);
+    const claimed = Boolean(result.data?.ok);
+    if (claimed) {
+      await auth.currentUser?.getIdToken(true);
+    }
+    return claimed;
   } catch (error) {
     console.error("No se pudo vincular el acceso del inquilino", error);
     return false;
@@ -2816,7 +2931,7 @@ function subscribeTenantData() {
         renderTenantPortal();
       })
     );
-  }
+}
 
 async function handlePropertySubmit(event) {
   event.preventDefault();
@@ -2872,42 +2987,32 @@ async function handleTenantSubmit(event) {
   const fullName = formData.get("fullName")?.toString().trim() ?? "";
   const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
 
-  const tenantRef = await addDoc(collection(db, "tenants"), {
-    fullName,
-    dni: formData.get("dni")?.toString().trim() ?? "",
-    phone: formData.get("phone")?.toString().trim() ?? "",
-    email,
-    propertyId: formData.get("propertyId")?.toString() || null,
-    baseRent: Number(formData.get("baseRent") ?? 0),
-    dueDayOfMonth: normalizeTenantDueDayValue(formData.get("dueDayOfMonth")),
-    rentSchedule: {
-      frequency: normalizeTenantRentFrequencyValue(formData.get("rentUpdateFrequency")),
-      nextAdjustmentPeriod: normalizeTenantPeriodValue(formData.get("nextAdjustmentPeriod"))
-    },
-    contractStartDate: formData.get("contractStartDate")?.toString() || null,
-    contractEndDate: formData.get("contractEndDate")?.toString() || null,
-    invitationStatus: email ? "pending" : "not_sent",
-    status: "active",
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-
-  if (email) {
-    await setDoc(doc(db, "tenantInvitations", email), {
-      tenantId: tenantRef.id,
-      email,
-      displayName: fullName,
-      status: "pending",
-      createdAt: serverTimestamp(),
-      createdBy: state.authUser.uid
-    });
-  }
-
   try {
-    const generateCharges = httpsCallable(functions, "generateMonthlyCharges");
-    await generateCharges();
+    const createTenant = httpsCallable(functions, "createTenantAdminProfile");
+    await createTenant({
+      fullName,
+      dni: formData.get("dni")?.toString().trim() ?? "",
+      phone: formData.get("phone")?.toString().trim() ?? "",
+      email,
+      propertyId: formData.get("propertyId")?.toString() || null,
+      baseRent: Number(formData.get("baseRent") ?? 0),
+      dueDayOfMonth: normalizeTenantDueDayValue(formData.get("dueDayOfMonth")),
+      rentUpdateFrequency: normalizeTenantRentFrequencyValue(formData.get("rentUpdateFrequency")),
+      nextAdjustmentPeriod: normalizeTenantPeriodValue(formData.get("nextAdjustmentPeriod")),
+      contractStartDate: formData.get("contractStartDate")?.toString() || null,
+      contractEndDate: formData.get("contractEndDate")?.toString() || null
+    });
+
+    try {
+      const generateCharges = httpsCallable(functions, "generateMonthlyCharges");
+      await generateCharges();
+    } catch (error) {
+      console.error("No se pudo generar el cobro actual tras crear el inquilino", error);
+    }
   } catch (error) {
-    console.error("No se pudo generar el cobro actual tras crear el inquilino", error);
+    console.error("No se pudo crear el inquilino", error);
+    setMessage(humanizeFunctionError(error) || "No se pudo crear el inquilino. Revisá si el correo ya tiene una invitación activa.", "error");
+    return;
   }
 
   event.currentTarget.reset();
@@ -3011,18 +3116,6 @@ async function handleTenantEditSubmit(event) {
     setMessage("Guardando cambios del inquilino...");
     const updateTenantAdminProfile = httpsCallable(functions, "updateTenantAdminProfile");
     await updateTenantAdminProfile(payload);
-    await writeAuditLog({
-      action: "tenant_updated",
-      entityType: "tenant",
-      entityId: tenantId,
-      summary: `Actualizo la ficha de ${payload.fullName || tenant.fullName || "un inquilino"}.`,
-      metadata: {
-        previousBaseRent: Number(tenant.baseRent ?? 0),
-        newBaseRent: payload.baseRent,
-        previousPropertyId: tenant.propertyId || "",
-        newPropertyId: payload.propertyId
-      }
-    });
     closeTenantEditModal();
     setMessage("La ficha del inquilino fue actualizada.");
   } catch (error) {
@@ -3571,28 +3664,12 @@ async function handleUserAccessAction(event) {
   const ownerScope = card.querySelector("[data-user-owner-scope]")?.value || targetUser.ownerScope || "all";
 
   try {
-    await updateDoc(doc(db, "users", userId), {
+    const updateUserAuthority = httpsCallable(functions, "updateUserAuthority");
+    await updateUserAuthority({
+      userId,
       role,
       ownerScope: role === "superadmin" ? "all" : normalizeOwnerScope(ownerScope),
-      status,
-      updatedAt: serverTimestamp(),
-      updatedBy: state.authUser.uid
-    });
-
-    await writeAuditLog({
-      action: "user_permissions_updated",
-      entityType: "user",
-      entityId: userId,
-      summary: `Actualizo permisos de ${targetUser.displayName || targetUser.email || "un usuario"}.`,
-      metadata: {
-        previousRole: targetUser.role || "",
-        nextRole: role,
-        previousOwnerScope: targetUser.ownerScope || "all",
-        nextOwnerScope: role === "superadmin" ? "all" : normalizeOwnerScope(ownerScope),
-        previousStatus: targetUser.status || "active",
-        nextStatus: status,
-        email: targetUser.email || ""
-      }
+      status
     });
 
     setMessage("Permisos actualizados.");
@@ -3787,31 +3864,8 @@ async function handleUserPermanentDeletion(userId) {
   }
 
   try {
-    await writeAuditLog({
-      action: "user_deleted",
-      entityType: "user",
-      entityId: userId,
-      summary: `Elimino definitivamente el acceso de ${label}.`,
-      metadata: {
-        email: targetUser.email || "",
-        role: targetUser.role || "",
-        tenantId: targetUser.tenantId || ""
-      }
-    });
-
-    if (targetUser.tenantId) {
-      await updateDoc(doc(db, "tenants", targetUser.tenantId), {
-        status: "inactive",
-        invitationStatus: "revoked",
-        updatedAt: serverTimestamp()
-      });
-    }
-
-    if (targetUser.email) {
-      await deleteDoc(doc(db, "tenantInvitations", targetUser.email));
-    }
-
-    await deleteDoc(doc(db, "users", userId));
+    const deleteUserAccess = httpsCallable(functions, "deleteUserAccess");
+    await deleteUserAccess({ userId });
     setMessage("Usuario eliminado definitivamente. Si tenia historial, queda conservado en cobros y pagos.");
   } catch (error) {
     console.error(error);
@@ -4347,52 +4401,8 @@ async function handleTenantRemoval(tenantId) {
   }
 
   try {
-    await updateDoc(doc(db, "tenants", tenantId), {
-      status: "inactive",
-      contractStatus: "terminated",
-      updatedAt: serverTimestamp()
-    });
-
-    if (tenant.propertyId) {
-      await updateDoc(doc(db, "properties", tenant.propertyId), {
-        currentTenantId: null,
-        updatedAt: serverTimestamp()
-      });
-    }
-
-    if (tenant.email) {
-      await setDoc(
-        doc(db, "tenantInvitations", tenant.email),
-        {
-          status: "revoked",
-          updatedAt: serverTimestamp()
-        },
-        { merge: true }
-      );
-    }
-
-    const linkedUsers = await getDocs(query(collection(db, "users"), where("tenantId", "==", tenantId)));
-    await Promise.all(
-      linkedUsers.docs.map((userDoc) =>
-        updateDoc(doc(db, "users", userDoc.id), {
-          status: "inactive",
-          updatedAt: serverTimestamp()
-        })
-      )
-    );
-
-    await writeAuditLog({
-      action: "tenant_deactivated",
-      entityType: "tenant",
-      entityId: tenantId,
-      summary: `Dio de baja al inquilino ${tenant.fullName}.`,
-      metadata: {
-        tenantName: tenant.fullName,
-        propertyId: tenant.propertyId || "",
-        linkedUsers: linkedUsers.size
-      }
-    });
-
+    const deactivateTenant = httpsCallable(functions, "deactivateTenant");
+    await deactivateTenant({ tenantId });
     setMessage("Inquilino dado de baja. El historial se conserva y el acceso quedó desactivado.");
   } catch (error) {
     console.error(error);
@@ -4423,33 +4433,8 @@ async function handleTenantPermanentDeletion(tenantId) {
   }
 
   try {
-    const linkedUsers = await getDocs(query(collection(db, "users"), where("tenantId", "==", tenantId)));
-
-    await writeAuditLog({
-      action: "tenant_deleted",
-      entityType: "tenant",
-      entityId: tenantId,
-      summary: `Elimino definitivamente el perfil de ${tenant.fullName}.`,
-      metadata: {
-        tenantName: tenant.fullName,
-        propertyId: tenant.propertyId || "",
-        linkedUsers: linkedUsers.size
-      }
-    });
-
-    if (tenant.propertyId) {
-      await updateDoc(doc(db, "properties", tenant.propertyId), {
-        currentTenantId: null,
-        updatedAt: serverTimestamp()
-      });
-    }
-
-    if (tenant.email) {
-      await deleteDoc(doc(db, "tenantInvitations", tenant.email));
-    }
-
-    await Promise.all(linkedUsers.docs.map((userDoc) => deleteDoc(doc(db, "users", userDoc.id))));
-    await deleteDoc(doc(db, "tenants", tenantId));
+    const deleteTenantProfile = httpsCallable(functions, "deleteTenantProfile");
+    await deleteTenantProfile({ tenantId });
 
     setMessage("Inquilino eliminado definitivamente. Los movimientos historicos se conservaron como respaldo.");
   } catch (error) {
@@ -7613,7 +7598,7 @@ function getCurrentOwnerScope() {
   }
 
   if (state.role === "admin") {
-    return normalizeOwnerScope(state.profile?.ownerScope ?? state.authClaims?.ownerScope);
+    return normalizeOwnerScope(state.profile?.ownerScope);
   }
 
   return "all";
@@ -8388,7 +8373,7 @@ function humanizeAuthError(error) {
   }
 
   if (code.includes("email-already-in-use")) {
-    return "Ese correo ya tiene una cuenta. Inicia sesión con esa cuenta y usa Completar perfil de inquilino para terminar el alta.";
+    return "Ese correo ya tiene una cuenta. Iniciá sesión con esa cuenta y usá Reclamar acceso para entrar al portal.";
   }
 
   if (code.includes("weak-password")) {
@@ -8415,7 +8400,7 @@ function humanizeFunctionError(error) {
   const message = error?.message || "";
 
   if (code.includes("permission-denied")) {
-    return "No tienes permisos para realizar esta accion.";
+    return message || "No tienes permisos para realizar esta accion.";
   }
 
   if (code.includes("invalid-argument")) {
@@ -9021,5 +9006,3 @@ function resolveTimestamp(value) {
 
   return 0;
 }
-
-
