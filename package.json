@@ -12,7 +12,8 @@
     "emulators:export": "firebase emulators:export emulator-data --force",
     "emulators:import": "npm run build:functions && firebase emulators:start --import=emulator-data --export-on-exit=emulator-data",
     "verify:auth-authority": "npm run build:functions && firebase emulators:exec --only auth,firestore,functions,storage \"node scripts/verify-auth-authority-emulator.mjs\"",
-    "verify:privileged-ops": "npm run build:functions && firebase emulators:exec --only auth,firestore,functions \"node scripts/verify-privileged-ops-emulator.mjs\""
+    "verify:privileged-ops": "npm run build:functions && firebase emulators:exec --only auth,firestore,functions \"node scripts/verify-privileged-ops-emulator.mjs\"",
+    "verify:tenant-onboarding": "npm run build:functions && firebase emulators:exec --only auth,firestore,functions \"node scripts/verify-tenant-onboarding-emulator.mjs\""
   },
   "devDependencies": {
     "firebase-tools": "15.24.0"

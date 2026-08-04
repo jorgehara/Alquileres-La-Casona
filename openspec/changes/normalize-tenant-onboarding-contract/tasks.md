@@ -34,9 +34,9 @@
 
 - [x] 5.1 Run `npm run lint:functions` and verify TypeScript strict mode accepts the normalized tenant invitation helpers and callable responses.
 - [x] 5.2 Run `npm run validate:local-dev` to confirm this slice keeps local Firebase emulator isolation checks intact.
-- [ ] 5.3 With Firebase emulators, verify admin invitation creates/updates `tenantInvitations/{normalizedEmail}`, sets Auth custom claims, links `users/{uid}`, and updates `tenants/{tenantId}.invitationStatus`.
-- [ ] 5.4 With Firebase emulators, verify invited tenant first login claims access, refreshes claims/profile, lands in the tenant portal, and can read only their own tenant data.
-- [ ] 5.5 With Firebase emulators, verify non-invited user login cannot self-create a tenant profile and renders pending/access-denied UI without writing `tenants`, `users`, or `tenantInvitations` documents.
-- [ ] 5.6 With Firebase emulators, verify legacy token invitation data can be claimed only when it maps to exactly one tenant/email pair and is repaired into the canonical email-keyed document.
-- [ ] 5.7 With Firebase emulators, verify duplicate active tenants or conflicting invitation records for one email fail with explicit `failed-precondition` behavior and do not partially mutate claims or Firestore documents.
-- [ ] 5.8 Record verification evidence in `openspec/changes/normalize-tenant-onboarding-contract/verify-report.md`, including commands run, emulator scenarios, and any intentionally deferred compatibility cleanup.
+- [x] 5.3 With Firebase emulators, verify admin invitation creates/updates `tenantInvitations/{normalizedEmail}`, sets Auth custom claims, links `users/{uid}`, and updates `tenants/{tenantId}.invitationStatus`. Automated by `npm run verify:tenant-onboarding`.
+- [ ] 5.4 With Firebase emulators, verify invited tenant first login claims access, refreshes claims/profile, lands in the tenant portal, and can read only their own tenant data. Backend claim/profile/claims/rules reads are automated by `npm run verify:tenant-onboarding`; UI landing in tenant portal remains manual.
+- [ ] 5.5 With Firebase emulators, verify non-invited user login cannot self-create a tenant profile and renders pending/access-denied UI without writing `tenants`, `users`, or `tenantInvitations` documents. Backend rejection/no-write behavior is automated by `npm run verify:tenant-onboarding`; UI pending/access-denied rendering remains manual.
+- [x] 5.6 With Firebase emulators, verify legacy token invitation data can be claimed only when it maps to exactly one tenant/email pair and is repaired into the canonical email-keyed document. Automated by `npm run verify:tenant-onboarding`.
+- [x] 5.7 With Firebase emulators, verify duplicate active tenants or conflicting invitation records for one email fail with explicit `failed-precondition` behavior and do not partially mutate claims or Firestore documents. Automated by `npm run verify:tenant-onboarding`.
+- [x] 5.8 Record verification evidence in `openspec/changes/normalize-tenant-onboarding-contract/verify-report.md`, including commands run, emulator scenarios, and any intentionally deferred compatibility cleanup.
