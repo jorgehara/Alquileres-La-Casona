@@ -18,3 +18,4 @@ functions/.env.*
 !functions/.env.example
 .runtimeconfig.json
 functions/.runtimeconfig.json
+CREDENCIALES.md

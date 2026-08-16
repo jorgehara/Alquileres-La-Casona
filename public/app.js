@@ -182,7 +182,7 @@ const state = {
 const SESSION_IDLE_LIMIT_MS = 30 * 60 * 1000;
 const SESSION_IDLE_STORAGE_KEY = "lc_last_activity_at_v2";
 const SESSION_IDLE_WRITE_THROTTLE_MS = 15000;
-const SCOPED_ADMIN_REFRESH_INTERVAL_MS = 15000;
+const SCOPED_ADMIN_REFRESH_INTERVAL_MS = 60000;
 
 document.body.classList.add("session-pending");
 
@@ -2875,6 +2875,8 @@ function subscribeTenantData() {
     return;
   }
 
+  let unsubscribeUtilityBills = null;
+
   state.unsubscribers.push(
     onSnapshot(doc(db, "settings", "bankAccounts"), (snapshot) => {
       state.bankAccounts = snapshot.exists() ? snapshot.data() : null;
@@ -2891,6 +2893,28 @@ function subscribeTenantData() {
         state.currentProperty = propertySnap.exists() ? mapDoc(propertySnap) : null;
       } else {
         state.currentProperty = null;
+      }
+
+      if (unsubscribeUtilityBills) {
+        unsubscribeUtilityBills();
+        unsubscribeUtilityBills = null;
+      }
+
+      if (state.currentProperty) {
+        const allowedGroups = resolveTenantUtilityBillingGroups(state.currentProperty);
+        if (allowedGroups.length > 0) {
+          unsubscribeUtilityBills = onSnapshot(
+            query(collection(db, "utilityBills"), where("billingGroup", "in", allowedGroups)),
+            (snap) => {
+              state.utilityBills = snap.docs.map(mapDoc);
+              renderTenantPortal();
+            }
+          );
+        } else {
+          state.utilityBills = [];
+        }
+      } else {
+        state.utilityBills = [];
       }
 
       renderTenantPortal();
@@ -2921,13 +2945,6 @@ function subscribeTenantData() {
     state.unsubscribers.push(
       onSnapshot(query(collection(db, "rentReceipts"), where("tenantId", "==", tenantId)), (snapshot) => {
         state.rentReceipts = snapshot.docs.map(mapDoc);
-        renderTenantPortal();
-      })
-    );
-
-    state.unsubscribers.push(
-      onSnapshot(collection(db, "utilityBills"), (snapshot) => {
-        state.utilityBills = snapshot.docs.map(mapDoc);
         renderTenantPortal();
       })
     );
@@ -8690,6 +8707,32 @@ function humanizeBillingGroup(value) {
     .find((group) => group.value === value);
 
   return match?.label || "Grupo sin definir";
+}
+
+function resolveTenantUtilityBillingGroups(property) {
+  if (!property) return [];
+  const unitType = String(property.unitType || "");
+  const unitCode = String(property.unitCode || "");
+
+  const groups = [];
+
+  if (unitType === "Casa") {
+    groups.push("electricity_house", "water_house");
+  } else if (unitType === "Departamento") {
+    groups.push("water_departments_local_1");
+  } else if (unitType === "Local") {
+    if (unitCode === "1") {
+      groups.push("electricity_local_1", "water_departments_local_1");
+    } else if (unitCode === "2") {
+      groups.push("electricity_local_2", "water_locals_2_3");
+    } else if (unitCode === "3") {
+      groups.push("electricity_local_3", "water_locals_2_3");
+    } else if (unitCode === "4") {
+      groups.push("electricity_local_4");
+    }
+  }
+
+  return groups;
 }
 
 function getTenantRentalStatus(tenantId) {
