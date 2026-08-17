@@ -436,6 +436,221 @@ function isValidMercadoPagoSignature(
     && timingSafeEqual(expectedBuffer, receivedBuffer);
 }
 
+/**
+ * Sync a single MercadoPago payment by querying the MP API directly.
+ * Use this when the webhook failed and payments are stuck in "reported" status.
+ */
+export const syncMercadoPagoPayment = onCall(async (request) => {
+  await requireRole(request, ["superadmin", "admin"]);
+
+  const data = request.data as { paymentId?: string };
+  const paymentId = String(data.paymentId ?? "").trim();
+
+  if (!paymentId) {
+    throw new HttpsError("invalid-argument", "paymentId es obligatorio.");
+  }
+
+  const accessToken = mercadoPagoAccessToken.value();
+  if (!accessToken) {
+    throw new HttpsError("failed-precondition", "Falta configurar MERCADO_PAGO_ACCESS_TOKEN.");
+  }
+
+  const paymentDoc = await db.collection("payments").doc(paymentId).get();
+  if (!paymentDoc.exists) {
+    throw new HttpsError("not-found", "No existe el pago indicado.");
+  }
+
+  const paymentData = paymentDoc.data() ?? {};
+  const mpPaymentId = String(paymentData.mercadoPagoPaymentId ?? "");
+
+  if (!mpPaymentId) {
+    throw new HttpsError("failed-precondition", "Este pago no tiene un ID de MercadoPago asociado.");
+  }
+
+  const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+
+  if (!mpResponse.ok) {
+    throw new HttpsError("internal", `MercadoPago no respondió: ${mpResponse.status}`);
+  }
+
+  const mpPayment = (await mpResponse.json()) as {
+    id: number;
+    status?: string;
+    status_detail?: string;
+    transaction_amount?: number;
+  };
+
+  const expectedAmount = Number(paymentData.amountReported ?? 0);
+  const confirmedAmount = Number(mpPayment.transaction_amount ?? 0);
+  const amountMatches = expectedAmount > 0 && Math.abs(confirmedAmount - expectedAmount) < 0.01;
+  const isApproved = mpPayment.status === "approved" && amountMatches;
+
+  await paymentDoc.ref.set(
+    {
+      status: isApproved ? "provider_confirmed" : "reported",
+      amountConfirmed: isApproved ? confirmedAmount : 0,
+      mercadoPagoStatus: mpPayment.status ?? "unknown",
+      mercadoPagoStatusDetail: mpPayment.status_detail ?? "",
+      mercadoPagoAmountMatches: amountMatches,
+      updatedAt: nowIso()
+    },
+    { merge: true }
+  );
+
+  if (isApproved) {
+    await db.collection("charges").doc(String(paymentData.chargeId)).set(
+      {
+        status: "paid",
+        paidAt: nowIso(),
+        overdueDays: 0,
+        lateFeeAmount: 0,
+        total: confirmedAmount,
+        updatedAt: nowIso()
+      },
+      { merge: true }
+    );
+
+    try {
+      const receiptResult = await generateAndSendPaymentReceiptInternal(paymentId, {
+        sendEmail: true,
+        actorUid: request.auth?.uid ?? "system",
+        actorEmail: request.auth?.token?.email ?? "",
+        actorName: "Sync Manual"
+      });
+
+      await paymentDoc.ref.set(
+        {
+          receiptStatus: String(receiptResult.status ?? "sent"),
+          receiptError: "",
+          updatedAt: nowIso()
+        },
+        { merge: true }
+      );
+    } catch (error) {
+      await paymentDoc.ref.set(
+        {
+          receiptStatus: "send_error",
+          receiptError: error instanceof Error ? error.message : "No se pudo generar el comprobante.",
+          updatedAt: nowIso()
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  return {
+    ok: true,
+    paymentId,
+    mpPaymentId,
+    mpStatus: mpPayment.status,
+    wasApproved: isApproved,
+    amountMatches
+  };
+});
+
+/**
+ * Sync ALL stuck MercadoPago payments (status="reported") in batch.
+ */
+export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
+  await requireRole(request, ["superadmin"]);
+
+  const accessToken = mercadoPagoAccessToken.value();
+  if (!accessToken) {
+    throw new HttpsError("failed-precondition", "Falta configurar MERCADO_PAGO_ACCESS_TOKEN.");
+  }
+
+  const stuckPayments = await db
+    .collection("payments")
+    .where("method", "==", "mercado_pago")
+    .where("status", "==", "reported")
+    .get();
+
+  if (stuckPayments.empty) {
+    return { ok: true, synced: 0, message: "No hay pagos stuck." };
+  }
+
+  const results: Array<{ paymentId: string; mpStatus: string; approved: boolean }> = [];
+
+  for (const doc of stuckPayments.docs) {
+    const paymentData = doc.data();
+    const mpPaymentId = String(paymentData.mercadoPagoPaymentId ?? "");
+    if (!mpPaymentId) continue;
+
+    try {
+      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      if (!mpResponse.ok) continue;
+
+      const mpPayment = (await mpResponse.json()) as {
+        id: number;
+        status?: string;
+        status_detail?: string;
+        transaction_amount?: number;
+      };
+
+      const expectedAmount = Number(paymentData.amountReported ?? 0);
+      const confirmedAmount = Number(mpPayment.transaction_amount ?? 0);
+      const amountMatches = expectedAmount > 0 && Math.abs(confirmedAmount - expectedAmount) < 0.01;
+      const isApproved = mpPayment.status === "approved" && amountMatches;
+
+      await doc.ref.set(
+        {
+          status: isApproved ? "provider_confirmed" : "reported",
+          amountConfirmed: isApproved ? confirmedAmount : 0,
+          mercadoPagoStatus: mpPayment.status ?? "unknown",
+          mercadoPagoStatusDetail: mpPayment.status_detail ?? "",
+          mercadoPagoAmountMatches: amountMatches,
+          updatedAt: nowIso()
+        },
+        { merge: true }
+      );
+
+      if (isApproved) {
+        await db.collection("charges").doc(String(paymentData.chargeId)).set(
+          {
+            status: "paid",
+            paidAt: nowIso(),
+            overdueDays: 0,
+            lateFeeAmount: 0,
+            total: confirmedAmount,
+            updatedAt: nowIso()
+          },
+          { merge: true }
+        );
+
+        try {
+          const receiptResult = await generateAndSendPaymentReceiptInternal(doc.id, {
+            sendEmail: true,
+            actorUid: request.auth?.uid ?? "system",
+            actorEmail: request.auth?.token?.email ?? "",
+            actorName: "Batch Sync"
+          });
+
+          await doc.ref.set(
+            { receiptStatus: String(receiptResult.status ?? "sent"), receiptError: "", updatedAt: nowIso() },
+            { merge: true }
+          );
+        } catch {
+          await doc.ref.set(
+            { receiptStatus: "send_error", receiptError: "Error generating receipt", updatedAt: nowIso() },
+            { merge: true }
+          );
+        }
+      }
+
+      results.push({ paymentId: doc.id, mpStatus: mpPayment.status ?? "unknown", approved: isApproved });
+    } catch {
+      // Skip this payment on error, continue with others
+    }
+  }
+
+  return { ok: true, synced: results.length, results };
+});
+
 async function resolveTransferAccounts(property: Record<string, unknown>) {
   const blockCode = String(property.transferBlock ?? inferTransferBlock(property.unitCode) ?? "block_1");
   const bankAccountsDoc = await db.collection("settings").doc("bankAccounts").get();

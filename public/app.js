@@ -1282,6 +1282,12 @@ function ensureAdminComprobantesSection() {
           </label>
         </div>
       </div>
+      <div class="comprobante-actions-bar" id="mp-sync-bar">
+        <button type="button" class="ghost-action small-button" id="mp-sync-all-button">
+          Sync MercadoPago
+        </button>
+        <span id="mp-sync-message" class="app-message" aria-live="polite"></span>
+      </div>
     `;
     chargesSection.insertAdjacentElement("beforebegin", section);
   }
@@ -3181,6 +3187,49 @@ async function handleSyncCharges() {
   }
 }
 
+async function handleMpSyncAll() {
+  if (!isAdminRole()) {
+    setMessage("Solo un administrador puede sincronizar pagos de MercadoPago.", "error");
+    return;
+  }
+
+  const messageEl = document.querySelector("#mp-sync-message");
+  if (messageEl) {
+    messageEl.textContent = "Consultando MercadoPago...";
+    messageEl.dataset.tone = "info";
+  }
+
+  try {
+    const syncAll = httpsCallable(functions, "syncAllStuckMercadoPagoPayments");
+    const result = await syncAll();
+    const data = result.data ?? {};
+    const synced = data.synced ?? 0;
+    const approved = (data.results ?? []).filter((r) => r.approved).length;
+
+    if (messageEl) {
+      messageEl.textContent = synced === 0
+        ? "No hay pagos pendientes de sync."
+        : `Sincronizados: ${synced} pagos. Aprobados: ${approved}.`;
+      messageEl.dataset.tone = synced === 0 ? "info" : "success";
+    }
+
+    setMessage(synced === 0
+      ? "No hay pagos de MercadoPago pendientes de sincronización."
+      : `Se sincronizaron ${synced} pagos de MercadoPago. ${approved} aprobados.`
+    );
+
+    renderAdminPaymentReview();
+  } catch (error) {
+    console.error(error);
+    const msg = error?.message ?? "No se pudo sincronizar con MercadoPago.";
+    if (messageEl) {
+      messageEl.textContent = msg;
+      messageEl.dataset.tone = "error";
+    }
+    setMessage(msg, "error");
+  }
+}
+
 async function handleSendPaymentWarnings() {
   if (!isAdminRole()) {
     setMessage("Solo un administrador puede enviar avisos de pago.");
@@ -4317,6 +4366,11 @@ function handlePrivateShellChange(event) {
       target.checked
     );
     renderChargePeriods();
+    return;
+  }
+
+  if (target?.id === "mp-sync-all-button" || target?.closest?.("#mp-sync-all-button")) {
+    handleMpSyncAll();
     return;
   }
 

@@ -16,15 +16,25 @@ export const mercadoPagoWebhookSecret = defineString("MERCADO_PAGO_WEBHOOK_SECRE
   default: ""
 });
 
+// WhatsApp Cloud API (Meta)
+export const whatsappCloudApiToken = defineString("WHATSAPP_CLOUD_API_TOKEN", {
+  default: ""
+});
+
+export const whatsappPhoneNumberId = defineString("WHATSAPP_PHONE_NUMBER_ID", {
+  default: ""
+});
+
+export const whatsappBusinessAccountId = defineString("WHATSAPP_BUSINESS_ACCOUNT_ID", {
+  default: ""
+});
+
+// SMS fallback (Twilio — optional)
 export const twilioAccountSid = defineString("TWILIO_ACCOUNT_SID", {
   default: ""
 });
 
 export const twilioAuthToken = defineString("TWILIO_AUTH_TOKEN", {
-  default: ""
-});
-
-export const twilioWhatsappFrom = defineString("TWILIO_WHATSAPP_FROM", {
   default: ""
 });
 

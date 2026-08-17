@@ -27,7 +27,9 @@ export {
   submitTransferPayment,
   approveTransferPayment,
   createMercadoPagoCheckout,
-  handleMercadoPagoWebhook
+  handleMercadoPagoWebhook,
+  syncMercadoPagoPayment,
+  syncAllStuckMercadoPagoPayments
 } from "./modules/payments.js";
 export {
   sendPaymentReceipt,

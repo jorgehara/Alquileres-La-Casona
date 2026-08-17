@@ -4,9 +4,10 @@ import nodemailer from "nodemailer";
 import { db } from "../firebase.js";
 import { assertOwnerScopeAccess, requireRole } from "../lib/auth.js";
 import {
+  whatsappCloudApiToken,
+  whatsappPhoneNumberId,
   twilioAccountSid,
   twilioAuthToken,
-  twilioWhatsappFrom,
   twilioSmsFrom,
   webAppUrl,
   smtpHost,
@@ -405,10 +406,7 @@ export async function sendTenantNotification(input: {
   const chargeContext = await resolveChargeContext(String(input.tenantId));
   const profileCreatedContext = await resolveProfileCreatedContext(String(input.tenantId));
 
-  const sid = twilioAccountSid.value();
-  const token = twilioAuthToken.value();
-  const whatsappFrom = twilioWhatsappFrom.value();
-  const smsFrom = twilioSmsFrom.value();
+  const whatsappConfigured = Boolean(whatsappCloudApiToken.value() && whatsappPhoneNumberId.value());
   const configuredEmailFrom = emailFrom.value();
   const configuredSmtpHost = smtpHost.value();
   const configuredSmtpPort = Number(smtpPort.value() || 465);
@@ -416,7 +414,7 @@ export async function sendTenantNotification(input: {
   const configuredSmtpPass = smtpPass.value();
 
   const providerConfigured = Boolean(
-    (sid && token && (whatsappFrom || smsFrom))
+    whatsappConfigured
     || (configuredSmtpHost && configuredSmtpUser && configuredSmtpPass && configuredEmailFrom)
   );
 
@@ -424,10 +422,7 @@ export async function sendTenantNotification(input: {
     requestedChannel,
     phone,
     email,
-    sid,
-    token,
-    whatsappFrom,
-    smsFrom,
+    whatsappConfigured,
     smtpConfigured: Boolean(configuredSmtpHost && configuredSmtpUser && configuredSmtpPass && configuredEmailFrom)
   });
 
@@ -498,30 +493,59 @@ export async function sendTenantNotification(input: {
       }
     }
 
-    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({
-        To: attempt.channel === "whatsapp" ? normalizeWhatsappPhone(phone) : normalizeSmsPhone(phone),
-        From: attempt.from,
-        Body: input.body
-      }).toString()
-    });
+    if (attempt.channel === "whatsapp") {
+      const whatsappResult = await sendWhatsAppCloudMessage(phone, input.body);
+      lastResponseText = whatsappResult.responseText;
 
-    lastResponseText = await response.text();
+      if (whatsappResult.ok) {
+        await messageRef.set({
+          ...basePayload,
+          channel: "whatsapp",
+          status: "sent",
+          sentAt: nowIso(),
+          providerResponse: lastResponseText
+        });
+        return buildNotificationResult(true, "sent", "whatsapp", requestedChannel, providerConfigured, messageRef.id);
+      }
+      continue;
+    }
 
-    if (response.ok) {
-      await messageRef.set({
-        ...basePayload,
-        channel: attempt.channel,
-        status: "sent",
-        sentAt: nowIso(),
-        providerResponse: lastResponseText
+    // SMS fallback via Twilio (optional)
+    if (attempt.channel === "sms") {
+      const sid = twilioAccountSid.value();
+      const token = twilioAuthToken.value();
+      const smsFrom = twilioSmsFrom.value();
+
+      if (!sid || !token || !smsFrom) {
+        lastResponseText = "missing_sms_config";
+        continue;
+      }
+
+      const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          To: normalizeSmsPhone(phone),
+          From: smsFrom,
+          Body: input.body
+        }).toString()
       });
-      return buildNotificationResult(true, "sent", attempt.channel, requestedChannel, providerConfigured, messageRef.id);
+
+      lastResponseText = await response.text();
+
+      if (response.ok) {
+        await messageRef.set({
+          ...basePayload,
+          channel: "sms",
+          status: "sent",
+          sentAt: nowIso(),
+          providerResponse: lastResponseText
+        });
+        return buildNotificationResult(true, "sent", "sms", requestedChannel, providerConfigured, messageRef.id);
+      }
     }
   }
 
@@ -539,40 +563,32 @@ function buildChannelAttempts(input: {
   requestedChannel: MessageChannel;
   phone: string;
   email: string;
-  sid: string;
-  token: string;
-  whatsappFrom: string;
-  smsFrom: string;
+  whatsappConfigured: boolean;
   smtpConfigured: boolean;
 }): Array<{ channel: DeliveryChannel; from: string }> {
   const hasPhone = Boolean(input.phone);
   const hasEmail = Boolean(input.email);
 
   if (input.requestedChannel === "whatsapp") {
-    return hasPhone && input.whatsappFrom
-      ? [{ channel: "whatsapp", from: input.whatsappFrom.startsWith("whatsapp:") ? input.whatsappFrom : `whatsapp:${input.whatsappFrom}` }]
+    return hasPhone && input.whatsappConfigured
+      ? [{ channel: "whatsapp", from: "cloud_api" }]
       : [];
   }
 
   if (input.requestedChannel === "sms") {
-    return hasPhone && input.smsFrom ? [{ channel: "sms", from: input.smsFrom }] : [];
+    // SMS requires Twilio config
+    return []; // SMS disabled for now — WhatsApp Cloud API doesn't support SMS
   }
 
   if (input.requestedChannel === "email") {
     return hasEmail && input.smtpConfigured ? [{ channel: "email", from: "" }] : [];
   }
 
+  // "auto" fallback: whatsapp → email
   const attempts: Array<{ channel: DeliveryChannel; from: string }> = [];
 
-  if (hasPhone && input.whatsappFrom) {
-    attempts.push({
-      channel: "whatsapp",
-      from: input.whatsappFrom.startsWith("whatsapp:") ? input.whatsappFrom : `whatsapp:${input.whatsappFrom}`
-    });
-  }
-
-  if (hasPhone && input.smsFrom) {
-    attempts.push({ channel: "sms", from: input.smsFrom });
+  if (hasPhone && input.whatsappConfigured) {
+    attempts.push({ channel: "whatsapp", from: "cloud_api" });
   }
 
   if (hasEmail && input.smtpConfigured) {
@@ -852,7 +868,16 @@ function buildProfileCreatedEmailText(input: {
     "- ver pagos anteriores;",
     "- consultar tus recibos emitidos.",
     "",
-    `Acceso al portal: ${context.portalUrl}`,
+    "Acceso al portal: " + context.portalUrl,
+    "",
+    "Primer ingreso - Reclamar acceso:",
+    "1. Abrí el enlace del portal.",
+    "2. Hacé clic en 'Crear cuenta'.",
+    "3. Usá el mismo correo que administración registró (el de este email).",
+    "4. Elegí una contraseña y hacé clic en 'Reclamar acceso'.",
+    "5. Listo, ya tenés acceso a tu portal.",
+    "",
+    "Si ya reclamaste tu acceso anteriormente, simplemente ingresá con tu correo y contraseña.",
     "",
     "Funcionamiento general:",
     "1. Cada período se genera tu cobro correspondiente.",
@@ -921,6 +946,18 @@ function buildProfileCreatedEmailHtml(input: {
             <a href="${escapeAttribute(context.portalUrl)}" style="display:block;margin-top:22px;text-align:center;text-decoration:none;background:#17352a;color:#ffffff;padding:16px 18px;border-radius:999px;font-weight:800;">
               Ingresar al portal
             </a>
+          </div>
+
+          <div style="margin-top:24px;padding:22px 24px;border-radius:20px;background:#ffffff;border:1px solid rgba(23,63,44,.08);">
+            <p style="margin:0 0 10px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#6b7f73;font-weight:700;">Primer ingreso - Reclamar acceso</p>
+            <ol style="margin:0;padding-left:18px;color:#17352a;line-height:1.7;">
+              <li>Abrí el enlace del portal.</li>
+              <li>Hacé clic en <strong>Crear cuenta</strong>.</li>
+              <li>Usá el mismo correo que registramos (el de este email).</li>
+              <li>Elegí una contraseña y hacé clic en <strong>Reclamar acceso</strong>.</li>
+              <li>Listo, ya tenés acceso a tu portal.</li>
+            </ol>
+            <p style="margin:12px 0 0;font-size:13px;color:#6b7f73;">Si ya reclamaste tu acceso, simplemente ingresá con tu correo y contraseña.</p>
           </div>
 
           <div style="margin-top:24px;padding:22px 24px;border-radius:20px;background:#ffffff;border:1px solid rgba(23,63,44,.08);">
@@ -1468,9 +1505,41 @@ function buildNotificationResult(
 
 function normalizeWhatsappPhone(value: string) {
   const digits = value.replace(/[^\d+]/g, "");
-  return digits.startsWith("whatsapp:")
-    ? digits
-    : `whatsapp:${digits.startsWith("+") ? digits : `+${digits}`}`;
+  return digits.startsWith("+") ? digits.slice(1) : digits;
+}
+
+async function sendWhatsAppCloudMessage(phone: string, body: string): Promise<{ ok: boolean; responseText: string }> {
+  const token = whatsappCloudApiToken.value();
+  const phoneNumberId = whatsappPhoneNumberId.value();
+
+  if (!token || !phoneNumberId) {
+    return { ok: false, responseText: "missing_whatsapp_cloud_api_config" };
+  }
+
+  const to = normalizeWhatsappPhone(phone);
+
+  const response = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: { body }
+    })
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    return { ok: false, responseText };
+  }
+
+  return { ok: true, responseText };
 }
 
 function normalizeSmsPhone(value: string) {
