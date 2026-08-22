@@ -18,7 +18,7 @@ export const syncApprovedPaymentToFinance = onCall(async (request) => {
 });
 
 export const syncApprovedPaymentToFinanceOnUpdate = onDocumentUpdated(
-  "payments/{paymentId}",
+  {region: "us-central1", document: "payments/{paymentId}"},
   async (event) => {
     const before = event.data?.before.data() ?? {};
     const after = event.data?.after.data() ?? {};

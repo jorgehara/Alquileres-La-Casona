@@ -3,7 +3,7 @@
   "private": true,
   "main": "lib/index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -13,8 +13,9 @@
   },
   "dependencies": {
     "@types/pdfkit": "^0.17.6",
-    "firebase-admin": "^12.7.0",
-    "firebase-functions": "^6.0.1",
+    "alquileres-la-casona": "file:..",
+    "firebase-admin": "^14.0.0",
+    "firebase-functions": "^7.0.0",
     "jszip": "^3.10.1",
     "nodemailer": "^8.0.7",
     "pdfkit": "^0.18.0",
