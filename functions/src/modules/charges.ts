@@ -3,6 +3,7 @@ import { onSchedule } from "firebase-functions/scheduler";
 import { db } from "../firebase.js";
 import { requireRole } from "../lib/auth.js";
 import { collectionPeriod, nowIso, rentalPeriod, sumAmounts } from "../lib/utils.js";
+import { DEPARTMENT_COMMON_EXPENSES } from "../lib/constants.js";
 import { ChargeItem, ChargeRecord } from "../types.js";
 import { sendTenantNotification } from "./notifications.js";
 
@@ -30,8 +31,6 @@ type PropertyLike = {
   unitType?: string;
   unitCode?: string;
 };
-
-const DEPARTMENT_COMMON_EXPENSES = 10000;
 
 const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   lateFeeDailyRate: 0.001,

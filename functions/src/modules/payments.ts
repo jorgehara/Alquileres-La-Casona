@@ -11,6 +11,7 @@ import { assertOwnerScopeAccess, requireRole, requireTenantOwner } from "../lib/
 import { nowIso } from "../lib/utils.js";
 import { analyzeStoredReceipt } from "./documents.js";
 import { generateAndSendPaymentReceiptInternal } from "./receipts.js";
+import { sendTenantNotification } from "./notifications.js";
 
 export const submitTransferPayment = onCall(async (request) => {
   const data = request.data as {
@@ -393,6 +394,19 @@ export const handleMercadoPagoWebhook = onRequest(async (request, response) => {
         { merge: true }
       );
     }
+
+    // Notify tenant about approved payment (fire-and-forget)
+    const chargeDoc = await db.collection("charges").doc(String(paymentData.chargeId ?? "")).get();
+    const chargeTenantId = String(chargeDoc.data()?.tenantId ?? paymentData.tenantId ?? "");
+    if (chargeTenantId) {
+      sendTenantNotification({
+        tenantId: chargeTenantId,
+        type: "payment_approved",
+        body: `Tu pago de $${Number(paymentData.amountReported ?? 0).toLocaleString("es-AR")} fue aprobado. Gracias!`,
+        channel: "auto",
+        createdBy: "mercado-pago-webhook"
+      }).catch(() => {});
+    }
   }
 
   response.json({ ok: true });
@@ -571,7 +585,7 @@ export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
     return { ok: true, synced: 0, message: "No hay pagos stuck." };
   }
 
-  const results: Array<{ paymentId: string; mpStatus: string; approved: boolean }> = [];
+  const results: Array<{ paymentId: string; mpStatus: string; approved: boolean; error?: string }> = [];
 
   for (const doc of stuckPayments.docs) {
     const paymentData = doc.data();
@@ -634,17 +648,19 @@ export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
             { receiptStatus: String(receiptResult.status ?? "sent"), receiptError: "", updatedAt: nowIso() },
             { merge: true }
           );
-        } catch {
+        } catch (error) {
+          console.error(`Receipt generation failed for payment ${doc.id}:`, error);
           await doc.ref.set(
-            { receiptStatus: "send_error", receiptError: "Error generating receipt", updatedAt: nowIso() },
+            { receiptStatus: "send_error", receiptError: error instanceof Error ? error.message : "Error generating receipt", updatedAt: nowIso() },
             { merge: true }
           );
         }
       }
 
       results.push({ paymentId: doc.id, mpStatus: mpPayment.status ?? "unknown", approved: isApproved });
-    } catch {
-      // Skip this payment on error, continue with others
+    } catch (error) {
+      console.error(`Payment sync failed for ${doc.id}:`, error);
+      results.push({ paymentId: doc.id, mpStatus: "sync_error", approved: false, error: error instanceof Error ? error.message : "unknown" });
     }
   }
 
@@ -656,15 +672,19 @@ async function resolveTransferAccounts(property: Record<string, unknown>) {
   const bankAccountsDoc = await db.collection("settings").doc("bankAccounts").get();
   const bankAccounts = bankAccountsDoc.data() ?? {};
 
+  if (!bankAccounts.block_1 || !bankAccounts.block_2) {
+    console.error("Missing bank account configuration in settings/bankAccounts Firestore document.");
+  }
+
   const block1 = buildTransferAccountProfile("block_1", bankAccounts.block_1, {
-    holderName: "Enzo",
-    alias: "ENZO.STEFANOFF",
-    cbu: "3110001211000017138077"
+    holderName: "",
+    alias: "",
+    cbu: ""
   });
   const block2 = buildTransferAccountProfile("block_2", bankAccounts.block_2, {
-    holderName: "Ivo",
-    alias: "IVO.STEFANOFF2",
-    cbu: "3110001211001029834072"
+    holderName: "",
+    alias: "",
+    cbu: ""
   });
 
   return {

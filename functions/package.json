@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "powershell -Command \"if (Test-Path lib) { Remove-Item -Recurse -Force lib }\"",
-    "lint": "tsc -p tsconfig.json --noEmit"
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "seed:superadmin": "node scripts/set-superadmin.mjs"
   },
   "dependencies": {
     "@types/pdfkit": "^0.17.6",

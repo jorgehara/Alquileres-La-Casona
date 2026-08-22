@@ -106,3 +106,9 @@ Puertos esperados: Hosting `http://127.0.0.1:5000`, Emulator UI `http://127.0.0.
 Al abrir `http://127.0.0.1:5000`, Auth, Firestore, Storage y Functions usan emuladores. Si el runtime detecta proyecto productivo, puertos faltantes o fallback a `cloudfunctions.net` en modo local, bloquea el inicio antes de autenticar o tocar datos.
 
 Runbook completo: `docs/local-tenant-emulator-flow.md`.
+
+Para cargar el usuario local de prueba:
+
+```bash
+npm --prefix functions run seed:superadmin
+```

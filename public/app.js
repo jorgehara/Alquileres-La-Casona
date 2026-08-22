@@ -2365,11 +2365,20 @@ async function loadUserProfile(userId) {
   }
 
   if (state.authUser && sessionClaimsNeedRefresh(state.profile, state.authClaims)) {
-    await state.authUser.getIdToken(true);
-    const refreshedTokenResult = await getIdTokenResult(state.authUser, true);
-    state.authClaims = extractAuthorityClaims(refreshedTokenResult?.claims);
-
-    if (sessionClaimsNeedRefresh(state.profile, state.authClaims)) {
+    let claimsRefreshed = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await state.authUser.getIdToken(true);
+      const refreshedTokenResult = await getIdTokenResult(state.authUser, true);
+      state.authClaims = extractAuthorityClaims(refreshedTokenResult?.claims);
+      if (!sessionClaimsNeedRefresh(state.profile, state.authClaims)) {
+        claimsRefreshed = true;
+        break;
+      }
+      if (attempt < 2) {
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+    if (!claimsRefreshed) {
       state.profile = null;
       state.role = null;
       renderAccessDenied({

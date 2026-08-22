@@ -17,6 +17,7 @@ import {
   emailFrom
 } from "../config.js";
 import { nowIso, randomToken, rentalPeriod } from "../lib/utils.js";
+import { DEPARTMENT_COMMON_EXPENSES } from "../lib/constants.js";
 
 type MessageChannel = "auto" | "whatsapp" | "sms" | "email";
 type DeliveryChannel = "whatsapp" | "sms" | "email";
@@ -46,7 +47,6 @@ type ProfileCreatedContext = {
   transferHolder: string;
 };
 
-const DEPARTMENT_COMMON_EXPENSES = 10000;
 const BUENOS_AIRES_TIME_ZONE = "America/Argentina/Buenos_Aires";
 
 export const sendGeneralMessage = onCall(async (request) => {
