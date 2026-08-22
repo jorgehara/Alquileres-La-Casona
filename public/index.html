@@ -24,7 +24,8 @@
     <link rel="stylesheet" href="./styles.css?v=20260822-1" />
   </head>
   <body class="session-pending">
-    <section id="auth-screen" class="auth-screen">
+    <a href="#auth-form" class="skip-link">Saltar al contenido principal</a>
+    <section id="auth-screen" class="auth-screen" aria-label="Autenticación">
       <div class="auth-brand-pattern" aria-hidden="true">
         <span class="pattern-item strong item-1">La Casona</span>
         <span class="pattern-item item-2">La Casona</span>
@@ -51,6 +52,7 @@
 
       <div id="loading-session-panel" class="auth-panel centered">
         <div class="auth-card">
+          <h1 class="visually-hidden">Alquileres La Casona</h1>
           <p class="eyebrow">Acceso seguro</p>
           <h2>Verificando sesión</h2>
           <p class="auth-copy">
@@ -141,7 +143,7 @@
           <h2 id="access-denied-title">No pudimos habilitar tu acceso</h2>
           <p id="access-denied-copy" class="auth-copy">Revisa tu sesión o comunícate con administración.</p>
           <div id="access-denied-actions" class="auth-actions hidden">
-            <button id="bootstrap-button" class="primary-action hidden" type="button"></button>
+            <button id="bootstrap-button" class="primary-action hidden" type="button" aria-label="Configurar acceso inicial"></button>
           </div>
           <p id="access-denied-message" class="app-message" aria-live="polite"></p>
         </div>
