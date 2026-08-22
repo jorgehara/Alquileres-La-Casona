@@ -1,18 +1,24 @@
 import { createRequire } from "node:module";
 
 const requireFromFunctions = createRequire(new URL("../functions/package.json", import.meta.url));
-const admin = requireFromFunctions("firebase-admin");
+const { initializeApp } = requireFromFunctions("firebase-admin");
+const { getAuth } = requireFromFunctions("firebase-admin/auth");
+const { getFirestore } = requireFromFunctions("firebase-admin/firestore");
 
 const projectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "demo-alquileres-la-casona";
 const functionHost = process.env.FUNCTIONS_EMULATOR_HOST || "127.0.0.1:5001";
 const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
 
+process.env.FUNCTIONS_EMULATOR_HOST ||= functionHost;
+process.env.FIREBASE_AUTH_EMULATOR_HOST ||= authHost;
+process.env.FIRESTORE_EMULATOR_HOST ||= firestoreHost;
+
 assertLocalEmulatorsOnly();
 
-admin.initializeApp({ projectId, storageBucket: `${projectId}.appspot.com` });
-const auth = admin.auth();
-const db = admin.firestore();
+initializeApp({ projectId, storageBucket: `${projectId}.appspot.com` });
+const auth = getAuth();
+const db = getFirestore();
 const checks = [];
 
 const users = {

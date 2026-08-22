@@ -1,7 +1,9 @@
 import { createRequire } from "node:module";
 
 const requireFromFunctions = createRequire(new URL("../functions/package.json", import.meta.url));
-const admin = requireFromFunctions("firebase-admin");
+const { initializeApp } = requireFromFunctions("firebase-admin");
+const { getAuth } = requireFromFunctions("firebase-admin/auth");
+const { getFirestore } = requireFromFunctions("firebase-admin/firestore");
 
 const projectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "demo-alquileres-la-casona";
 const functionHost = process.env.FUNCTIONS_EMULATOR_HOST || "127.0.0.1:5001";
@@ -11,9 +13,9 @@ const storageBucket = `${projectId}.appspot.com`;
 
 assertLocalEmulatorsOnly();
 
-admin.initializeApp({ projectId, storageBucket: `${projectId}.appspot.com` });
-const auth = admin.auth();
-const db = admin.firestore();
+initializeApp({ projectId, storageBucket: `${projectId}.appspot.com` });
+const auth = getAuth();
+const db = getFirestore();
 
 const users = {
   superadmin: { uid: "auth-authority-superadmin", email: "auth-superadmin@example.test", password: "Local123!" },
@@ -62,6 +64,8 @@ function assertLocalEmulatorsOnly() {
 }
 
 async function seedMatrix() {
+  await resetCollections();
+
   await Promise.all(Object.values(users).map(async (user) => {
     await auth.deleteUser(user.uid).catch(() => null);
     await auth.createUser({ uid: user.uid, email: user.email, password: user.password, emailVerified: true });
@@ -99,6 +103,27 @@ async function seedMatrix() {
 
   await db.doc(`users/${users.staleTenant.uid}`).set({ role: "tenant", tenantId: "tenant-t2", status: "active", email: users.staleTenant.email });
   await auth.setCustomUserClaims(users.staleTenant.uid, { role: "tenant", tenantId: "tenant-t1" });
+}
+
+async function resetCollections() {
+  const collections = [
+    "properties",
+    "tenants",
+    "charges",
+    "payments",
+    "paymentReceipts",
+    "rentReceipts",
+    "messages",
+    "rentAdjustments",
+    "rentAdjustmentPolicies",
+    "tenantInvitations",
+    "auditLogs",
+    "users"
+  ];
+
+  for (const collectionName of collections) {
+    await db.recursiveDelete(db.collection(collectionName)).catch(() => null);
+  }
 }
 
 async function setAuthority(uid, profile) {
