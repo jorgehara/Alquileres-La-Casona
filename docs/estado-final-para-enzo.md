@@ -61,30 +61,7 @@ También se eliminó una dependencia circular (`"alquileres-la-casona": "file:..
 
 ---
 
-## 6. Documentación creada
-
-### Para migración futura
-**`docs/architecture-for-migration.md`** — Referencia técnica completa (13 secciones, 500+ líneas):
-- Schema Firestore (12 colecciones)
-- Auth y autorización (custom claims, roles, owner scope)
-- 48 Cloud Functions (12 módulos)
-- Flujos de pago (transferencia + Mercado Pago)
-- Sistema de notificaciones (WhatsApp, email, SMS)
-- Storage rules
-- Variables de entorno
-- Deployment
-- Testing
-- **Checklist de migración** (Firebase → Astro/React/Node/MongoDB)
-
-### GitHub (privado)
-**https://github.com/jorgehara/alquileres-la-casona-arch**
-- `architecture-for-migration.md` — doc completo
-- `SKILL.md` — patrones reutilizables para proyectos similares
-- `README.md` — índice y guía de uso
-
----
-
-## 7. Estado actual del proyecto
+## 6. Estado actual del proyecto
 
 | Aspecto | Estado |
 |---------|--------|
@@ -99,4 +76,4 @@ También se eliminó una dependencia circular (`"alquileres-la-casona": "file:..
 
 ## Conclusión
 
-El proyecto quedó **estabilizado, actualizado y documentado**. No hay pendientes críticos. La documentación creada permite migrar a cualquier stack futuro (Astro/React/Node/MongoDB) con la arquitectura completa mapeada.
+El proyecto quedó **estabilizado, actualizado y documentado**. No hay pendientes críticos.
