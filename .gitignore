@@ -19,3 +19,5 @@ functions/.env.*
 .runtimeconfig.json
 functions/.runtimeconfig.json
 CREDENCIALES.md
+backups/
+docs/architecture-for-migration.md
