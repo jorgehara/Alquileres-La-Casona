@@ -36,13 +36,6 @@
       "collectionGroup": "utilityBills",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "billingGroup", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "utilityBills",
-      "queryScope": "COLLECTION",
-      "fields": [
         { "fieldPath": "propertyId", "order": "ASCENDING" },
         { "fieldPath": "period", "order": "DESCENDING" }
       ]
