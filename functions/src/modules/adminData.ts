@@ -1,11 +1,18 @@
 import { onCall } from "firebase-functions/https";
 import { db } from "../firebase.js";
-import { normalizeOwnerScope, requireRole, transferBlockToOwnerScope } from "../lib/auth.js";
+import {
+  normalizeOwnerScope,
+  requireRole,
+  transferBlockToOwnerScope,
+} from "../lib/auth.js";
+import { deriveChargeState } from "../lib/chargeState.js";
 
 type ScopedOwner = "all" | "enzo" | "ivo";
 
 function normalizeTransferBlock(value: unknown): "block_1" | "block_2" | null {
-  const normalized = String(value ?? "").trim().toLowerCase();
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
   if (normalized === "block_1" || normalized === "block_2") {
     return normalized;
   }
@@ -13,7 +20,9 @@ function normalizeTransferBlock(value: unknown): "block_1" | "block_2" | null {
   return null;
 }
 
-function inferTransferBlockFromNumeric(value: unknown): "block_1" | "block_2" | null {
+function inferTransferBlockFromNumeric(
+  value: unknown,
+): "block_1" | "block_2" | null {
   const match = String(value ?? "").match(/\d+/);
   const number = match ? Number(match[0]) : Number.NaN;
   if (!Number.isFinite(number)) {
@@ -28,29 +37,33 @@ function inferTransferBlockFromProperty(property: Record<string, unknown>) {
   if (explicitTransferBlock) {
     return {
       transferBlock: explicitTransferBlock,
-      reason: "transferBlock"
+      reason: "transferBlock",
     } as const;
   }
 
-  const billingBlock = normalizeTransferBlock(property.billingBlock ?? property.blockId);
+  const billingBlock = normalizeTransferBlock(
+    property.billingBlock ?? property.blockId,
+  );
   if (billingBlock) {
     return {
       transferBlock: billingBlock,
-      reason: "billingBlock"
+      reason: "billingBlock",
     } as const;
   }
 
-  const ownerId = String(property.ownerId ?? "").trim().toLowerCase();
+  const ownerId = String(property.ownerId ?? "")
+    .trim()
+    .toLowerCase();
   if (ownerId === "owner_block_1") {
     return {
       transferBlock: "block_1",
-      reason: "ownerId"
+      reason: "ownerId",
     } as const;
   }
   if (ownerId === "owner_block_2") {
     return {
       transferBlock: "block_2",
-      reason: "ownerId"
+      reason: "ownerId",
     } as const;
   }
 
@@ -58,7 +71,7 @@ function inferTransferBlockFromProperty(property: Record<string, unknown>) {
   if (ownerScope === "enzo" || ownerScope === "ivo") {
     return {
       transferBlock: ownerScope === "ivo" ? "block_2" : "block_1",
-      reason: "ownerScope"
+      reason: "ownerScope",
     } as const;
   }
 
@@ -66,7 +79,7 @@ function inferTransferBlockFromProperty(property: Record<string, unknown>) {
   if (unitCodeBlock) {
     return {
       transferBlock: unitCodeBlock,
-      reason: "unitCode"
+      reason: "unitCode",
     } as const;
   }
 
@@ -74,24 +87,29 @@ function inferTransferBlockFromProperty(property: Record<string, unknown>) {
   if (sortOrderBlock) {
     return {
       transferBlock: sortOrderBlock,
-      reason: "sortOrder"
+      reason: "sortOrder",
     } as const;
   }
 
-  const fallbackFields = [property.name, property.displayName, property.label, property.title];
+  const fallbackFields = [
+    property.name,
+    property.displayName,
+    property.label,
+    property.title,
+  ];
   for (const value of fallbackFields) {
     const inferred = inferTransferBlockFromNumeric(value);
     if (inferred) {
       return {
         transferBlock: inferred,
-        reason: "name"
+        reason: "name",
       } as const;
     }
   }
 
   return {
     transferBlock: "block_1",
-    reason: "default"
+    reason: "default",
   } as const;
 }
 
@@ -101,7 +119,9 @@ function resolvePropertyScope(property: Record<string, unknown>): ScopedOwner {
     return ownerScope;
   }
 
-  const ownerId = String(property.ownerId ?? "").trim().toLowerCase();
+  const ownerId = String(property.ownerId ?? "")
+    .trim()
+    .toLowerCase();
   if (ownerId === "enzo" || ownerId === "owner_block_1") {
     return "enzo";
   }
@@ -109,19 +129,28 @@ function resolvePropertyScope(property: Record<string, unknown>): ScopedOwner {
     return "ivo";
   }
 
-  return transferBlockToOwnerScope(inferTransferBlockFromProperty(property).transferBlock);
+  return transferBlockToOwnerScope(
+    inferTransferBlockFromProperty(property).transferBlock,
+  );
 }
 
-function mapSnapshotDoc<T extends Record<string, unknown>>(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot) {
+function mapSnapshotDoc<T extends Record<string, unknown>>(
+  doc:
+    | FirebaseFirestore.QueryDocumentSnapshot
+    | FirebaseFirestore.DocumentSnapshot,
+) {
   return {
     id: doc.id,
-    ...(doc.data() ?? {})
+    ...(doc.data() ?? {}),
   } as T & { id: string };
 }
 
 export const getScopedAdminDataset = onCall(async (request) => {
   const claims = await requireRole(request, ["admin", "superadmin"]);
-  const currentScope = claims.role === "superadmin" ? "all" : normalizeOwnerScope(claims.ownerScope);
+  const currentScope =
+    claims.role === "superadmin"
+      ? "all"
+      : normalizeOwnerScope(claims.ownerScope);
 
   const [
     propertiesSnapshot,
@@ -132,7 +161,8 @@ export const getScopedAdminDataset = onCall(async (request) => {
     rentReceiptsSnapshot,
     messagesSnapshot,
     rentAdjustmentsSnapshot,
-    rentAdjustmentPoliciesSnapshot
+    rentAdjustmentPoliciesSnapshot,
+    generalSettingsSnapshot,
   ] = await Promise.all([
     db.collection("properties").get(),
     db.collection("tenants").get(),
@@ -141,28 +171,49 @@ export const getScopedAdminDataset = onCall(async (request) => {
     db.collection("paymentReceipts").get(),
     db.collection("rentReceipts").get(),
     db.collection("messages").get(),
-    db.collection("rentAdjustments").orderBy("createdAt", "desc").limit(40).get(),
-    db.collection("rentAdjustmentPolicies").get()
+    db
+      .collection("rentAdjustments")
+      .orderBy("createdAt", "desc")
+      .limit(40)
+      .get(),
+    db.collection("rentAdjustmentPolicies").get(),
+    db.collection("settings").doc("general").get(),
   ]);
 
-  const allProperties = propertiesSnapshot.docs.map((doc) => mapSnapshotDoc<Record<string, unknown>>(doc));
+  const allProperties = propertiesSnapshot.docs.map((doc) =>
+    mapSnapshotDoc<Record<string, unknown>>(doc),
+  );
   const propertyDiagnostics = allProperties.map((property) => {
     const inferred = inferTransferBlockFromProperty(property);
     return {
       id: property.id,
-      name: String(property.name ?? property.displayName ?? property.label ?? property.unitCode ?? property.id),
+      name: String(
+        property.name ??
+          property.displayName ??
+          property.label ??
+          property.unitCode ??
+          property.id,
+      ),
       unitType: String(property.unitType ?? ""),
       unitCode: String(property.unitCode ?? ""),
       ownerId: String(property.ownerId ?? ""),
       ownerScope: String(property.ownerScope ?? ""),
-      transferBlock: String(property.transferBlock ?? property.billingBlock ?? property.blockId ?? ""),
+      transferBlock: String(
+        property.transferBlock ??
+          property.billingBlock ??
+          property.blockId ??
+          "",
+      ),
       sortOrder: String(property.sortOrder ?? ""),
       resolvedScope: resolvePropertyScope(property),
-      inferenceReason: inferred.reason
+      inferenceReason: inferred.reason,
     };
   });
 
-  const properties = allProperties.filter((property) => currentScope === "all" || resolvePropertyScope(property) === currentScope);
+  const properties = allProperties.filter(
+    (property) =>
+      currentScope === "all" || resolvePropertyScope(property) === currentScope,
+  );
 
   const propertyIds = new Set(properties.map((property) => property.id));
 
@@ -171,27 +222,55 @@ export const getScopedAdminDataset = onCall(async (request) => {
     .filter((tenant) => propertyIds.has(String(tenant.propertyId ?? "")));
 
   const tenantIds = new Set(tenants.map((tenant) => tenant.id));
+  const tenantsById = new Map(tenants.map((tenant) => [tenant.id, tenant]));
+  const morosoAfterDays = Math.max(
+    1,
+    Number(generalSettingsSnapshot.get("morosoAfterDays") ?? 15),
+  );
 
   const charges = chargesSnapshot.docs
     .map((doc) => mapSnapshotDoc<Record<string, unknown>>(doc))
-    .filter((charge) => propertyIds.has(String(charge.propertyId ?? "")));
+    .filter((charge) => propertyIds.has(String(charge.propertyId ?? "")))
+    .map((charge) => ({
+      ...charge,
+      derivedChargeState: deriveChargeState({
+        status: charge.status,
+        dueDate: charge.dueDate,
+        overdueDays: charge.overdueDays,
+        morosoAfterDays,
+        contractStartDate: tenantsById.get(String(charge.tenantId ?? ""))
+          ?.contractStartDate,
+        period: charge.period,
+      }),
+    }));
 
   const chargeIds = new Set(charges.map((charge) => charge.id));
 
   const payments = paymentsSnapshot.docs
     .map((doc) => mapSnapshotDoc<Record<string, unknown>>(doc))
-    .filter((payment) => chargeIds.has(String(payment.chargeId ?? "")) || tenantIds.has(String(payment.tenantId ?? "")));
+    .filter(
+      (payment) =>
+        chargeIds.has(String(payment.chargeId ?? "")) ||
+        tenantIds.has(String(payment.tenantId ?? "")),
+    );
 
   const paymentIds = new Set(payments.map((payment) => payment.id));
 
   const paymentReceipts = paymentReceiptsSnapshot.docs
     .map((doc) => mapSnapshotDoc<Record<string, unknown>>(doc))
-    .filter((receipt) => paymentIds.has(String(receipt.paymentId ?? "")) || tenantIds.has(String(receipt.tenantId ?? "")));
+    .filter(
+      (receipt) =>
+        paymentIds.has(String(receipt.paymentId ?? "")) ||
+        tenantIds.has(String(receipt.tenantId ?? "")),
+    );
 
   const rentReceipts = rentReceiptsSnapshot.docs
     .map((doc) => mapSnapshotDoc<Record<string, unknown>>(doc))
     .filter((receipt) => {
-      if (paymentIds.has(String(receipt.paymentId ?? "")) || tenantIds.has(String(receipt.tenantId ?? ""))) {
+      if (
+        paymentIds.has(String(receipt.paymentId ?? "")) ||
+        tenantIds.has(String(receipt.tenantId ?? ""))
+      ) {
         return true;
       }
 
@@ -200,9 +279,9 @@ export const getScopedAdminDataset = onCall(async (request) => {
       }
 
       const ownerScope = normalizeOwnerScope(
-        receipt.ownerScope
-          ?? receipt.ownerId
-          ?? transferBlockToOwnerScope(receipt.transferBlock)
+        receipt.ownerScope ??
+          receipt.ownerId ??
+          transferBlockToOwnerScope(receipt.transferBlock),
       );
       return ownerScope === currentScope;
     });
@@ -244,7 +323,8 @@ export const getScopedAdminDataset = onCall(async (request) => {
         summary.all += 1;
       }
 
-      summary.byReason[property.inferenceReason] = (summary.byReason[property.inferenceReason] ?? 0) + 1;
+      summary.byReason[property.inferenceReason] =
+        (summary.byReason[property.inferenceReason] ?? 0) + 1;
       return summary;
     },
     {
@@ -252,8 +332,8 @@ export const getScopedAdminDataset = onCall(async (request) => {
       enzo: 0,
       ivo: 0,
       all: 0,
-      byReason: {} as Record<string, number>
-    }
+      byReason: {} as Record<string, number>,
+    },
   );
 
   return {
@@ -261,7 +341,7 @@ export const getScopedAdminDataset = onCall(async (request) => {
     scope: currentScope,
     diagnostics: {
       propertySummary: diagnosticSummary,
-      propertySamples: propertyDiagnostics.slice(0, 8)
+      propertySamples: propertyDiagnostics.slice(0, 8),
     },
     properties,
     tenants,
@@ -271,6 +351,6 @@ export const getScopedAdminDataset = onCall(async (request) => {
     rentReceipts,
     messages,
     rentAdjustments,
-    rentAdjustmentPolicies
+    rentAdjustmentPolicies,
   };
 });

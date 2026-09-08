@@ -5,9 +5,13 @@ import {
   backendBaseUrl,
   mercadoPagoAccessToken,
   mercadoPagoWebhookSecret,
-  webAppUrl
+  webAppUrl,
 } from "../config.js";
-import { assertOwnerScopeAccess, requireRole, requireTenantOwner } from "../lib/auth.js";
+import {
+  assertOwnerScopeAccess,
+  requireRole,
+  requireTenantOwner,
+} from "../lib/auth.js";
 import { nowIso } from "../lib/utils.js";
 import { analyzeStoredReceipt } from "./documents.js";
 import { generateAndSendPaymentReceiptInternal } from "./receipts.js";
@@ -21,10 +25,15 @@ export const submitTransferPayment = onCall(async (request) => {
     receiptIds?: string[];
   };
 
-  if (!data.tenantId || !data.chargeId || !data.amountReported || !data.receiptIds?.length) {
+  if (
+    !data.tenantId ||
+    !data.chargeId ||
+    !data.amountReported ||
+    !data.receiptIds?.length
+  ) {
     throw new HttpsError(
       "invalid-argument",
-      "tenantId, chargeId, amountReported y receiptIds son obligatorios."
+      "tenantId, chargeId, amountReported y receiptIds son obligatorios.",
     );
   }
 
@@ -35,7 +44,7 @@ export const submitTransferPayment = onCall(async (request) => {
     chargeId: data.chargeId,
     amountReported: Number(data.amountReported),
     receiptIds: data.receiptIds,
-    createdBy: request.auth?.uid ?? "system"
+    createdBy: request.auth?.uid ?? "system",
   });
 });
 
@@ -51,7 +60,7 @@ export const approveTransferPayment = onCall(async (request) => {
   if (!data.paymentId || !data.chargeId || !data.amountConfirmed) {
     throw new HttpsError(
       "invalid-argument",
-      "paymentId, chargeId y amountConfirmed son obligatorios."
+      "paymentId, chargeId y amountConfirmed son obligatorios.",
     );
   }
 
@@ -63,7 +72,10 @@ export const approveTransferPayment = onCall(async (request) => {
   const chargeData = chargeDoc.data() ?? {};
   const propertyId = String(chargeData.propertyId ?? "").trim();
   if (!propertyId) {
-    throw new HttpsError("failed-precondition", "El cobro no tiene una unidad asociada.");
+    throw new HttpsError(
+      "failed-precondition",
+      "El cobro no tiene una unidad asociada.",
+    );
   }
 
   const paymentDoc = await db.collection("payments").doc(data.paymentId).get();
@@ -71,50 +83,62 @@ export const approveTransferPayment = onCall(async (request) => {
 
   await assertOwnerScopeAccess(request, propertyId);
 
-  await db.collection("payments").doc(data.paymentId).set(
-    {
-      amountConfirmed: Number(data.amountConfirmed),
-      status: "approved",
-      approvedAt: nowIso(),
-      approvedBy: request.auth?.uid ?? "system"
-    },
-    { merge: true }
-  );
+  await db
+    .collection("payments")
+    .doc(data.paymentId)
+    .set(
+      {
+        amountConfirmed: Number(data.amountConfirmed),
+        status: "approved",
+        approvedAt: nowIso(),
+        approvedBy: request.auth?.uid ?? "system",
+      },
+      { merge: true },
+    );
 
-  await db.collection("charges").doc(data.chargeId).set(
-    {
-      status: "paid",
-      paidAt: String(paymentData.reportedPaidAt ?? "").trim() || nowIso(),
-      overdueDays: 0,
-      lateFeeAmount: 0,
-      total: Number(chargeData.subtotal ?? chargeData.total ?? 0),
-      updatedAt: nowIso()
-    },
-    { merge: true }
-  );
+  await db
+    .collection("charges")
+    .doc(data.chargeId)
+    .set(
+      {
+        status: "paid",
+        paidAt: String(paymentData.reportedPaidAt ?? "").trim() || nowIso(),
+        overdueDays: 0,
+        lateFeeAmount: 0,
+        total: Number(chargeData.subtotal ?? chargeData.total ?? 0),
+        updatedAt: nowIso(),
+      },
+      { merge: true },
+    );
 
   let receiptResult: Record<string, unknown> | null = null;
 
   try {
-    receiptResult = await generateAndSendPaymentReceiptInternal(data.paymentId, {
-      sendEmail: true,
-      actorUid: request.auth?.uid ?? "system",
-      actorEmail: String(request.auth?.token.email ?? ""),
-      actorName: String(request.auth?.token.email ?? "Administrador")
-    });
+    receiptResult = await generateAndSendPaymentReceiptInternal(
+      data.paymentId,
+      {
+        sendEmail: true,
+        actorUid: request.auth?.uid ?? "system",
+        actorEmail: String(request.auth?.token.email ?? ""),
+        actorName: String(request.auth?.token.email ?? "Administrador"),
+      },
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo generar el comprobante.";
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo generar el comprobante.";
     await db.collection("payments").doc(data.paymentId).set(
       {
         receiptStatus: "send_error",
         receiptError: message,
-        updatedAt: nowIso()
+        updatedAt: nowIso(),
       },
-      { merge: true }
+      { merge: true },
     );
     receiptResult = {
       ok: false,
-      error: message
+      error: message,
     };
   }
 
@@ -128,7 +152,10 @@ export const createMercadoPagoCheckout = onCall(async (request) => {
   };
 
   if (!data.tenantId || !data.chargeId) {
-    throw new HttpsError("invalid-argument", "tenantId y chargeId son obligatorios.");
+    throw new HttpsError(
+      "invalid-argument",
+      "tenantId y chargeId son obligatorios.",
+    );
   }
 
   await requireTenantOwner(request, data.tenantId);
@@ -140,16 +167,25 @@ export const createMercadoPagoCheckout = onCall(async (request) => {
 
   const chargeData = chargeDoc.data() ?? {};
   if (String(chargeData.tenantId ?? "") !== data.tenantId) {
-    throw new HttpsError("permission-denied", "El cobro no pertenece al inquilino indicado.");
+    throw new HttpsError(
+      "permission-denied",
+      "El cobro no pertenece al inquilino indicado.",
+    );
   }
 
   if (["paid", "cancelled"].includes(String(chargeData.status ?? ""))) {
-    throw new HttpsError("failed-precondition", "Este cobro ya no admite pagos.");
+    throw new HttpsError(
+      "failed-precondition",
+      "Este cobro ya no admite pagos.",
+    );
   }
 
   const checkoutAmount = Number(chargeData.total ?? 0);
   if (!Number.isFinite(checkoutAmount) || checkoutAmount <= 0) {
-    throw new HttpsError("failed-precondition", "El cobro no tiene un importe válido.");
+    throw new HttpsError(
+      "failed-precondition",
+      "El cobro no tiene un importe válido.",
+    );
   }
 
   const accessToken = mercadoPagoAccessToken.value();
@@ -158,14 +194,14 @@ export const createMercadoPagoCheckout = onCall(async (request) => {
   if (!accessToken) {
     throw new HttpsError(
       "failed-precondition",
-      "Falta configurar MERCADO_PAGO_ACCESS_TOKEN."
+      "Falta configurar MERCADO_PAGO_ACCESS_TOKEN.",
     );
   }
 
   if (!apiBaseUrl) {
     throw new HttpsError(
       "failed-precondition",
-      "Falta configurar BACKEND_BASE_URL."
+      "Falta configurar BACKEND_BASE_URL.",
     );
   }
 
@@ -182,16 +218,25 @@ export const createMercadoPagoCheckout = onCall(async (request) => {
     status?: unknown;
     createdAt?: unknown;
     updatedAt?: unknown;
-  }> = existingPaymentsSnapshot.docs
-    .map((docSnap) => ({
-      ref: docSnap.ref,
-      id: docSnap.id,
-      ...(docSnap.data() as Record<string, unknown>)
-    }));
+    mercadoPagoSyncAttempts?: unknown;
+  }> = existingPaymentsSnapshot.docs.map((docSnap) => ({
+    ref: docSnap.ref,
+    id: docSnap.id,
+    ...(docSnap.data() as Record<string, unknown>),
+  }));
 
   const reusablePaymentDoc = reusablePaymentCandidates
-    .sort((left, right) => Date.parse(String(right.updatedAt ?? right.createdAt ?? "")) - Date.parse(String(left.updatedAt ?? left.createdAt ?? "")))
-    .find((payment) => !["approved", "provider_confirmed", "rejected"].includes(String(payment.status ?? "")));
+    .sort(
+      (left, right) =>
+        Date.parse(String(right.updatedAt ?? right.createdAt ?? "")) -
+        Date.parse(String(left.updatedAt ?? left.createdAt ?? "")),
+    )
+    .find(
+      (payment) =>
+        !["approved", "provider_confirmed", "rejected"].includes(
+          String(payment.status ?? ""),
+        ),
+    );
 
   const paymentRef = reusablePaymentDoc?.ref ?? db.collection("payments").doc();
   const paymentId = reusablePaymentDoc?.id ?? paymentRef.id;
@@ -204,8 +249,11 @@ export const createMercadoPagoCheckout = onCall(async (request) => {
       amountReported: checkoutAmount,
       amountConfirmed: 0,
       status: "reported",
+      mercadoPagoSyncStatus: "pending_provider_confirmation",
+      mercadoPagoSyncAttempts: 0,
+      mercadoPagoLastSyncError: "",
       createdAt: nowIso(),
-      createdBy: request.auth?.uid ?? "system"
+      createdBy: request.auth?.uid ?? "system",
     });
   }
 
@@ -216,38 +264,41 @@ export const createMercadoPagoCheckout = onCall(async (request) => {
         title: `Alquiler ${chargeData.period ?? ""}`.trim(),
         quantity: 1,
         currency_id: "ARS",
-        unit_price: checkoutAmount
-      }
+        unit_price: checkoutAmount,
+      },
     ],
     external_reference: paymentId,
     notification_url: `${apiBaseUrl}/handleMercadoPagoWebhook`,
     back_urls: {
       success: `${webAppUrl.value()}/?mp_status=success`,
       failure: `${webAppUrl.value()}/?mp_status=failure`,
-      pending: `${webAppUrl.value()}/?mp_status=pending`
+      pending: `${webAppUrl.value()}/?mp_status=pending`,
     },
     auto_return: "approved",
     metadata: {
       paymentId,
       chargeId: data.chargeId,
-      tenantId: data.tenantId
-    }
+      tenantId: data.tenantId,
+    },
   };
 
-  const preferenceResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
+  const preferenceResponse = await fetch(
+    "https://api.mercadopago.com/checkout/preferences",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(preferencePayload),
     },
-    body: JSON.stringify(preferencePayload)
-  });
+  );
 
   if (!preferenceResponse.ok) {
     const errorBody = await preferenceResponse.text();
     throw new HttpsError(
       "internal",
-      `Mercado Pago no pudo crear la preferencia: ${errorBody}`
+      `Mercado Pago no pudo crear la preferencia: ${errorBody}`,
     );
   }
 
@@ -265,9 +316,16 @@ export const createMercadoPagoCheckout = onCall(async (request) => {
       amountReported: checkoutAmount,
       amountConfirmed: 0,
       status: "reported",
-      updatedAt: nowIso()
+      mercadoPagoSyncStatus: "preference_created",
+      mercadoPagoSyncAttempts: Number(
+        reusablePaymentDoc?.mercadoPagoSyncAttempts ?? 0,
+      ),
+      mercadoPagoLastSyncAt: nowIso(),
+      mercadoPagoLastSyncSource: "checkout_preference",
+      mercadoPagoLastSyncError: "",
+      updatedAt: nowIso(),
     },
-    { merge: true }
+    { merge: true },
   );
 
   return {
@@ -275,7 +333,7 @@ export const createMercadoPagoCheckout = onCall(async (request) => {
     paymentId,
     checkoutMode: "checkout_pro",
     checkoutUrl: preference.init_point ?? preference.sandbox_init_point ?? "",
-    providerConfigured: true
+    providerConfigured: true,
   };
 });
 
@@ -291,7 +349,9 @@ export const handleMercadoPagoWebhook = onRequest(async (request, response) => {
     return;
   }
 
-  const paymentId = String(request.body?.data?.id ?? request.body?.paymentId ?? "");
+  const paymentId = String(
+    request.body?.data?.id ?? request.body?.paymentId ?? "",
+  );
   if (!paymentId) {
     response.status(400).json({ ok: false, error: "missing_payment_id" });
     return;
@@ -303,14 +363,19 @@ export const handleMercadoPagoWebhook = onRequest(async (request, response) => {
     return;
   }
 
-  const mpPaymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
+  const mpPaymentResponse = await fetch(
+    `https://api.mercadopago.com/v1/payments/${paymentId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
 
   if (!mpPaymentResponse.ok) {
-    response.status(502).json({ ok: false, error: "mercado_pago_lookup_failed" });
+    response
+      .status(502)
+      .json({ ok: false, error: "mercado_pago_lookup_failed" });
     return;
   }
 
@@ -324,87 +389,123 @@ export const handleMercadoPagoWebhook = onRequest(async (request, response) => {
 
   const internalPaymentId = String(mpPayment.external_reference ?? "");
   if (!internalPaymentId) {
-    response.status(400).json({ ok: false, error: "missing_external_reference" });
+    response
+      .status(400)
+      .json({ ok: false, error: "missing_external_reference" });
     return;
   }
 
-  const paymentDoc = await db.collection("payments").doc(internalPaymentId).get();
+  const paymentDoc = await db
+    .collection("payments")
+    .doc(internalPaymentId)
+    .get();
   if (!paymentDoc.exists) {
     response.status(404).json({ ok: false, error: "payment_not_found" });
     return;
   }
 
   const paymentData = paymentDoc.data() ?? {};
+  const webhookReceivedAt = nowIso();
   const expectedAmount = Number(paymentData.amountReported ?? 0);
   const confirmedAmount = Number(mpPayment.transaction_amount ?? 0);
-  const amountMatches = expectedAmount > 0 && Math.abs(confirmedAmount - expectedAmount) < 0.01;
+  const amountMatches =
+    expectedAmount > 0 && Math.abs(confirmedAmount - expectedAmount) < 0.01;
   const isApproved = mpPayment.status === "approved" && amountMatches;
 
   await paymentDoc.ref.set(
     {
       status: isApproved ? "provider_confirmed" : "reported",
       amountConfirmed: isApproved
-        ? Number(mpPayment.transaction_amount ?? paymentData.amountReported ?? 0)
+        ? Number(
+            mpPayment.transaction_amount ?? paymentData.amountReported ?? 0,
+          )
         : 0,
       mercadoPagoPaymentId: String(mpPayment.id),
       mercadoPagoStatus: mpPayment.status ?? "unknown",
       mercadoPagoStatusDetail: mpPayment.status_detail ?? "",
       mercadoPagoAmountMatches: amountMatches,
-      updatedAt: nowIso()
+      mercadoPagoWebhookReceivedAt: webhookReceivedAt,
+      mercadoPagoLastSyncAt: webhookReceivedAt,
+      mercadoPagoLastSyncSource: "webhook",
+      mercadoPagoSyncAttempts:
+        Number(paymentData.mercadoPagoSyncAttempts ?? 0) + 1,
+      mercadoPagoSyncStatus: isApproved
+        ? "approved"
+        : amountMatches
+          ? "awaiting_provider_resolution"
+          : "amount_mismatch",
+      mercadoPagoLastSyncError: "",
+      updatedAt: webhookReceivedAt,
     },
-    { merge: true }
+    { merge: true },
   );
 
   if (isApproved) {
-    await db.collection("charges").doc(String(paymentData.chargeId)).set(
-      {
-        status: "paid",
-        paidAt: nowIso(),
-        overdueDays: 0,
-        lateFeeAmount: 0,
-        total: Number(paymentData.amountReported ?? paymentData.amountConfirmed ?? 0),
-        updatedAt: nowIso()
-      },
-      { merge: true }
-    );
+    await db
+      .collection("charges")
+      .doc(String(paymentData.chargeId))
+      .set(
+        {
+          status: "paid",
+          paidAt: nowIso(),
+          overdueDays: 0,
+          lateFeeAmount: 0,
+          total: Number(
+            paymentData.amountReported ?? paymentData.amountConfirmed ?? 0,
+          ),
+          updatedAt: nowIso(),
+        },
+        { merge: true },
+      );
 
     try {
-      const receiptResult = await generateAndSendPaymentReceiptInternal(internalPaymentId, {
-        sendEmail: true,
-        actorUid: "mercado-pago-webhook",
-        actorEmail: "",
-        actorName: "Mercado Pago"
-      });
+      const receiptResult = await generateAndSendPaymentReceiptInternal(
+        internalPaymentId,
+        {
+          sendEmail: true,
+          actorUid: "mercado-pago-webhook",
+          actorEmail: "",
+          actorName: "Mercado Pago",
+        },
+      );
 
       await paymentDoc.ref.set(
         {
           receiptStatus: String(receiptResult.status ?? "sent"),
           receiptError: "",
-          updatedAt: nowIso()
+          updatedAt: nowIso(),
         },
-        { merge: true }
+        { merge: true },
       );
     } catch (error) {
       await paymentDoc.ref.set(
         {
           receiptStatus: "send_error",
-          receiptError: error instanceof Error ? error.message : "No se pudo generar el comprobante.",
-          updatedAt: nowIso()
+          receiptError:
+            error instanceof Error
+              ? error.message
+              : "No se pudo generar el comprobante.",
+          updatedAt: nowIso(),
         },
-        { merge: true }
+        { merge: true },
       );
     }
 
     // Notify tenant about approved payment (fire-and-forget)
-    const chargeDoc = await db.collection("charges").doc(String(paymentData.chargeId ?? "")).get();
-    const chargeTenantId = String(chargeDoc.data()?.tenantId ?? paymentData.tenantId ?? "");
+    const chargeDoc = await db
+      .collection("charges")
+      .doc(String(paymentData.chargeId ?? ""))
+      .get();
+    const chargeTenantId = String(
+      chargeDoc.data()?.tenantId ?? paymentData.tenantId ?? "",
+    );
     if (chargeTenantId) {
       sendTenantNotification({
         tenantId: chargeTenantId,
         type: "payment_approved",
         body: `Tu pago de $${Number(paymentData.amountReported ?? 0).toLocaleString("es-AR")} fue aprobado. Gracias!`,
         channel: "auto",
-        createdBy: "mercado-pago-webhook"
+        createdBy: "mercado-pago-webhook",
       }).catch(() => {});
     }
   }
@@ -418,17 +519,19 @@ function isValidMercadoPagoSignature(
     query: Record<string, unknown>;
     body?: { data?: { id?: unknown } };
   },
-  secret: string
+  secret: string,
 ) {
   const signature = String(request.header("x-signature") ?? "");
   const requestId = String(request.header("x-request-id") ?? "");
-  const dataId = String(request.query["data.id"] ?? request.body?.data?.id ?? "").toLowerCase();
+  const dataId = String(
+    request.query["data.id"] ?? request.body?.data?.id ?? "",
+  ).toLowerCase();
   const signatureParts = new Map(
     signature
       .split(",")
       .map((part) => part.trim().split("=", 2))
       .filter((part) => part.length === 2)
-      .map(([key, value]) => [key, value])
+      .map(([key, value]) => [key, value]),
   );
   const timestamp = signatureParts.get("ts") ?? "";
   const receivedHash = signatureParts.get("v1") ?? "";
@@ -440,14 +543,18 @@ function isValidMercadoPagoSignature(
   const manifest = [
     dataId ? `id:${dataId};` : "",
     requestId ? `request-id:${requestId};` : "",
-    `ts:${timestamp};`
+    `ts:${timestamp};`,
   ].join("");
-  const expectedHash = createHmac("sha256", secret).update(manifest).digest("hex");
+  const expectedHash = createHmac("sha256", secret)
+    .update(manifest)
+    .digest("hex");
   const expectedBuffer = Buffer.from(expectedHash, "hex");
   const receivedBuffer = Buffer.from(receivedHash, "hex");
 
-  return expectedBuffer.length === receivedBuffer.length
-    && timingSafeEqual(expectedBuffer, receivedBuffer);
+  return (
+    expectedBuffer.length === receivedBuffer.length &&
+    timingSafeEqual(expectedBuffer, receivedBuffer)
+  );
 }
 
 /**
@@ -466,7 +573,10 @@ export const syncMercadoPagoPayment = onCall(async (request) => {
 
   const accessToken = mercadoPagoAccessToken.value();
   if (!accessToken) {
-    throw new HttpsError("failed-precondition", "Falta configurar MERCADO_PAGO_ACCESS_TOKEN.");
+    throw new HttpsError(
+      "failed-precondition",
+      "Falta configurar MERCADO_PAGO_ACCESS_TOKEN.",
+    );
   }
 
   const paymentDoc = await db.collection("payments").doc(paymentId).get();
@@ -478,15 +588,24 @@ export const syncMercadoPagoPayment = onCall(async (request) => {
   const mpPaymentId = String(paymentData.mercadoPagoPaymentId ?? "");
 
   if (!mpPaymentId) {
-    throw new HttpsError("failed-precondition", "Este pago no tiene un ID de MercadoPago asociado.");
+    throw new HttpsError(
+      "failed-precondition",
+      "Este pago no tiene un ID de MercadoPago asociado.",
+    );
   }
 
-  const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
+  const mpResponse = await fetch(
+    `https://api.mercadopago.com/v1/payments/${mpPaymentId}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
 
   if (!mpResponse.ok) {
-    throw new HttpsError("internal", `MercadoPago no respondió: ${mpResponse.status}`);
+    throw new HttpsError(
+      "internal",
+      `MercadoPago no respondió: ${mpResponse.status}`,
+    );
   }
 
   const mpPayment = (await mpResponse.json()) as {
@@ -496,9 +615,11 @@ export const syncMercadoPagoPayment = onCall(async (request) => {
     transaction_amount?: number;
   };
 
+  const syncTimestamp = nowIso();
   const expectedAmount = Number(paymentData.amountReported ?? 0);
   const confirmedAmount = Number(mpPayment.transaction_amount ?? 0);
-  const amountMatches = expectedAmount > 0 && Math.abs(confirmedAmount - expectedAmount) < 0.01;
+  const amountMatches =
+    expectedAmount > 0 && Math.abs(confirmedAmount - expectedAmount) < 0.01;
   const isApproved = mpPayment.status === "approved" && amountMatches;
 
   await paymentDoc.ref.set(
@@ -508,9 +629,19 @@ export const syncMercadoPagoPayment = onCall(async (request) => {
       mercadoPagoStatus: mpPayment.status ?? "unknown",
       mercadoPagoStatusDetail: mpPayment.status_detail ?? "",
       mercadoPagoAmountMatches: amountMatches,
-      updatedAt: nowIso()
+      mercadoPagoLastSyncAt: syncTimestamp,
+      mercadoPagoLastSyncSource: "manual_single_sync",
+      mercadoPagoSyncAttempts:
+        Number(paymentData.mercadoPagoSyncAttempts ?? 0) + 1,
+      mercadoPagoSyncStatus: isApproved
+        ? "approved"
+        : amountMatches
+          ? "awaiting_provider_resolution"
+          : "amount_mismatch",
+      mercadoPagoLastSyncError: "",
+      updatedAt: syncTimestamp,
     },
-    { merge: true }
+    { merge: true },
   );
 
   if (isApproved) {
@@ -521,35 +652,41 @@ export const syncMercadoPagoPayment = onCall(async (request) => {
         overdueDays: 0,
         lateFeeAmount: 0,
         total: confirmedAmount,
-        updatedAt: nowIso()
+        updatedAt: nowIso(),
       },
-      { merge: true }
+      { merge: true },
     );
 
     try {
-      const receiptResult = await generateAndSendPaymentReceiptInternal(paymentId, {
-        sendEmail: true,
-        actorUid: request.auth?.uid ?? "system",
-        actorEmail: request.auth?.token?.email ?? "",
-        actorName: "Sync Manual"
-      });
+      const receiptResult = await generateAndSendPaymentReceiptInternal(
+        paymentId,
+        {
+          sendEmail: true,
+          actorUid: request.auth?.uid ?? "system",
+          actorEmail: request.auth?.token?.email ?? "",
+          actorName: "Sync Manual",
+        },
+      );
 
       await paymentDoc.ref.set(
         {
           receiptStatus: String(receiptResult.status ?? "sent"),
           receiptError: "",
-          updatedAt: nowIso()
+          updatedAt: nowIso(),
         },
-        { merge: true }
+        { merge: true },
       );
     } catch (error) {
       await paymentDoc.ref.set(
         {
           receiptStatus: "send_error",
-          receiptError: error instanceof Error ? error.message : "No se pudo generar el comprobante.",
-          updatedAt: nowIso()
+          receiptError:
+            error instanceof Error
+              ? error.message
+              : "No se pudo generar el comprobante.",
+          updatedAt: nowIso(),
         },
-        { merge: true }
+        { merge: true },
       );
     }
   }
@@ -560,7 +697,7 @@ export const syncMercadoPagoPayment = onCall(async (request) => {
     mpPaymentId,
     mpStatus: mpPayment.status,
     wasApproved: isApproved,
-    amountMatches
+    amountMatches,
   };
 });
 
@@ -572,7 +709,10 @@ export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
 
   const accessToken = mercadoPagoAccessToken.value();
   if (!accessToken) {
-    throw new HttpsError("failed-precondition", "Falta configurar MERCADO_PAGO_ACCESS_TOKEN.");
+    throw new HttpsError(
+      "failed-precondition",
+      "Falta configurar MERCADO_PAGO_ACCESS_TOKEN.",
+    );
   }
 
   const stuckPayments = await db
@@ -585,17 +725,27 @@ export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
     return { ok: true, synced: 0, message: "No hay pagos stuck." };
   }
 
-  const results: Array<{ paymentId: string; mpStatus: string; approved: boolean; error?: string }> = [];
+  const results: Array<{
+    paymentId: string;
+    mpStatus: string;
+    approved: boolean;
+    error?: string;
+  }> = [];
 
   for (const doc of stuckPayments.docs) {
     const paymentData = doc.data();
+    const syncTimestamp = nowIso();
     const mpPaymentId = String(paymentData.mercadoPagoPaymentId ?? "");
+
     if (!mpPaymentId) continue;
 
     try {
-      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const mpResponse = await fetch(
+        `https://api.mercadopago.com/v1/payments/${mpPaymentId}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
 
       if (!mpResponse.ok) continue;
 
@@ -608,7 +758,8 @@ export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
 
       const expectedAmount = Number(paymentData.amountReported ?? 0);
       const confirmedAmount = Number(mpPayment.transaction_amount ?? 0);
-      const amountMatches = expectedAmount > 0 && Math.abs(confirmedAmount - expectedAmount) < 0.01;
+      const amountMatches =
+        expectedAmount > 0 && Math.abs(confirmedAmount - expectedAmount) < 0.01;
       const isApproved = mpPayment.status === "approved" && amountMatches;
 
       await doc.ref.set(
@@ -618,9 +769,19 @@ export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
           mercadoPagoStatus: mpPayment.status ?? "unknown",
           mercadoPagoStatusDetail: mpPayment.status_detail ?? "",
           mercadoPagoAmountMatches: amountMatches,
-          updatedAt: nowIso()
+          mercadoPagoLastSyncAt: syncTimestamp,
+          mercadoPagoLastSyncSource: "manual_batch_sync",
+          mercadoPagoSyncAttempts:
+            Number(paymentData.mercadoPagoSyncAttempts ?? 0) + 1,
+          mercadoPagoSyncStatus: isApproved
+            ? "approved"
+            : amountMatches
+              ? "awaiting_provider_resolution"
+              : "amount_mismatch",
+          mercadoPagoLastSyncError: "",
+          updatedAt: syncTimestamp,
         },
-        { merge: true }
+        { merge: true },
       );
 
       if (isApproved) {
@@ -631,36 +792,75 @@ export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
             overdueDays: 0,
             lateFeeAmount: 0,
             total: confirmedAmount,
-            updatedAt: nowIso()
+            updatedAt: nowIso(),
           },
-          { merge: true }
+          { merge: true },
         );
 
         try {
-          const receiptResult = await generateAndSendPaymentReceiptInternal(doc.id, {
-            sendEmail: true,
-            actorUid: request.auth?.uid ?? "system",
-            actorEmail: request.auth?.token?.email ?? "",
-            actorName: "Batch Sync"
-          });
+          const receiptResult = await generateAndSendPaymentReceiptInternal(
+            doc.id,
+            {
+              sendEmail: true,
+              actorUid: request.auth?.uid ?? "system",
+              actorEmail: request.auth?.token?.email ?? "",
+              actorName: "Batch Sync",
+            },
+          );
 
           await doc.ref.set(
-            { receiptStatus: String(receiptResult.status ?? "sent"), receiptError: "", updatedAt: nowIso() },
-            { merge: true }
+            {
+              receiptStatus: String(receiptResult.status ?? "sent"),
+              receiptError: "",
+              updatedAt: nowIso(),
+            },
+            { merge: true },
           );
         } catch (error) {
-          console.error(`Receipt generation failed for payment ${doc.id}:`, error);
+          console.error(
+            `Receipt generation failed for payment ${doc.id}:`,
+            error,
+          );
           await doc.ref.set(
-            { receiptStatus: "send_error", receiptError: error instanceof Error ? error.message : "Error generating receipt", updatedAt: nowIso() },
-            { merge: true }
+            {
+              receiptStatus: "send_error",
+              receiptError:
+                error instanceof Error
+                  ? error.message
+                  : "Error generating receipt",
+              updatedAt: nowIso(),
+            },
+            { merge: true },
           );
         }
       }
 
-      results.push({ paymentId: doc.id, mpStatus: mpPayment.status ?? "unknown", approved: isApproved });
+      results.push({
+        paymentId: doc.id,
+        mpStatus: mpPayment.status ?? "unknown",
+        approved: isApproved,
+      });
     } catch (error) {
       console.error(`Payment sync failed for ${doc.id}:`, error);
-      results.push({ paymentId: doc.id, mpStatus: "sync_error", approved: false, error: error instanceof Error ? error.message : "unknown" });
+      await doc.ref.set(
+        {
+          mercadoPagoLastSyncAt: syncTimestamp,
+          mercadoPagoLastSyncSource: "manual_batch_sync",
+          mercadoPagoSyncAttempts:
+            Number(paymentData.mercadoPagoSyncAttempts ?? 0) + 1,
+          mercadoPagoSyncStatus: "sync_error",
+          mercadoPagoLastSyncError:
+            error instanceof Error ? error.message : "unknown",
+          updatedAt: syncTimestamp,
+        },
+        { merge: true },
+      );
+      results.push({
+        paymentId: doc.id,
+        mpStatus: "sync_error",
+        approved: false,
+        error: error instanceof Error ? error.message : "unknown",
+      });
     }
   }
 
@@ -668,41 +868,50 @@ export const syncAllStuckMercadoPagoPayments = onCall(async (request) => {
 });
 
 async function resolveTransferAccounts(property: Record<string, unknown>) {
-  const blockCode = String(property.transferBlock ?? inferTransferBlock(property.unitCode) ?? "block_1");
-  const bankAccountsDoc = await db.collection("settings").doc("bankAccounts").get();
+  const blockCode = String(
+    property.transferBlock ??
+      inferTransferBlock(property.unitCode) ??
+      "block_1",
+  );
+  const bankAccountsDoc = await db
+    .collection("settings")
+    .doc("bankAccounts")
+    .get();
   const bankAccounts = bankAccountsDoc.data() ?? {};
 
   if (!bankAccounts.block_1 || !bankAccounts.block_2) {
-    console.error("Missing bank account configuration in settings/bankAccounts Firestore document.");
+    console.error(
+      "Missing bank account configuration in settings/bankAccounts Firestore document.",
+    );
   }
 
   const block1 = buildTransferAccountProfile("block_1", bankAccounts.block_1, {
     holderName: "",
     alias: "",
-    cbu: ""
+    cbu: "",
   });
   const block2 = buildTransferAccountProfile("block_2", bankAccounts.block_2, {
     holderName: "",
     alias: "",
-    cbu: ""
+    cbu: "",
   });
 
   return {
     primary: blockCode === "block_2" ? block2 : block1,
-    expenses: block1
+    expenses: block1,
   };
 }
 
 function buildTransferAccountProfile(
   blockCode: string,
   configured: Record<string, unknown> | undefined,
-  fallback: { holderName: string; alias: string; cbu: string; }
+  fallback: { holderName: string; alias: string; cbu: string },
 ) {
   return {
     blockCode,
     holderName: String(configured?.holderName ?? fallback.holderName).trim(),
     alias: String(configured?.alias ?? fallback.alias).trim(),
-    cbu: String(configured?.cbu ?? fallback.cbu).trim()
+    cbu: String(configured?.cbu ?? fallback.cbu).trim(),
   };
 }
 
@@ -720,13 +929,18 @@ export async function processTransferPaymentSubmission(input: {
 
   const charge = chargeDoc.data() ?? {};
   if (String(charge.tenantId ?? "") !== input.tenantId) {
-    throw new HttpsError("permission-denied", "Ese cobro no pertenece al inquilino actual.");
+    throw new HttpsError(
+      "permission-denied",
+      "Ese cobro no pertenece al inquilino actual.",
+    );
   }
 
   const tenantDoc = await db.collection("tenants").doc(input.tenantId).get();
   const tenant = tenantDoc.data() ?? {};
   const propertyId = String(tenant.propertyId ?? charge.propertyId ?? "");
-  const propertyDoc = propertyId ? await db.collection("properties").doc(propertyId).get() : null;
+  const propertyDoc = propertyId
+    ? await db.collection("properties").doc(propertyId).get()
+    : null;
   const property = propertyDoc?.data() ?? {};
   const accounts = await resolveTransferAccounts(property);
   const account = accounts.primary;
@@ -736,18 +950,27 @@ export async function processTransferPaymentSubmission(input: {
 
   const receipts = await Promise.all(
     input.receiptIds.map(async (receiptId) => {
-      const receiptDoc = await db.collection("paymentReceipts").doc(receiptId).get();
+      const receiptDoc = await db
+        .collection("paymentReceipts")
+        .doc(receiptId)
+        .get();
       if (!receiptDoc.exists) {
         throw new HttpsError("not-found", "Uno de los comprobantes no existe.");
       }
 
       const receipt = receiptDoc.data() ?? {};
       if (String(receipt.tenantId ?? "") !== input.tenantId) {
-        throw new HttpsError("permission-denied", "Uno de los comprobantes no pertenece al inquilino.");
+        throw new HttpsError(
+          "permission-denied",
+          "Uno de los comprobantes no pertenece al inquilino.",
+        );
       }
 
       if (receipt.paymentId) {
-        throw new HttpsError("failed-precondition", "Uno de los comprobantes ya fue usado en otro pago.");
+        throw new HttpsError(
+          "failed-precondition",
+          "Uno de los comprobantes ya fue usado en otro pago.",
+        );
       }
 
       const analyzed = await analyzeStoredReceipt(receiptId, receipt);
@@ -756,55 +979,74 @@ export async function processTransferPaymentSubmission(input: {
           ...analyzed.updates,
           expectedTransferBlock: account.blockCode,
           expectedAccountHolder: account.holderName,
-          updatedAt: nowIso()
+          updatedAt: nowIso(),
         },
-        { merge: true }
+        { merge: true },
       );
 
       return {
         id: receiptId,
         source: String(receipt.source ?? "").trim(),
-        extracted: analyzed.result
+        extracted: analyzed.result,
       };
-    })
+    }),
   );
 
+  const validationAvailable = receipts.every(
+    (receipt) => receipt.extracted.validationAvailable !== false,
+  );
   const totalDetected = receipts.reduce(
     (sum, receipt) => sum + Number(receipt.extracted.amount ?? 0),
-    0
+    0,
   );
-  const allHaveDate = receipts.every((receipt) =>
-    Boolean(resolveReceiptPaidAtValue(receipt.extracted))
-  );
-  const detectedPaidAt = receipts
-    .map((receipt) => resolveReceiptPaidAtValue(receipt.extracted))
-    .filter(Boolean)
-    .sort()[0] || null;
+  const allHaveDate = validationAvailable
+    ? receipts.every((receipt) =>
+        Boolean(resolveReceiptPaidAtValue(receipt.extracted)),
+      )
+    : false;
+  const detectedPaidAt =
+    receipts
+      .map((receipt) => resolveReceiptPaidAtValue(receipt.extracted))
+      .filter(Boolean)
+      .sort()[0] || null;
   const amountTolerance = receipts.reduce(
-    (maxTolerance, receipt) => Math.max(maxTolerance, Number(receipt.extracted.amountTolerance ?? 1)),
-    1
+    (maxTolerance, receipt) =>
+      Math.max(maxTolerance, Number(receipt.extracted.amountTolerance ?? 1)),
+    1,
   );
   const chargeDueDate = String(charge.dueDate ?? "").trim();
   const clearsLateFee = wasPaymentMadeOnTime(detectedPaidAt, chargeDueDate);
   const validationExpectedAmount = clearsLateFee ? chargeSubtotal : chargeTotal;
-  const isAdminManualUpload = receipts.every((receipt) => receipt.source === "admin_panel");
-  const destinationMatches = validateTransferDestinations({
-    receipts,
-    property,
-    charge,
-    primaryAccount: account,
-    expensesAccount: accounts.expenses,
-    validationExpectedAmount,
-    amountTolerance,
-    clearsLateFee,
-    allowEitherAccount: isAdminManualUpload
-  });
-  const amountMatches = Math.abs(totalDetected - validationExpectedAmount) <= amountTolerance;
-  const reportedMatches = amountMatches
-    || Math.abs(amountReported - totalDetected) <= Math.max(1, amountTolerance)
-    || Math.abs(amountReported - validationExpectedAmount) <= Math.max(1, amountTolerance);
+  const isAdminManualUpload = receipts.every(
+    (receipt) => receipt.source === "admin_panel",
+  );
+  const destinationMatches =
+    validationAvailable &&
+    validateTransferDestinations({
+      receipts,
+      property,
+      charge,
+      primaryAccount: account,
+      expensesAccount: accounts.expenses,
+      validationExpectedAmount,
+      amountTolerance,
+      clearsLateFee,
+      allowEitherAccount: isAdminManualUpload,
+    });
+  const amountMatches =
+    validationAvailable &&
+    Math.abs(totalDetected - validationExpectedAmount) <= amountTolerance;
+  const reportedMatches =
+    !validationAvailable ||
+    amountMatches ||
+    Math.abs(amountReported - totalDetected) <= Math.max(1, amountTolerance) ||
+    Math.abs(amountReported - validationExpectedAmount) <=
+      Math.max(1, amountTolerance);
 
-  if (!allHaveDate || !destinationMatches || !amountMatches || !reportedMatches) {
+  if (
+    validationAvailable &&
+    (!allHaveDate || !destinationMatches || !amountMatches || !reportedMatches)
+  ) {
     return {
       ok: false,
       blocked: true,
@@ -812,7 +1054,7 @@ export async function processTransferPaymentSubmission(input: {
         allHaveDate,
         destinationMatches,
         amountMatches,
-        reportedMatches
+        reportedMatches,
       }),
       validation: {
         expectedAmount: validationExpectedAmount,
@@ -824,10 +1066,18 @@ export async function processTransferPaymentSubmission(input: {
         allHaveDate,
         destinationMatches,
         amountMatches,
-        reportedMatches
-      }
+        reportedMatches,
+        validationAvailable,
+      },
     };
   }
+
+  const paymentValidationStatus = validationAvailable
+    ? "claude_passed"
+    : "manual_review_required";
+  const paymentValidationMessage = validationAvailable
+    ? "Comprobante validado automáticamente."
+    : "Comprobante recibido sin validación automática. Revisión manual pendiente.";
 
   const paymentRef = await db.collection("payments").add({
     tenantId: input.tenantId,
@@ -839,45 +1089,59 @@ export async function processTransferPaymentSubmission(input: {
     reportedPaidAt: detectedPaidAt,
     createdAt: nowIso(),
     createdBy: input.createdBy,
-    validationStatus: "claude_passed",
+    validationStatus: paymentValidationStatus,
+    validationMessage: paymentValidationMessage,
     expectedTransferBlock: account.blockCode,
-    expectedAccountHolder: account.holderName
+    expectedAccountHolder: account.holderName,
   });
 
   await Promise.all(
     receipts.map((receipt, index) =>
-      db.collection("paymentReceipts").doc(receipt.id).set(
-        {
-          paymentId: paymentRef.id,
-          uploadOrder: index + 1,
-          reviewSuggestion: "pending_manual_review",
-          validationStatus: "claude_passed",
-          updatedAt: nowIso()
-        },
-        { merge: true }
-      )
-    )
+      db
+        .collection("paymentReceipts")
+        .doc(receipt.id)
+        .set(
+          {
+            paymentId: paymentRef.id,
+            uploadOrder: index + 1,
+            reviewSuggestion: "pending_manual_review",
+            validationStatus: paymentValidationStatus,
+            validationMessage: paymentValidationMessage,
+            updatedAt: nowIso(),
+          },
+          { merge: true },
+        ),
+    ),
   );
 
-  await db.collection("charges").doc(input.chargeId).set(
-    clearsLateFee
-      ? {
-          status: "in_review",
-          reportedPaidAt: detectedPaidAt,
-          overdueDays: 0,
-          lateFeeAmount: 0,
-          total: chargeSubtotal,
-          updatedAt: nowIso()
-        }
-      : {
-          status: "in_review",
-          reportedPaidAt: detectedPaidAt,
-          updatedAt: nowIso()
-        },
-    { merge: true }
-  );
+  await db
+    .collection("charges")
+    .doc(input.chargeId)
+    .set(
+      clearsLateFee
+        ? {
+            status: "in_review",
+            reportedPaidAt: detectedPaidAt,
+            overdueDays: 0,
+            lateFeeAmount: 0,
+            total: chargeSubtotal,
+            updatedAt: nowIso(),
+          }
+        : {
+            status: "in_review",
+            reportedPaidAt: detectedPaidAt,
+            updatedAt: nowIso(),
+          },
+      { merge: true },
+    );
 
-  return { ok: true, paymentId: paymentRef.id };
+  return {
+    ok: true,
+    paymentId: paymentRef.id,
+    validationStatus: paymentValidationStatus,
+    validationMessage: paymentValidationMessage,
+    manualReviewRequired: !validationAvailable,
+  };
 }
 
 function inferTransferBlock(unitCode: unknown) {
@@ -892,11 +1156,14 @@ function inferTransferBlock(unitCode: unknown) {
   return "block_1";
 }
 
-function doesDestinationMatchAccount(destinationText: string, account: {
-  holderName: string;
-  alias: string;
-  cbu: string;
-}) {
+function doesDestinationMatchAccount(
+  destinationText: string,
+  account: {
+    holderName: string;
+    alias: string;
+    cbu: string;
+  },
+) {
   const normalizedDestination = normalize(destinationText);
   if (!normalizedDestination) {
     return false;
@@ -906,15 +1173,17 @@ function doesDestinationMatchAccount(destinationText: string, account: {
     .map((value) => normalize(value))
     .filter(Boolean);
 
-  return candidates.some((candidate) => normalizedDestination.includes(candidate));
+  return candidates.some((candidate) =>
+    normalizedDestination.includes(candidate),
+  );
 }
 
 function validateTransferDestinations(input: {
   receipts: Array<{ extracted: Record<string, unknown> }>;
   property: Record<string, unknown>;
   charge: Record<string, unknown>;
-  primaryAccount: { holderName: string; alias: string; cbu: string; };
-  expensesAccount: { holderName: string; alias: string; cbu: string; };
+  primaryAccount: { holderName: string; alias: string; cbu: string };
+  expensesAccount: { holderName: string; alias: string; cbu: string };
   validationExpectedAmount: number;
   amountTolerance: number;
   clearsLateFee: boolean;
@@ -924,14 +1193,17 @@ function validateTransferDestinations(input: {
     return input.receipts.every((receipt) => {
       const destinationText = String(receipt.extracted.destinationText ?? "");
       return (
-        doesDestinationMatchAccount(destinationText, input.primaryAccount)
-        || doesDestinationMatchAccount(destinationText, input.expensesAccount)
+        doesDestinationMatchAccount(destinationText, input.primaryAccount) ||
+        doesDestinationMatchAccount(destinationText, input.expensesAccount)
       );
     });
   }
 
   const allToPrimary = input.receipts.every((receipt) =>
-    doesDestinationMatchAccount(String(receipt.extracted.destinationText ?? ""), input.primaryAccount)
+    doesDestinationMatchAccount(
+      String(receipt.extracted.destinationText ?? ""),
+      input.primaryAccount,
+    ),
   );
 
   if (allToPrimary) {
@@ -939,8 +1211,8 @@ function validateTransferDestinations(input: {
   }
 
   if (
-    !input.clearsLateFee
-    || String(input.property.unitType ?? "").trim() !== "Departamento"
+    !input.clearsLateFee ||
+    String(input.property.unitType ?? "").trim() !== "Departamento"
   ) {
     return false;
   }
@@ -953,7 +1225,10 @@ function validateTransferDestinations(input: {
   }
 
   const expectedBaseAmount = roundCurrency(rentAmount + expensesAmount);
-  if (Math.abs(expectedBaseAmount - input.validationExpectedAmount) > input.amountTolerance) {
+  if (
+    Math.abs(expectedBaseAmount - input.validationExpectedAmount) >
+    input.amountTolerance
+  ) {
     return false;
   }
 
@@ -982,17 +1257,22 @@ function validateTransferDestinations(input: {
   }
 
   return (
-    Math.abs(roundCurrency(primaryDetected) - rentAmount) <= input.amountTolerance
-    && Math.abs(roundCurrency(expensesDetected) - expensesAmount) <= input.amountTolerance
-    && Math.abs(roundCurrency(primaryDetected + expensesDetected) - input.validationExpectedAmount) <= input.amountTolerance
+    Math.abs(roundCurrency(primaryDetected) - rentAmount) <=
+      input.amountTolerance &&
+    Math.abs(roundCurrency(expensesDetected) - expensesAmount) <=
+      input.amountTolerance &&
+    Math.abs(
+      roundCurrency(primaryDetected + expensesDetected) -
+        input.validationExpectedAmount,
+    ) <= input.amountTolerance
   );
 }
 
 function resolveChargeItemAmount(charge: Record<string, unknown>, key: string) {
   const items = Array.isArray(charge.items) ? charge.items : [];
-  const item = items.find((entry) => String((entry as Record<string, unknown>).key ?? "") === key) as
-    | Record<string, unknown>
-    | undefined;
+  const item = items.find(
+    (entry) => String((entry as Record<string, unknown>).key ?? "") === key,
+  ) as Record<string, unknown> | undefined;
   const amount = Number(item?.amount ?? 0);
   return Number.isFinite(amount) && amount > 0 ? roundCurrency(amount) : 0;
 }

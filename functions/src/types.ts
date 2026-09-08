@@ -11,6 +11,14 @@ export type ChargeStatus =
   | "paid"
   | "cancelled";
 
+export type DerivedChargeStatus =
+  | "pending"
+  | "overdue"
+  | "delinquent"
+  | "in_review"
+  | "paid"
+  | "cancelled";
+
 export type PaymentMethod = "transfer" | "mercado_pago";
 
 export type PaymentStatus =
@@ -45,7 +53,11 @@ export interface AuthContext {
   profile: UserAuthProfile;
 }
 
-export type TenantInvitationStatus = "pending" | "claimed" | "accepted" | "revoked";
+export type TenantInvitationStatus =
+  | "pending"
+  | "claimed"
+  | "accepted"
+  | "revoked";
 
 export interface TenantInvitationRecord {
   tenantId: string;

@@ -95,11 +95,15 @@ Desde la raíz del repo:
 npm install
 npm run install:functions
 cp functions/.env.example functions/.env.alquileres-la-casona
+# Ajustá al menos: WEBAPP_URL, BACKEND_BASE_URL, MERCADO_PAGO_ACCESS_TOKEN,
+# MERCADO_PAGO_WEBHOOK_SECRET, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM.
 npm run build:functions
 npm run emulators
 ```
 
 El archivo `.firebaserc.example` usa `demo-alquileres-la-casona`; si necesitás `.firebaserc`, copialo desde el ejemplo y mantenelo sin versionar. Esta guía local no agrega flujo de login ni deploy.
+
+Para deploy real, `BACKEND_BASE_URL` tiene que apuntar a la base pública de Cloud Functions que recibe `/handleMercadoPagoWebhook`; no alcanza con la URL local del emulador.
 
 Puertos esperados: Hosting `http://127.0.0.1:5000`, Emulator UI `http://127.0.0.1:4000`, Functions `http://127.0.0.1:5001/demo-alquileres-la-casona/us-central1`, Firestore `8080`, Auth `9099`, Storage `9199`.
 

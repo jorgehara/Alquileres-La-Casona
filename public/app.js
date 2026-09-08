@@ -12,7 +12,7 @@ import {
   browserLocalPersistence,
   connectAuthEmulator,
   updateEmail,
-  updatePassword
+  updatePassword,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
   getFirestore,
@@ -29,19 +29,19 @@ import {
   orderBy,
   connectFirestoreEmulator,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import {
   getStorage,
   ref,
   connectStorageEmulator,
   uploadBytes,
-  getDownloadURL
+  getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
 import {
   getFunctions,
   connectFunctionsEmulator,
-  httpsCallable
+  httpsCallable,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-functions.js";
 
 const runtimeConfig = assertRuntimeIsSafe();
@@ -56,7 +56,9 @@ connectFirebaseEmulatorsIfNeeded();
 function assertRuntimeIsSafe() {
   try {
     if (!window.LaCasonaRuntime?.assertSafeRuntime) {
-      throw new Error("No se cargó LaCasonaRuntime. Revisá el orden de scripts: firebase-config.js, runtime-config.js y app.js.");
+      throw new Error(
+        "No se cargó LaCasonaRuntime. Revisá el orden de scripts: firebase-config.js, runtime-config.js y app.js.",
+      );
     }
     return window.LaCasonaRuntime.assertSafeRuntime();
   } catch (error) {
@@ -76,8 +78,8 @@ function connectFirebaseEmulatorsIfNeeded() {
         connectAuthEmulator,
         connectFirestoreEmulator,
         connectStorageEmulator,
-        connectFunctionsEmulator
-      }
+        connectFunctionsEmulator,
+      },
     });
   } catch (error) {
     renderRuntimeStartupFailure(error);
@@ -86,7 +88,10 @@ function connectFirebaseEmulatorsIfNeeded() {
 }
 
 function renderRuntimeStartupFailure(error) {
-  console.error("La Casona runtime configuration is unsafe", error?.details || error);
+  console.error(
+    "La Casona runtime configuration is unsafe",
+    error?.details || error,
+  );
   document.body.classList.add("session-pending");
   document.querySelector("#loading-session-panel")?.classList.add("hidden");
   document.querySelector("#login-panel")?.classList.add("hidden");
@@ -101,7 +106,9 @@ function renderRuntimeStartupFailure(error) {
   const message = document.querySelector("#access-denied-message");
   let mode = "desconocido";
   try {
-    mode = window.LaCasonaRuntime?.getMode ? window.LaCasonaRuntime.getMode() : "desconocido";
+    mode = window.LaCasonaRuntime?.getMode
+      ? window.LaCasonaRuntime.getMode()
+      : "desconocido";
   } catch (_) {
     mode = "inválido";
   }
@@ -112,7 +119,8 @@ function renderRuntimeStartupFailure(error) {
     title.textContent = "Configuración local insegura";
   }
   if (copy) {
-    copy.textContent = "La app bloqueó el inicio antes de autenticar o leer datos para evitar mezclar emuladores con Firebase productivo.";
+    copy.textContent =
+      "La app bloqueó el inicio antes de autenticar o leer datos para evitar mezclar emuladores con Firebase productivo.";
   }
   if (message) {
     message.classList.add("error");
@@ -120,8 +128,10 @@ function renderRuntimeStartupFailure(error) {
       error?.message || "Revisá la configuración pública de Firebase.",
       `Modo: ${mode}. Origen: ${origin}.`,
       details?.field ? `Campo: ${details.field}.` : "",
-      details?.expected ? `Esperado: ${details.expected}.` : ""
-    ].filter(Boolean).join(" ");
+      details?.expected ? `Esperado: ${details.expected}.` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
   }
 }
 
@@ -160,7 +170,7 @@ const state = {
     propertyId: "",
     status: "all",
     tenantSearch: "",
-    owner: "all"
+    owner: "all",
   },
   tenantDocumentTab: "receipts",
   tokenPortalActive: false,
@@ -175,8 +185,9 @@ const state = {
   lastActivityWriteAt: 0,
   postSignOutAuthMessage: "",
   recentAuthAttemptAt: 0,
-  designModeEnabled: new URLSearchParams(window.location.search).get("design") === "1",
-  designModeOpen: true
+  designModeEnabled:
+    new URLSearchParams(window.location.search).get("design") === "1",
+  designModeOpen: true,
 };
 
 const SESSION_IDLE_LIMIT_MS = 30 * 60 * 1000;
@@ -208,10 +219,14 @@ const elements = {
   tenantProfileButton: document.querySelector("#tenant-profile-button"),
   tenantOnboardingForm: document.querySelector("#tenant-onboarding-form"),
   tenantOnboardingEmail: document.querySelector("#tenant-onboarding-email"),
-  tenantOnboardingPassword: document.querySelector("#tenant-onboarding-password"),
+  tenantOnboardingPassword: document.querySelector(
+    "#tenant-onboarding-password",
+  ),
   tenantPropertyType: document.querySelector("#tenant-property-type"),
   tenantPropertyCode: document.querySelector("#tenant-property-code"),
-  tenantPropertyCodeLabel: document.querySelector("#tenant-property-code-label"),
+  tenantPropertyCodeLabel: document.querySelector(
+    "#tenant-property-code-label",
+  ),
   tenantOnboardingBack: document.querySelector("#tenant-onboarding-back"),
   tenantOnboardingMessage: document.querySelector("#tenant-onboarding-message"),
   paymentTokenCard: document.querySelector("#payment-token-card"),
@@ -270,13 +285,23 @@ const elements = {
   adminSettingsPassword: document.querySelector("#admin-settings-password"),
   adminSettingsPhone: document.querySelector("#admin-settings-phone"),
   adminGeneralDueDay: document.querySelector("#admin-general-due-day"),
-  adminGeneralLateFeeRate: document.querySelector("#admin-general-late-fee-rate"),
+  adminGeneralLateFeeRate: document.querySelector(
+    "#admin-general-late-fee-rate",
+  ),
   adminGeneralMorosoDays: document.querySelector("#admin-general-moroso-days"),
-  adminDefaultNotificationChannel: document.querySelector("#admin-default-notification-channel"),
-  adminAutoNotifyNewCharge: document.querySelector("#admin-auto-notify-new-charge"),
+  adminDefaultNotificationChannel: document.querySelector(
+    "#admin-default-notification-channel",
+  ),
+  adminAutoNotifyNewCharge: document.querySelector(
+    "#admin-auto-notify-new-charge",
+  ),
   adminAutoNotifyOverdue: document.querySelector("#admin-auto-notify-overdue"),
-  adminRentAdjustmentPercent: document.querySelector("#admin-rent-adjustment-percent"),
-  adminRentAdjustmentButton: document.querySelector("#admin-rent-adjustment-button"),
+  adminRentAdjustmentPercent: document.querySelector(
+    "#admin-rent-adjustment-percent",
+  ),
+  adminRentAdjustmentButton: document.querySelector(
+    "#admin-rent-adjustment-button",
+  ),
   adminBankBlock1Holder: document.querySelector("#admin-bank-block-1-holder"),
   adminBankBlock1Alias: document.querySelector("#admin-bank-block-1-alias"),
   adminBankBlock1Cbu: document.querySelector("#admin-bank-block-1-cbu"),
@@ -299,8 +324,12 @@ const elements = {
   auditLogList: document.querySelector("#audit-log-list"),
   adminUserCreateForm: document.querySelector("#admin-user-create-form"),
   adminUserCreateEmail: document.querySelector("#admin-user-create-email"),
-  adminUserCreatePassword: document.querySelector("#admin-user-create-password"),
-  adminUserCreateDisplayName: document.querySelector("#admin-user-create-display-name"),
+  adminUserCreatePassword: document.querySelector(
+    "#admin-user-create-password",
+  ),
+  adminUserCreateDisplayName: document.querySelector(
+    "#admin-user-create-display-name",
+  ),
   adminUserCreateRole: document.querySelector("#admin-user-create-role"),
   userAccessList: document.querySelector("#user-access-list"),
   propertyForm: document.querySelector("#property-form"),
@@ -309,7 +338,9 @@ const elements = {
   tenantPaymentForm: document.querySelector("#tenant-payment-form"),
   tenantPropertySelect: document.querySelector("#tenant-property-select"),
   utilityBillServiceType: document.querySelector("#utility-bill-service-type"),
-  utilityBillPropertySelect: document.querySelector("#utility-bill-property-select"),
+  utilityBillPropertySelect: document.querySelector(
+    "#utility-bill-property-select",
+  ),
   tenantChargeSelect: document.querySelector("#tenant-charge-select"),
   tenantPaymentAmount: document.querySelector("#tenant-payment-amount"),
   tenantReceipts: document.querySelector("#tenant-receipts"),
@@ -339,8 +370,12 @@ const elements = {
   tenantEditEmail: document.querySelector("#tenant-edit-email"),
   tenantEditPropertyId: document.querySelector("#tenant-edit-property-id"),
   tenantEditBaseRent: document.querySelector("#tenant-edit-base-rent"),
-  tenantEditContractStartDate: document.querySelector("#tenant-edit-contract-start-date"),
-  tenantEditContractEndDate: document.querySelector("#tenant-edit-contract-end-date"),
+  tenantEditContractStartDate: document.querySelector(
+    "#tenant-edit-contract-start-date",
+  ),
+  tenantEditContractEndDate: document.querySelector(
+    "#tenant-edit-contract-end-date",
+  ),
   tenantEditCancelButton: document.querySelector("#tenant-edit-cancel-button"),
   adminReceiptUploadModal: null,
   adminReceiptUploadForm: null,
@@ -350,8 +385,12 @@ const elements = {
   adminReceiptUploadFiles: null,
   adminReceiptUploadCopy: null,
   adminReceiptUploadCancelButton: null,
-  paymentInstructionsModal: document.querySelector("#payment-instructions-modal"),
-  paymentInstructionsCloseButton: document.querySelector("#payment-instructions-close-button")
+  paymentInstructionsModal: document.querySelector(
+    "#payment-instructions-modal",
+  ),
+  paymentInstructionsCloseButton: document.querySelector(
+    "#payment-instructions-close-button",
+  ),
 };
 
 hydratePrivateElements();
@@ -374,9 +413,18 @@ function bindStaticEvents() {
   elements.resetPasswordButton?.addEventListener("click", handlePasswordReset);
   elements.tenantProfileButton?.addEventListener("click", showTenantOnboarding);
   elements.tenantOnboardingBack.addEventListener("click", showLoginPanel);
-  elements.tenantOnboardingForm.addEventListener("submit", handleTenantOnboardingSubmit);
-  elements.tenantPropertyType?.addEventListener("change", handlePropertyTypeChange);
-  elements.bootstrapButton?.addEventListener("click", handleAccessDeniedPrimaryAction);
+  elements.tenantOnboardingForm.addEventListener(
+    "submit",
+    handleTenantOnboardingSubmit,
+  );
+  elements.tenantPropertyType?.addEventListener(
+    "change",
+    handlePropertyTypeChange,
+  );
+  elements.bootstrapButton?.addEventListener(
+    "click",
+    handleAccessDeniedPrimaryAction,
+  );
 }
 
 function handleAccessDeniedPrimaryAction() {
@@ -388,7 +436,10 @@ function handleAccessDeniedPrimaryAction() {
 
   if (intent === "sign-out-and-return") {
     signOut(auth).catch((error) => {
-      console.error("No se pudo cerrar la sesión tras un error de acceso", error);
+      console.error(
+        "No se pudo cerrar la sesión tras un error de acceso",
+        error,
+      );
       renderSignedOut();
     });
     return;
@@ -418,7 +469,7 @@ function getDefaultDesignSettings() {
     cardRadius: 20,
     controlHeight: 46,
     buttonShape: "pill",
-    titleScale: "normal"
+    titleScale: "normal",
   };
 }
 
@@ -440,7 +491,10 @@ function getStoredDesignSettings() {
 
 function saveDesignSettings(settings) {
   try {
-    window.localStorage.setItem(DESIGN_MODE_STORAGE_KEY, JSON.stringify(settings));
+    window.localStorage.setItem(
+      DESIGN_MODE_STORAGE_KEY,
+      JSON.stringify(settings),
+    );
   } catch (error) {
     console.warn("No se pudieron guardar los ajustes del modo diseño.", error);
   }
@@ -452,7 +506,7 @@ function getTitleScaleValue(scale) {
       size: "clamp(1.18rem, 1.7vw, 1.48rem)",
       lineHeight: "1.12",
       heroSize: "clamp(1.82rem, 3.2vw, 2.72rem)",
-      heroLineHeight: "0.94"
+      heroLineHeight: "0.94",
     };
   }
 
@@ -461,7 +515,7 @@ function getTitleScaleValue(scale) {
       size: "clamp(1.34rem, 2.25vw, 1.78rem)",
       lineHeight: "1.18",
       heroSize: "clamp(2.18rem, 4.4vw, 3.48rem)",
-      heroLineHeight: "0.98"
+      heroLineHeight: "0.98",
     };
   }
 
@@ -469,7 +523,7 @@ function getTitleScaleValue(scale) {
     size: "clamp(1.25rem, 2vw, 1.6rem)",
     lineHeight: "1.15",
     heroSize: "clamp(2rem, 4vw, 3.15rem)",
-    heroLineHeight: "0.96"
+    heroLineHeight: "0.96",
   };
 }
 
@@ -491,11 +545,17 @@ function applyDesignSettings(settings) {
 
   root.style.setProperty("--sidebar-width", `${settings.sidebarWidth}px`);
   root.style.setProperty("--content-max", `${settings.contentMax}px`);
-  root.style.setProperty("--workspace-padding", `${settings.workspacePadding}px`);
+  root.style.setProperty(
+    "--workspace-padding",
+    `${settings.workspacePadding}px`,
+  );
   root.style.setProperty("--surface-padding", `${settings.surfacePadding}px`);
   root.style.setProperty("--card-radius", `${settings.cardRadius}px`);
   root.style.setProperty("--control-height", `${settings.controlHeight}px`);
-  root.style.setProperty("--button-radius", getButtonRadiusValue(settings.buttonShape));
+  root.style.setProperty(
+    "--button-radius",
+    getButtonRadiusValue(settings.buttonShape),
+  );
   root.style.setProperty("--section-title-size", titleScale.size);
   root.style.setProperty("--section-title-line-height", titleScale.lineHeight);
   root.style.setProperty("--hero-title-size", titleScale.heroSize);
@@ -623,24 +683,49 @@ function readDesignSettingsFromShell(shell) {
   const defaults = getDefaultDesignSettings();
 
   return {
-    sidebarWidth: Number(shell.querySelector("[name='sidebarWidth']")?.value ?? defaults.sidebarWidth),
-    contentMax: Number(shell.querySelector("[name='contentMax']")?.value ?? defaults.contentMax),
-    workspacePadding: Number(shell.querySelector("[name='workspacePadding']")?.value ?? defaults.workspacePadding),
-    surfacePadding: Number(shell.querySelector("[name='surfacePadding']")?.value ?? defaults.surfacePadding),
-    cardRadius: Number(shell.querySelector("[name='cardRadius']")?.value ?? defaults.cardRadius),
-    controlHeight: Number(shell.querySelector("[name='controlHeight']")?.value ?? defaults.controlHeight),
-    buttonShape: shell.querySelector("[name='buttonShape']")?.value ?? defaults.buttonShape,
-    titleScale: shell.querySelector("[name='titleScale']")?.value ?? defaults.titleScale
+    sidebarWidth: Number(
+      shell.querySelector("[name='sidebarWidth']")?.value ??
+        defaults.sidebarWidth,
+    ),
+    contentMax: Number(
+      shell.querySelector("[name='contentMax']")?.value ?? defaults.contentMax,
+    ),
+    workspacePadding: Number(
+      shell.querySelector("[name='workspacePadding']")?.value ??
+        defaults.workspacePadding,
+    ),
+    surfacePadding: Number(
+      shell.querySelector("[name='surfacePadding']")?.value ??
+        defaults.surfacePadding,
+    ),
+    cardRadius: Number(
+      shell.querySelector("[name='cardRadius']")?.value ?? defaults.cardRadius,
+    ),
+    controlHeight: Number(
+      shell.querySelector("[name='controlHeight']")?.value ??
+        defaults.controlHeight,
+    ),
+    buttonShape:
+      shell.querySelector("[name='buttonShape']")?.value ??
+      defaults.buttonShape,
+    titleScale:
+      shell.querySelector("[name='titleScale']")?.value ?? defaults.titleScale,
   };
 }
 
 function syncDesignModeOutputs(shell, settings) {
-  shell.querySelector("[data-design-output='sidebarWidth']").textContent = `${settings.sidebarWidth} px`;
-  shell.querySelector("[data-design-output='contentMax']").textContent = `${settings.contentMax} px`;
-  shell.querySelector("[data-design-output='workspacePadding']").textContent = `${settings.workspacePadding} px`;
-  shell.querySelector("[data-design-output='surfacePadding']").textContent = `${settings.surfacePadding} px`;
-  shell.querySelector("[data-design-output='cardRadius']").textContent = `${settings.cardRadius} px`;
-  shell.querySelector("[data-design-output='controlHeight']").textContent = `${settings.controlHeight} px`;
+  shell.querySelector("[data-design-output='sidebarWidth']").textContent =
+    `${settings.sidebarWidth} px`;
+  shell.querySelector("[data-design-output='contentMax']").textContent =
+    `${settings.contentMax} px`;
+  shell.querySelector("[data-design-output='workspacePadding']").textContent =
+    `${settings.workspacePadding} px`;
+  shell.querySelector("[data-design-output='surfacePadding']").textContent =
+    `${settings.surfacePadding} px`;
+  shell.querySelector("[data-design-output='cardRadius']").textContent =
+    `${settings.cardRadius} px`;
+  shell.querySelector("[data-design-output='controlHeight']").textContent =
+    `${settings.controlHeight} px`;
 }
 
 function bindPrivateEvents() {
@@ -648,10 +733,19 @@ function bindPrivateEvents() {
     return;
   }
 
-  elements.utilityBillServiceType?.addEventListener("change", renderUtilityBillGroupOptions);
-  elements.mobileNavToggle?.addEventListener("click", () => setMobileNavOpen(true));
-  elements.mobileNavClose?.addEventListener("click", () => setMobileNavOpen(false));
-  elements.mobileNavBackdrop?.addEventListener("click", () => setMobileNavOpen(false));
+  elements.utilityBillServiceType?.addEventListener(
+    "change",
+    renderUtilityBillGroupOptions,
+  );
+  elements.mobileNavToggle?.addEventListener("click", () =>
+    setMobileNavOpen(true),
+  );
+  elements.mobileNavClose?.addEventListener("click", () =>
+    setMobileNavOpen(false),
+  );
+  elements.mobileNavBackdrop?.addEventListener("click", () =>
+    setMobileNavOpen(false),
+  );
   bindCollapsibleTriggers();
   elements.signOutButton?.addEventListener("click", async () => {
     await signOut(auth);
@@ -659,49 +753,109 @@ function bindPrivateEvents() {
   elements.sectionBackButton?.addEventListener("click", handleSectionBack);
 
   elements.navItems.forEach((button) => {
-    button.addEventListener("click", () => setActiveSection(button.dataset.navTarget));
+    button.addEventListener("click", () =>
+      setActiveSection(button.dataset.navTarget),
+    );
   });
 
   elements.jumpButtons.forEach((button) => {
-    button.addEventListener("click", () => setActiveSection(button.dataset.jump));
+    button.addEventListener("click", () =>
+      setActiveSection(button.dataset.jump),
+    );
   });
 
   elements.propertyForm?.addEventListener("submit", handlePropertySubmit);
   elements.utilityBillForm?.addEventListener("submit", handleUtilityBillSubmit);
   elements.tenantForm?.addEventListener("submit", handleTenantSubmit);
-  elements.tenantPaymentForm?.addEventListener("submit", handleTenantPaymentSubmit);
-  elements.tenantSettingsForm?.addEventListener("submit", handleTenantSettingsSubmit);
-  elements.adminSettingsForm?.addEventListener("submit", handleAdminSettingsSubmit);
-  elements.adminRentAdjustmentButton?.addEventListener("click", handleRentAdjustmentApply);
+  elements.tenantPaymentForm?.addEventListener(
+    "submit",
+    handleTenantPaymentSubmit,
+  );
+  elements.tenantSettingsForm?.addEventListener(
+    "submit",
+    handleTenantSettingsSubmit,
+  );
+  elements.adminSettingsForm?.addEventListener(
+    "submit",
+    handleAdminSettingsSubmit,
+  );
+  elements.adminRentAdjustmentButton?.addEventListener(
+    "click",
+    handleRentAdjustmentApply,
+  );
   elements.messageForm?.addEventListener("submit", handleMessageSubmit);
-  elements.adminUserCreateForm?.addEventListener("submit", handleAdminUserCreateSubmit);
-  elements.messageTenantSelect?.addEventListener("change", handleMessageTemplateChange);
-  elements.messageTemplateSelect?.addEventListener("change", handleMessageTemplateChange);
-  elements.generateChargesButton?.addEventListener("click", handleGenerateCharges);
+  elements.adminUserCreateForm?.addEventListener(
+    "submit",
+    handleAdminUserCreateSubmit,
+  );
+  elements.messageTenantSelect?.addEventListener(
+    "change",
+    handleMessageTemplateChange,
+  );
+  elements.messageTemplateSelect?.addEventListener(
+    "change",
+    handleMessageTemplateChange,
+  );
+  elements.generateChargesButton?.addEventListener(
+    "click",
+    handleGenerateCharges,
+  );
   elements.syncChargesButton?.addEventListener("click", handleSyncCharges);
-  elements.sendPaymentWarningsButton?.addEventListener("click", handleSendPaymentWarnings);
-  elements.adminPaymentReview?.addEventListener("click", handlePaymentReviewAction);
+  elements.sendPaymentWarningsButton?.addEventListener(
+    "click",
+    handleSendPaymentWarnings,
+  );
+  elements.adminPaymentReview?.addEventListener(
+    "click",
+    handlePaymentReviewAction,
+  );
   elements.propertyList?.addEventListener("click", handleTenantContractAction);
   elements.utilityBillList?.addEventListener("click", handleUtilityBillAction);
   elements.chargeList?.addEventListener("click", handleChargeAction);
   elements.userAccessList?.addEventListener("click", handleUserAccessAction);
   elements.tenantList?.addEventListener("click", handleTenantContractAction);
-  elements.tenantTransferAccount?.addEventListener("click", handleTransferInfoToggle);
-  elements.tenantCurrentCharge?.addEventListener("click", handleTenantChargeActions);
+  elements.tenantTransferAccount?.addEventListener(
+    "click",
+    handleTransferInfoToggle,
+  );
+  elements.tenantCurrentCharge?.addEventListener(
+    "click",
+    handleTenantChargeActions,
+  );
   elements.contractForm?.addEventListener("submit", handleContractSubmit);
   elements.contractCancelButton?.addEventListener("click", closeContractModal);
   elements.historyCloseButton?.addEventListener("click", closeHistoryModal);
   elements.historyModal?.addEventListener("click", handleHistoryModalAction);
   elements.tenantEditForm?.addEventListener("submit", handleTenantEditSubmit);
-  elements.tenantEditCancelButton?.addEventListener("click", closeTenantEditModal);
-  elements.adminReceiptUploadForm?.addEventListener("submit", handleAdminReceiptUploadSubmit);
-  elements.adminReceiptUploadCancelButton?.addEventListener("click", closeAdminReceiptUploadModal);
-  elements.adminReceiptUploadChargeId?.addEventListener("change", syncAdminReceiptUploadChargeSelection);
-  elements.adminReceiptUploadModal?.addEventListener("click", handleAdminReceiptUploadModalClick);
-  elements.paymentInstructionsCloseButton?.addEventListener("click", closePaymentInstructionsModal);
+  elements.tenantEditCancelButton?.addEventListener(
+    "click",
+    closeTenantEditModal,
+  );
+  elements.adminReceiptUploadForm?.addEventListener(
+    "submit",
+    handleAdminReceiptUploadSubmit,
+  );
+  elements.adminReceiptUploadCancelButton?.addEventListener(
+    "click",
+    closeAdminReceiptUploadModal,
+  );
+  elements.adminReceiptUploadChargeId?.addEventListener(
+    "change",
+    syncAdminReceiptUploadChargeSelection,
+  );
+  elements.adminReceiptUploadModal?.addEventListener(
+    "click",
+    handleAdminReceiptUploadModalClick,
+  );
+  elements.paymentInstructionsCloseButton?.addEventListener(
+    "click",
+    closePaymentInstructionsModal,
+  );
   elements.privateAppHost?.addEventListener("click", handlePrivateShellClick);
   elements.privateAppHost?.addEventListener("change", handlePrivateShellChange);
-  document.querySelector("#receipt-viewer-modal")?.addEventListener("click", handleReceiptViewerModalClick);
+  document
+    .querySelector("#receipt-viewer-modal")
+    ?.addEventListener("click", handleReceiptViewerModalClick);
 
   elements.appShell.dataset.bound = "true";
 }
@@ -728,8 +882,12 @@ function hydratePrivateElements() {
   elements.navItems = Array.from(root.querySelectorAll(".nav-item"));
   elements.sections = Array.from(root.querySelectorAll(".view-section"));
   elements.jumpButtons = Array.from(root.querySelectorAll("[data-jump]"));
-  elements.adminOnly = Array.from(root.querySelectorAll("[data-admin-only='true']"));
-  elements.tenantOnly = Array.from(root.querySelectorAll("[data-tenant-only='true']"));
+  elements.adminOnly = Array.from(
+    root.querySelectorAll("[data-admin-only='true']"),
+  );
+  elements.tenantOnly = Array.from(
+    root.querySelectorAll("[data-tenant-only='true']"),
+  );
   elements.tenantFacturasNav = root.querySelector("#tenant-facturas-nav");
   elements.sidebarRole = root.querySelector("#sidebar-role");
   elements.sessionName = root.querySelector("#session-name");
@@ -747,10 +905,16 @@ function hydratePrivateElements() {
   elements.collectionFootnote = root.querySelector("#collection-footnote");
   elements.urgentCharges = root.querySelector("#urgent-charges");
   elements.summaryMetrics = root.querySelector("#summary-metrics");
-  elements.summaryFinancialReport = root.querySelector("#summary-financial-report");
-  elements.summaryPaymentMethods = root.querySelector("#summary-payment-methods");
+  elements.summaryFinancialReport = root.querySelector(
+    "#summary-financial-report",
+  );
+  elements.summaryPaymentMethods = root.querySelector(
+    "#summary-payment-methods",
+  );
   elements.summaryDelinquency = root.querySelector("#summary-delinquency");
-  elements.summaryRecentPayments = root.querySelector("#summary-recent-payments");
+  elements.summaryRecentPayments = root.querySelector(
+    "#summary-recent-payments",
+  );
   elements.propertyList = root.querySelector("#property-list");
   elements.tenantList = root.querySelector("#tenant-list");
   elements.utilityBillList = root.querySelector("#utility-bill-list");
@@ -758,51 +922,97 @@ function hydratePrivateElements() {
   elements.chargePeriodReceipts = root.querySelector("#charge-period-receipts");
   elements.adminPaymentReview = root.querySelector("#admin-payment-review");
   elements.tenantCurrentCharge = root.querySelector("#tenant-current-charge");
-  elements.tenantTransferAccount = root.querySelector("#tenant-transfer-account");
+  elements.tenantTransferAccount = root.querySelector(
+    "#tenant-transfer-account",
+  );
   elements.tenantBillList = root.querySelector("#tenant-bill-list");
   elements.tenantPaymentHistory = root.querySelector("#tenant-payment-history");
   elements.tenantReceiptHistory = root.querySelector("#tenant-receipt-history");
   elements.tenantSettingsForm = root.querySelector("#tenant-settings-form");
   elements.tenantSettingsEmail = root.querySelector("#tenant-settings-email");
-  elements.tenantSettingsPassword = root.querySelector("#tenant-settings-password");
+  elements.tenantSettingsPassword = root.querySelector(
+    "#tenant-settings-password",
+  );
   elements.tenantSettingsPhone = root.querySelector("#tenant-settings-phone");
   elements.adminSettingsForm = root.querySelector("#admin-settings-form");
   elements.adminSettingsName = root.querySelector("#admin-settings-name");
   elements.adminSettingsEmail = root.querySelector("#admin-settings-email");
-  elements.adminSettingsPassword = root.querySelector("#admin-settings-password");
+  elements.adminSettingsPassword = root.querySelector(
+    "#admin-settings-password",
+  );
   elements.adminSettingsPhone = root.querySelector("#admin-settings-phone");
   elements.adminGeneralDueDay = root.querySelector("#admin-general-due-day");
-  elements.adminGeneralLateFeeRate = root.querySelector("#admin-general-late-fee-rate");
-  elements.adminGeneralMorosoDays = root.querySelector("#admin-general-moroso-days");
-  elements.adminDefaultNotificationChannel = root.querySelector("#admin-default-notification-channel");
-  elements.adminAutoNotifyNewCharge = root.querySelector("#admin-auto-notify-new-charge");
-  elements.adminAutoNotifyOverdue = root.querySelector("#admin-auto-notify-overdue");
-  elements.adminRentAdjustmentPercent = root.querySelector("#admin-rent-adjustment-percent");
-  elements.adminRentAdjustmentButton = root.querySelector("#admin-rent-adjustment-button");
-  elements.adminBankBlock1Holder = root.querySelector("#admin-bank-block-1-holder");
-  elements.adminBankBlock1Alias = root.querySelector("#admin-bank-block-1-alias");
+  elements.adminGeneralLateFeeRate = root.querySelector(
+    "#admin-general-late-fee-rate",
+  );
+  elements.adminGeneralMorosoDays = root.querySelector(
+    "#admin-general-moroso-days",
+  );
+  elements.adminDefaultNotificationChannel = root.querySelector(
+    "#admin-default-notification-channel",
+  );
+  elements.adminAutoNotifyNewCharge = root.querySelector(
+    "#admin-auto-notify-new-charge",
+  );
+  elements.adminAutoNotifyOverdue = root.querySelector(
+    "#admin-auto-notify-overdue",
+  );
+  elements.adminRentAdjustmentPercent = root.querySelector(
+    "#admin-rent-adjustment-percent",
+  );
+  elements.adminRentAdjustmentButton = root.querySelector(
+    "#admin-rent-adjustment-button",
+  );
+  elements.adminBankBlock1Holder = root.querySelector(
+    "#admin-bank-block-1-holder",
+  );
+  elements.adminBankBlock1Alias = root.querySelector(
+    "#admin-bank-block-1-alias",
+  );
   elements.adminBankBlock1Cbu = root.querySelector("#admin-bank-block-1-cbu");
   elements.adminBankBlock1Dni = root.querySelector("#admin-bank-block-1-dni");
-  elements.adminBankBlock1Email = root.querySelector("#admin-bank-block-1-email");
-  elements.adminBankBlock1Phone = root.querySelector("#admin-bank-block-1-phone");
-  elements.adminBankBlock2Holder = root.querySelector("#admin-bank-block-2-holder");
-  elements.adminBankBlock2Alias = root.querySelector("#admin-bank-block-2-alias");
+  elements.adminBankBlock1Email = root.querySelector(
+    "#admin-bank-block-1-email",
+  );
+  elements.adminBankBlock1Phone = root.querySelector(
+    "#admin-bank-block-1-phone",
+  );
+  elements.adminBankBlock2Holder = root.querySelector(
+    "#admin-bank-block-2-holder",
+  );
+  elements.adminBankBlock2Alias = root.querySelector(
+    "#admin-bank-block-2-alias",
+  );
   elements.adminBankBlock2Cbu = root.querySelector("#admin-bank-block-2-cbu");
   elements.adminBankBlock2Dni = root.querySelector("#admin-bank-block-2-dni");
-  elements.adminBankBlock2Email = root.querySelector("#admin-bank-block-2-email");
-  elements.adminBankBlock2Phone = root.querySelector("#admin-bank-block-2-phone");
+  elements.adminBankBlock2Email = root.querySelector(
+    "#admin-bank-block-2-email",
+  );
+  elements.adminBankBlock2Phone = root.querySelector(
+    "#admin-bank-block-2-phone",
+  );
   elements.messageForm = root.querySelector("#message-form");
   elements.messageTenantSelect = root.querySelector("#message-tenant-select");
-  elements.messageTemplateSelect = root.querySelector("#message-template-select");
+  elements.messageTemplateSelect = root.querySelector(
+    "#message-template-select",
+  );
   elements.messageChannelSelect = root.querySelector("#message-channel-select");
-  elements.messageTemplateHelper = root.querySelector("#message-template-helper");
+  elements.messageTemplateHelper = root.querySelector(
+    "#message-template-helper",
+  );
   elements.messageBody = root.querySelector("#message-body");
   elements.messageLogList = root.querySelector("#message-log-list");
   elements.auditLogList = root.querySelector("#audit-log-list");
   elements.adminUserCreateForm = root.querySelector("#admin-user-create-form");
-  elements.adminUserCreateEmail = root.querySelector("#admin-user-create-email");
-  elements.adminUserCreatePassword = root.querySelector("#admin-user-create-password");
-  elements.adminUserCreateDisplayName = root.querySelector("#admin-user-create-display-name");
+  elements.adminUserCreateEmail = root.querySelector(
+    "#admin-user-create-email",
+  );
+  elements.adminUserCreatePassword = root.querySelector(
+    "#admin-user-create-password",
+  );
+  elements.adminUserCreateDisplayName = root.querySelector(
+    "#admin-user-create-display-name",
+  );
   elements.adminUserCreateRole = root.querySelector("#admin-user-create-role");
   elements.userAccessList = root.querySelector("#user-access-list");
   elements.propertyForm = root.querySelector("#property-form");
@@ -810,20 +1020,28 @@ function hydratePrivateElements() {
   elements.tenantForm = root.querySelector("#tenant-form");
   elements.tenantPaymentForm = root.querySelector("#tenant-payment-form");
   elements.tenantPropertySelect = root.querySelector("#tenant-property-select");
-  elements.utilityBillServiceType = root.querySelector("#utility-bill-service-type");
-  elements.utilityBillPropertySelect = root.querySelector("#utility-bill-property-select");
+  elements.utilityBillServiceType = root.querySelector(
+    "#utility-bill-service-type",
+  );
+  elements.utilityBillPropertySelect = root.querySelector(
+    "#utility-bill-property-select",
+  );
   elements.tenantChargeSelect = root.querySelector("#tenant-charge-select");
   elements.tenantPaymentAmount = root.querySelector("#tenant-payment-amount");
   elements.tenantReceipts = root.querySelector("#tenant-receipts");
   elements.utilityBillFile = root.querySelector("#utility-bill-file");
   elements.generateChargesButton = root.querySelector("#generate-charges");
   elements.syncChargesButton = root.querySelector("#sync-charges");
-  elements.sendPaymentWarningsButton = root.querySelector("#send-payment-warnings");
+  elements.sendPaymentWarningsButton = root.querySelector(
+    "#send-payment-warnings",
+  );
   elements.contractModal = root.querySelector("#contract-modal");
   elements.contractForm = root.querySelector("#contract-form");
   elements.contractTenantId = root.querySelector("#contract-tenant-id");
   elements.contractAction = root.querySelector("#contract-action");
-  elements.contractEffectiveDate = root.querySelector("#contract-effective-date");
+  elements.contractEffectiveDate = root.querySelector(
+    "#contract-effective-date",
+  );
   elements.contractModalTitle = root.querySelector("#contract-modal-title");
   elements.contractModalCopy = root.querySelector("#contract-modal-copy");
   elements.contractCancelButton = root.querySelector("#contract-cancel-button");
@@ -833,27 +1051,57 @@ function hydratePrivateElements() {
   elements.historyCloseButton = root.querySelector("#history-close-button");
   elements.tenantEditModal = root.querySelector("#tenant-edit-modal");
   elements.tenantEditForm = root.querySelector("#tenant-edit-form");
-  elements.tenantEditModalTitle = root.querySelector("#tenant-edit-modal-title");
+  elements.tenantEditModalTitle = root.querySelector(
+    "#tenant-edit-modal-title",
+  );
   elements.tenantEditId = root.querySelector("#tenant-edit-id");
   elements.tenantEditFullName = root.querySelector("#tenant-edit-full-name");
   elements.tenantEditDni = root.querySelector("#tenant-edit-dni");
   elements.tenantEditPhone = root.querySelector("#tenant-edit-phone");
   elements.tenantEditEmail = root.querySelector("#tenant-edit-email");
-  elements.tenantEditPropertyId = root.querySelector("#tenant-edit-property-id");
+  elements.tenantEditPropertyId = root.querySelector(
+    "#tenant-edit-property-id",
+  );
   elements.tenantEditBaseRent = root.querySelector("#tenant-edit-base-rent");
-  elements.tenantEditContractStartDate = root.querySelector("#tenant-edit-contract-start-date");
-  elements.tenantEditContractEndDate = root.querySelector("#tenant-edit-contract-end-date");
-  elements.tenantEditCancelButton = root.querySelector("#tenant-edit-cancel-button");
-  elements.adminReceiptUploadModal = document.querySelector("#admin-receipt-upload-modal");
-  elements.adminReceiptUploadForm = document.querySelector("#admin-receipt-upload-form");
-  elements.adminReceiptUploadTenantId = document.querySelector("#admin-receipt-upload-tenant-id");
-  elements.adminReceiptUploadChargeId = document.querySelector("#admin-receipt-upload-charge-id");
-  elements.adminReceiptUploadAmount = document.querySelector("#admin-receipt-upload-amount");
-  elements.adminReceiptUploadFiles = document.querySelector("#admin-receipt-upload-files");
-  elements.adminReceiptUploadCopy = document.querySelector("#admin-receipt-upload-copy");
-  elements.adminReceiptUploadCancelButton = document.querySelector("#admin-receipt-upload-cancel-button");
-  elements.paymentInstructionsModal = root.querySelector("#payment-instructions-modal");
-  elements.paymentInstructionsCloseButton = root.querySelector("#payment-instructions-close-button");
+  elements.tenantEditContractStartDate = root.querySelector(
+    "#tenant-edit-contract-start-date",
+  );
+  elements.tenantEditContractEndDate = root.querySelector(
+    "#tenant-edit-contract-end-date",
+  );
+  elements.tenantEditCancelButton = root.querySelector(
+    "#tenant-edit-cancel-button",
+  );
+  elements.adminReceiptUploadModal = document.querySelector(
+    "#admin-receipt-upload-modal",
+  );
+  elements.adminReceiptUploadForm = document.querySelector(
+    "#admin-receipt-upload-form",
+  );
+  elements.adminReceiptUploadTenantId = document.querySelector(
+    "#admin-receipt-upload-tenant-id",
+  );
+  elements.adminReceiptUploadChargeId = document.querySelector(
+    "#admin-receipt-upload-charge-id",
+  );
+  elements.adminReceiptUploadAmount = document.querySelector(
+    "#admin-receipt-upload-amount",
+  );
+  elements.adminReceiptUploadFiles = document.querySelector(
+    "#admin-receipt-upload-files",
+  );
+  elements.adminReceiptUploadCopy = document.querySelector(
+    "#admin-receipt-upload-copy",
+  );
+  elements.adminReceiptUploadCancelButton = document.querySelector(
+    "#admin-receipt-upload-cancel-button",
+  );
+  elements.paymentInstructionsModal = root.querySelector(
+    "#payment-instructions-modal",
+  );
+  elements.paymentInstructionsCloseButton = root.querySelector(
+    "#payment-instructions-close-button",
+  );
 }
 
 async function mountPrivateApp(role) {
@@ -872,12 +1120,19 @@ async function mountPrivateApp(role) {
   }
 
   const template = document.createElement("template");
-  template.innerHTML = String(state.privateShellCache[shellKey] || "").replace(/^\uFEFF/, "");
+  template.innerHTML = String(state.privateShellCache[shellKey] || "").replace(
+    /^\uFEFF/,
+    "",
+  );
 
   if (shellKey === "admin") {
-    template.content.querySelectorAll("[data-tenant-only='true']").forEach((node) => node.remove());
+    template.content
+      .querySelectorAll("[data-tenant-only='true']")
+      .forEach((node) => node.remove());
   } else {
-    template.content.querySelectorAll("[data-admin-only='true']").forEach((node) => node.remove());
+    template.content
+      .querySelectorAll("[data-admin-only='true']")
+      .forEach((node) => node.remove());
   }
 
   elements.privateAppHost.replaceChildren(template.content.cloneNode(true));
@@ -951,7 +1206,8 @@ function updateSectionBackButton() {
     return;
   }
 
-  const canGoBack = elements.sections.length > 0 && state.sectionHistory.length > 1;
+  const canGoBack =
+    elements.sections.length > 0 && state.sectionHistory.length > 1;
   elements.sectionBackButton.classList.toggle("hidden", !canGoBack);
   elements.sectionBackButton.disabled = !canGoBack;
 }
@@ -973,11 +1229,13 @@ function handleSectionBack() {
 }
 
 function normalizeVisibleText() {
-  const tenantOnboardingCopy = elements.tenantOnboardingPanel?.querySelector(".auth-copy");
+  const tenantOnboardingCopy =
+    elements.tenantOnboardingPanel?.querySelector(".auth-copy");
   const paymentTokenTitle = elements.paymentTokenPanel?.querySelector("h2");
 
   if (tenantOnboardingCopy) {
-    tenantOnboardingCopy.textContent = "Creá o ingresá con el correo que administración ya invitó. Si no hay invitación, no se crea ningún perfil.";
+    tenantOnboardingCopy.textContent =
+      "Creá o ingresá con el correo que administración ya invitó. Si no hay invitación, no se crea ningún perfil.";
   }
 
   if (paymentTokenTitle) {
@@ -985,25 +1243,25 @@ function normalizeVisibleText() {
   }
 }
 
-  function enhancePrivateShellLayout() {
-    if (!elements.appShell) {
-      return;
-    }
-  
-    if (isAdminRole()) {
-      renameAdminNavigation();
-      ensureAdminComprobantesSection();
-      ensureChargeRentUpdateSuite();
-      ensureChargesSectionExperience();
-      ensureAdminUserScopeControls();
-      syncAdminNavVisibilityByRole();
-      ensureUnitsSuiteExperience();
-      enhanceTenantIndexExperience();
-      enhanceAdminSettingsExperience();
-    } else {
-      renameTenantNavigation();
-      ensureTenantReceiptExperience();
-    }
+function enhancePrivateShellLayout() {
+  if (!elements.appShell) {
+    return;
+  }
+
+  if (isAdminRole()) {
+    renameAdminNavigation();
+    ensureAdminComprobantesSection();
+    ensureChargeRentUpdateSuite();
+    ensureChargesSectionExperience();
+    ensureAdminUserScopeControls();
+    syncAdminNavVisibilityByRole();
+    ensureUnitsSuiteExperience();
+    enhanceTenantIndexExperience();
+    enhanceAdminSettingsExperience();
+  } else {
+    renameTenantNavigation();
+    ensureTenantReceiptExperience();
+  }
 }
 
 function ensureAdminUserScopeControls() {
@@ -1012,7 +1270,9 @@ function ensureAdminUserScopeControls() {
     return;
   }
 
-  const roleLabel = form.querySelector("#admin-user-create-role")?.closest("label");
+  const roleLabel = form
+    .querySelector("#admin-user-create-role")
+    ?.closest("label");
   const ownerScopeLabel = document.createElement("label");
   ownerScopeLabel.innerHTML = `
     Alcance
@@ -1024,13 +1284,18 @@ function ensureAdminUserScopeControls() {
   `;
   roleLabel?.insertAdjacentElement("afterend", ownerScopeLabel);
   const ownerScopeSelect = ownerScopeLabel.querySelector("select");
-  if (ownerScopeSelect && elements.adminUserCreateRole?.value === "superadmin") {
+  if (
+    ownerScopeSelect &&
+    elements.adminUserCreateRole?.value === "superadmin"
+  ) {
     ownerScopeSelect.disabled = true;
   }
 }
 
 function ensureSectionLabelText(sectionName, label, eyebrow) {
-  const section = document.querySelector(`.view-section[data-section="${sectionName}"]`);
+  const section = document.querySelector(
+    `.view-section[data-section="${sectionName}"]`,
+  );
   if (!section) {
     return;
   }
@@ -1046,7 +1311,9 @@ function ensureSectionLabelText(sectionName, label, eyebrow) {
 }
 
 function ensureSectionDescription(sectionName, descriptionText) {
-  const section = document.querySelector(`.view-section[data-section="${sectionName}"]`);
+  const section = document.querySelector(
+    `.view-section[data-section="${sectionName}"]`,
+  );
   const headingGroup = section?.querySelector(".section-head > div");
   if (!headingGroup || !descriptionText) {
     return;
@@ -1062,7 +1329,7 @@ function ensureSectionDescription(sectionName, descriptionText) {
   description.textContent = descriptionText;
 }
 
-  function renameAdminNavigation() {
+function renameAdminNavigation() {
   const navLabels = {
     resumen: "Inicio",
     comprobantes: "Comprobantes",
@@ -1073,7 +1340,7 @@ function ensureSectionDescription(sectionName, descriptionText) {
     mensajes: "Comunicación",
     configuración: "Ajustes",
     usuarios: "Usuarios",
-    auditoria: "Auditoría"
+    auditoria: "Auditoría",
   };
 
   elements.navItems.forEach((button) => {
@@ -1089,9 +1356,14 @@ function ensureSectionDescription(sectionName, descriptionText) {
   ensureSectionLabelText("configuración", "Ajustes", "Administración");
   ensureSectionLabelText("usuarios", "Usuarios", "Seguridad");
   ensureSectionLabelText("auditoria", "Auditoría", "Trazabilidad");
-  ensureSectionDescription("propiedades", "Cada unidad concentra a su inquilino actual, el estado de cobro y los accesos rápidos de gestión.");
+  ensureSectionDescription(
+    "propiedades",
+    "Cada unidad concentra a su inquilino actual, el estado de cobro y los accesos rápidos de gestión.",
+  );
 
-  const title = document.querySelector('.view-section[data-section="resumen"] .hero-kicker');
+  const title = document.querySelector(
+    '.view-section[data-section="resumen"] .hero-kicker',
+  );
   if (title) {
     title.textContent = "Inicio";
   }
@@ -1102,33 +1374,40 @@ function ensureSectionDescription(sectionName, descriptionText) {
     heroAction.dataset.jump = "comprobantes";
   }
 
-    const heroUnits = document.querySelector('[data-jump="propiedades"]');
-    if (heroUnits) {
-      heroUnits.textContent = "Ver unidades";
-    }
+  const heroUnits = document.querySelector('[data-jump="propiedades"]');
+  if (heroUnits) {
+    heroUnits.textContent = "Ver unidades";
+  }
+}
+
+function ensureUnitsSuiteExperience() {
+  const unitsSection = document.querySelector(
+    '.view-section[data-section="propiedades"][data-admin-only="true"]',
+  );
+  const propertyForm = document.querySelector("#property-form");
+  if (!unitsSection || !propertyForm) {
+    return;
   }
 
-  function ensureUnitsSuiteExperience() {
-    const unitsSection = document.querySelector('.view-section[data-section="propiedades"][data-admin-only="true"]');
-    const propertyForm = document.querySelector("#property-form");
-    if (!unitsSection || !propertyForm) {
-      return;
-    }
+  ensureSectionDescription(
+    "propiedades",
+    "Cada unidad concentra a su inquilino actual, el estado del alquiler, el cobro vigente y los accesos rápidos de gestión.",
+  );
 
-    ensureSectionDescription("propiedades", "Cada unidad concentra a su inquilino actual, el estado del alquiler, el cobro vigente y los accesos rápidos de gestión.");
+  let summary = unitsSection.querySelector("#property-suite-summary");
+  if (!summary) {
+    summary = document.createElement("div");
+    summary.id = "property-suite-summary";
+    summary.className = "summary-card-grid property-suite-summary";
+    unitsSection
+      .querySelector(".section-head")
+      ?.insertAdjacentElement("afterend", summary);
+  }
 
-    let summary = unitsSection.querySelector("#property-suite-summary");
-    if (!summary) {
-      summary = document.createElement("div");
-      summary.id = "property-suite-summary";
-      summary.className = "summary-card-grid property-suite-summary";
-      unitsSection.querySelector(".section-head")?.insertAdjacentElement("afterend", summary);
-    }
-
-    if (!propertyForm.closest(".collapsible-panel")) {
-      const panel = document.createElement("section");
-      panel.className = "collapsible-panel units-suite-panel";
-      panel.innerHTML = `
+  if (!propertyForm.closest(".collapsible-panel")) {
+    const panel = document.createElement("section");
+    panel.className = "collapsible-panel units-suite-panel";
+    panel.innerHTML = `
         <button
           class="collapsible-trigger"
           type="button"
@@ -1141,45 +1420,59 @@ function ensureSectionDescription(sectionName, descriptionText) {
         </button>
         <div id="property-create-panel" class="collapsible-content hidden"></div>
       `;
-      const host = panel.querySelector("#property-create-panel");
-      propertyForm.querySelector("h4")?.replaceChildren("Registrar unidad");
-      host?.appendChild(propertyForm);
-      summary.insertAdjacentElement("afterend", panel);
-    }
+    const host = panel.querySelector("#property-create-panel");
+    propertyForm.querySelector("h4")?.replaceChildren("Registrar unidad");
+    host?.appendChild(propertyForm);
+    summary.insertAdjacentElement("afterend", panel);
   }
+}
 
 function enhanceTenantIndexExperience() {
-  const tenantsSection = document.querySelector('.view-section[data-section="inquilinos"][data-admin-only="true"]');
+  const tenantsSection = document.querySelector(
+    '.view-section[data-section="inquilinos"][data-admin-only="true"]',
+  );
   if (!tenantsSection) {
     return;
   }
 
-    ensureSectionDescription("inquilinos", "Usá esta vista para búsquedas puntuales y edición detallada. La operación diaria principal ahora vive en Unidades.");
+  ensureSectionDescription(
+    "inquilinos",
+    "Usá esta vista para búsquedas puntuales y edición detallada. La operación diaria principal ahora vive en Unidades.",
+  );
 
-    let summary = tenantsSection.querySelector("#tenant-suite-summary");
-    if (!summary) {
-      summary = document.createElement("div");
-      summary.id = "tenant-suite-summary";
-      summary.className = "summary-card-grid tenant-suite-summary";
-      tenantsSection.querySelector(".section-head")?.insertAdjacentElement("afterend", summary);
-    }
-
-    let note = tenantsSection.querySelector(".tenant-secondary-note");
-    if (!note) {
-      note = document.createElement("div");
-      note.className = "owner-scope-note tenant-secondary-note";
-      note.innerHTML = "<strong>Vista secundaria</strong><br>Acá podés buscar y editar inquilinos puntuales. Para revisar alquiler, cobro activo, puntualidad y contrato, trabajá desde la suite de Unidades.";
-      tenantsSection.querySelector(".section-head")?.insertAdjacentElement("afterend", note);
-    }
+  let summary = tenantsSection.querySelector("#tenant-suite-summary");
+  if (!summary) {
+    summary = document.createElement("div");
+    summary.id = "tenant-suite-summary";
+    summary.className = "summary-card-grid tenant-suite-summary";
+    tenantsSection
+      .querySelector(".section-head")
+      ?.insertAdjacentElement("afterend", summary);
   }
+
+  let note = tenantsSection.querySelector(".tenant-secondary-note");
+  if (!note) {
+    note = document.createElement("div");
+    note.className = "owner-scope-note tenant-secondary-note";
+    note.innerHTML =
+      "<strong>Vista secundaria</strong><br>Acá podés buscar y editar inquilinos puntuales. Para revisar alquiler, cobro activo, puntualidad y contrato, trabajá desde la suite de Unidades.";
+    tenantsSection
+      .querySelector(".section-head")
+      ?.insertAdjacentElement("afterend", note);
+  }
+}
 
 function renameTenantNavigation() {
   if (elements.tenantFacturasNav) {
     elements.tenantFacturasNav.textContent = "Facturas y recibos";
   }
 
-  const receiptNav = document.querySelector('.nav-item[data-nav-target="mis-comprobantes"]');
-  const receiptSection = document.querySelector('.view-section[data-section="mis-comprobantes"]');
+  const receiptNav = document.querySelector(
+    '.nav-item[data-nav-target="mis-comprobantes"]',
+  );
+  const receiptSection = document.querySelector(
+    '.view-section[data-section="mis-comprobantes"]',
+  );
   if (receiptNav) {
     receiptNav.classList.add("hidden");
   }
@@ -1191,10 +1484,18 @@ function renameTenantNavigation() {
 }
 
 function syncAdminNavVisibilityByRole() {
-  const usersNav = document.querySelector('.nav-item[data-nav-target="usuarios"]');
-  const auditNav = document.querySelector('.nav-item[data-nav-target="auditoria"]');
-  const usersSection = document.querySelector('.view-section[data-section="usuarios"]');
-  const auditSection = document.querySelector('.view-section[data-section="auditoria"]');
+  const usersNav = document.querySelector(
+    '.nav-item[data-nav-target="usuarios"]',
+  );
+  const auditNav = document.querySelector(
+    '.nav-item[data-nav-target="auditoria"]',
+  );
+  const usersSection = document.querySelector(
+    '.view-section[data-section="usuarios"]',
+  );
+  const auditSection = document.querySelector(
+    '.view-section[data-section="auditoria"]',
+  );
   const showSensitive = isSuperadminRole();
 
   [usersNav, auditNav, usersSection, auditSection].forEach((node) => {
@@ -1210,15 +1511,23 @@ function ensureAdminComprobantesSection() {
   }
 
   const workspace = elements.appShell.querySelector(".workspace");
-  const chargesSection = document.querySelector('.view-section[data-section="cobros"][data-admin-only="true"]');
-  const existingSection = document.querySelector('.view-section[data-section="comprobantes"][data-admin-only="true"]');
+  const chargesSection = document.querySelector(
+    '.view-section[data-section="cobros"][data-admin-only="true"]',
+  );
+  const existingSection = document.querySelector(
+    '.view-section[data-section="comprobantes"][data-admin-only="true"]',
+  );
   if (!workspace || !chargesSection) {
     return;
   }
 
-  let navButton = document.querySelector('.nav-item[data-nav-target="comprobantes"]');
+  let navButton = document.querySelector(
+    '.nav-item[data-nav-target="comprobantes"]',
+  );
   if (!navButton) {
-    const firstAdminNav = document.querySelector('.nav-item[data-nav-target="resumen"][data-admin-only="true"]');
+    const firstAdminNav = document.querySelector(
+      '.nav-item[data-nav-target="resumen"][data-admin-only="true"]',
+    );
     navButton = document.createElement("button");
     navButton.type = "button";
     navButton.className = "nav-item";
@@ -1292,7 +1601,9 @@ function ensureAdminComprobantesSection() {
     chargesSection.insertAdjacentElement("beforebegin", section);
   }
 
-  let reviewList = section.querySelector("#admin-payment-review") || elements.adminPaymentReview;
+  let reviewList =
+    section.querySelector("#admin-payment-review") ||
+    elements.adminPaymentReview;
   if (!reviewList) {
     reviewList = document.createElement("div");
     reviewList.id = "admin-payment-review";
@@ -1300,7 +1611,10 @@ function ensureAdminComprobantesSection() {
   }
 
   const oldReviewHeading = reviewList.previousElementSibling;
-  if (oldReviewHeading?.classList?.contains("section-head") && oldReviewHeading?.classList?.contains("compact")) {
+  if (
+    oldReviewHeading?.classList?.contains("section-head") &&
+    oldReviewHeading?.classList?.contains("compact")
+  ) {
     oldReviewHeading.remove();
   }
   const oldParent = reviewList.parentElement;
@@ -1312,17 +1626,19 @@ function ensureAdminComprobantesSection() {
 }
 
 function ensureChargeRentUpdateSuite() {
-  const chargesSection = document.querySelector('.view-section[data-section="cobros"][data-admin-only="true"]');
+  const chargesSection = document.querySelector(
+    '.view-section[data-section="cobros"][data-admin-only="true"]',
+  );
   if (!chargesSection) {
     return;
   }
 
   let suite = chargesSection.querySelector("#charge-rent-update-suite");
-    if (!suite) {
-      suite = document.createElement("section");
-      suite.id = "charge-rent-update-suite";
-      suite.className = "rent-update-suite";
-      suite.innerHTML = `
+  if (!suite) {
+    suite = document.createElement("section");
+    suite.id = "charge-rent-update-suite";
+    suite.className = "rent-update-suite";
+    suite.innerHTML = `
         <div class="section-head compact">
           <div>
             <p class="section-label">Actualización de alquileres</p>
@@ -1438,17 +1754,17 @@ function ensureChargeRentUpdateSuite() {
     chargesSection.appendChild(suite);
   }
 
-    const form = suite.querySelector("#rent-update-suite-form");
-    if (form && form.dataset.bound !== "true") {
-      form.addEventListener("submit", handleRentUpdatePreviewSubmit);
-      form.dataset.bound = "true";
-    }
+  const form = suite.querySelector("#rent-update-suite-form");
+  if (form && form.dataset.bound !== "true") {
+    form.addEventListener("submit", handleRentUpdatePreviewSubmit);
+    form.dataset.bound = "true";
+  }
 
-    const policyForm = suite.querySelector("#rent-policy-form");
-    if (policyForm && policyForm.dataset.bound !== "true") {
-      policyForm.addEventListener("submit", handleRentPolicySubmit);
-      policyForm.dataset.bound = "true";
-    }
+  const policyForm = suite.querySelector("#rent-policy-form");
+  if (policyForm && policyForm.dataset.bound !== "true") {
+    policyForm.addEventListener("submit", handleRentPolicySubmit);
+    policyForm.dataset.bound = "true";
+  }
 
   const applyButton = suite.querySelector("#rent-update-apply-button");
   if (applyButton && applyButton.dataset.bound !== "true") {
@@ -1456,41 +1772,46 @@ function ensureChargeRentUpdateSuite() {
     applyButton.dataset.bound = "true";
   }
 
-    const targetModeSelect = suite.querySelector("#rent-update-target-mode");
-    if (targetModeSelect && targetModeSelect.dataset.bound !== "true") {
-      targetModeSelect.addEventListener("change", syncRentUpdateSuiteVisibility);
-      targetModeSelect.dataset.bound = "true";
-    }
-
-    const policySourceSelect = suite.querySelector("#rent-policy-update-source");
-    if (policySourceSelect && policySourceSelect.dataset.bound !== "true") {
-      policySourceSelect.addEventListener("change", syncRentPolicyFormVisibility);
-      policySourceSelect.dataset.bound = "true";
-    }
-
-    const policyCategorySelect = suite.querySelector("#rent-policy-unit-type");
-    if (policyCategorySelect && policyCategorySelect.dataset.bound !== "true") {
-      policyCategorySelect.addEventListener("change", renderChargeRentUpdateSuite);
-      policyCategorySelect.dataset.bound = "true";
-    }
-
-    const policyCardsHost = suite.querySelector("#rent-policy-card-list");
-    if (policyCardsHost && policyCardsHost.dataset.bound !== "true") {
-      policyCardsHost.addEventListener("click", handleRentPolicyCardAction);
-      policyCardsHost.dataset.bound = "true";
-    }
-
-    const categorySelect = suite.querySelector("#rent-update-unit-type");
-    if (categorySelect && categorySelect.dataset.bound !== "true") {
-      categorySelect.addEventListener("change", renderChargeRentUpdateSuite);
-      categorySelect.dataset.bound = "true";
-    }
-
-    renderChargeRentUpdateSuite();
+  const targetModeSelect = suite.querySelector("#rent-update-target-mode");
+  if (targetModeSelect && targetModeSelect.dataset.bound !== "true") {
+    targetModeSelect.addEventListener("change", syncRentUpdateSuiteVisibility);
+    targetModeSelect.dataset.bound = "true";
   }
 
+  const policySourceSelect = suite.querySelector("#rent-policy-update-source");
+  if (policySourceSelect && policySourceSelect.dataset.bound !== "true") {
+    policySourceSelect.addEventListener("change", syncRentPolicyFormVisibility);
+    policySourceSelect.dataset.bound = "true";
+  }
+
+  const policyCategorySelect = suite.querySelector("#rent-policy-unit-type");
+  if (policyCategorySelect && policyCategorySelect.dataset.bound !== "true") {
+    policyCategorySelect.addEventListener(
+      "change",
+      renderChargeRentUpdateSuite,
+    );
+    policyCategorySelect.dataset.bound = "true";
+  }
+
+  const policyCardsHost = suite.querySelector("#rent-policy-card-list");
+  if (policyCardsHost && policyCardsHost.dataset.bound !== "true") {
+    policyCardsHost.addEventListener("click", handleRentPolicyCardAction);
+    policyCardsHost.dataset.bound = "true";
+  }
+
+  const categorySelect = suite.querySelector("#rent-update-unit-type");
+  if (categorySelect && categorySelect.dataset.bound !== "true") {
+    categorySelect.addEventListener("change", renderChargeRentUpdateSuite);
+    categorySelect.dataset.bound = "true";
+  }
+
+  renderChargeRentUpdateSuite();
+}
+
 function ensureChargesSectionExperience() {
-  const chargesSection = document.querySelector('.view-section[data-section="cobros"][data-admin-only="true"]');
+  const chargesSection = document.querySelector(
+    '.view-section[data-section="cobros"][data-admin-only="true"]',
+  );
   if (!chargesSection) {
     return;
   }
@@ -1500,26 +1821,28 @@ function ensureChargesSectionExperience() {
     stack = document.createElement("div");
     stack.id = "charges-suite-stack";
     stack.className = "collapsible-stack charges-suite-stack";
-    chargesSection.querySelector(".section-head")?.insertAdjacentElement("afterend", stack);
+    chargesSection
+      .querySelector(".section-head")
+      ?.insertAdjacentElement("afterend", stack);
   }
 
   const periodsPanel = ensureChargesCollapsiblePanel({
     stack,
     panelId: "charges-periods-panel",
     title: "Períodos y recibos",
-    expanded: true
+    expanded: true,
   });
   const settingsPanel = ensureChargesCollapsiblePanel({
     stack,
     panelId: "charges-settings-panel",
     title: "Configuración de cobros",
-    expanded: false
+    expanded: false,
   });
   const activeChargesPanel = ensureChargesCollapsiblePanel({
     stack,
     panelId: "charges-active-panel",
     title: "Cobros abiertos por inquilino",
-    expanded: true
+    expanded: true,
   });
 
   const periodHead = chargesSection.querySelector(".charge-period-head");
@@ -1570,8 +1893,13 @@ function ensureChargesCollapsiblePanel({ stack, panelId, title, expanded }) {
 }
 
 function ensureTenantReceiptExperience() {
-  const tenantFacturasSection = document.querySelector('.view-section[data-section="facturas"][data-tenant-only="true"]');
-  if (!tenantFacturasSection || tenantFacturasSection.querySelector(".tenant-documents-tabs")) {
+  const tenantFacturasSection = document.querySelector(
+    '.view-section[data-section="facturas"][data-tenant-only="true"]',
+  );
+  if (
+    !tenantFacturasSection ||
+    tenantFacturasSection.querySelector(".tenant-documents-tabs")
+  ) {
     return;
   }
 
@@ -1594,7 +1922,9 @@ function ensureTenantReceiptExperience() {
 }
 
 function enhanceAdminSettingsExperience() {
-  const settingsSection = document.querySelector('.view-section[data-section="configuración"][data-admin-only="true"]');
+  const settingsSection = document.querySelector(
+    '.view-section[data-section="configuración"][data-admin-only="true"]',
+  );
   if (!settingsSection) {
     return;
   }
@@ -1603,18 +1933,29 @@ function enhanceAdminSettingsExperience() {
   if (headingGroup && !headingGroup.querySelector(".section-description")) {
     const description = document.createElement("p");
     description.className = "section-description";
-    description.textContent = "Centralizá datos del administrador, reglas de cobro y cuentas bancarias sin mezclar información global con acciones operativas.";
+    description.textContent =
+      "Centralizá datos del administrador, reglas de cobro y cuentas bancarias sin mezclar información global con acciones operativas.";
     headingGroup.appendChild(description);
   }
 
-  settingsSection.querySelector("#admin-settings-profile-panel")?.closest(".collapsible-panel")?.classList.add("settings-suite-panel", "settings-suite-profile");
-  settingsSection.querySelector("#admin-settings-general-panel")?.closest(".collapsible-panel")?.classList.add("settings-suite-panel", "settings-suite-global");
-  settingsSection.querySelector("#admin-settings-bank-panel")?.closest(".collapsible-panel")?.classList.add("settings-suite-panel", "settings-suite-bank");
+  settingsSection
+    .querySelector("#admin-settings-profile-panel")
+    ?.closest(".collapsible-panel")
+    ?.classList.add("settings-suite-panel", "settings-suite-profile");
+  settingsSection
+    .querySelector("#admin-settings-general-panel")
+    ?.closest(".collapsible-panel")
+    ?.classList.add("settings-suite-panel", "settings-suite-global");
+  settingsSection
+    .querySelector("#admin-settings-bank-panel")
+    ?.closest(".collapsible-panel")
+    ?.classList.add("settings-suite-panel", "settings-suite-bank");
 
   if (elements.adminRentAdjustmentButton) {
-    elements.adminRentAdjustmentButton.textContent = getCurrentOwnerScope() === "all"
-      ? "Aplicar ajuste global"
-      : "Ajuste global reservado a superadmin";
+    elements.adminRentAdjustmentButton.textContent =
+      getCurrentOwnerScope() === "all"
+        ? "Aplicar ajuste global"
+        : "Ajuste global reservado a superadmin";
   }
 }
 
@@ -1696,7 +2037,8 @@ function normalizeCollapsibleUi() {
   });
 
   if (elements.messageTemplateHelper) {
-    elements.messageTemplateHelper.textContent = "Elegí una plantilla para autocompletar el mensaje.";
+    elements.messageTemplateHelper.textContent =
+      "Elegí una plantilla para autocompletar el mensaje.";
   }
 }
 
@@ -1712,8 +2054,13 @@ function watchSession() {
       state.profile = null;
       state.role = null;
       stopSessionIdleMonitor();
-      if (!state.postSignOutAuthMessage && state.recentAuthAttemptAt && Date.now() - state.recentAuthAttemptAt < 15000) {
-        state.postSignOutAuthMessage = "La autenticación se inició, pero el acceso no terminó de cargarse. Intenta nuevamente.";
+      if (
+        !state.postSignOutAuthMessage &&
+        state.recentAuthAttemptAt &&
+        Date.now() - state.recentAuthAttemptAt < 15000
+      ) {
+        state.postSignOutAuthMessage =
+          "La autenticación se inició, pero el acceso no terminó de cargarse. Intenta nuevamente.";
       }
       renderSignedOut();
       return;
@@ -1736,7 +2083,10 @@ function watchSession() {
         await new Promise((resolve) => window.setTimeout(resolve, 700));
         await loadUserProfile(user.uid);
       } catch (retryError) {
-        console.error("Falló la carga del perfil luego del reintento", retryError);
+        console.error(
+          "Falló la carga del perfil luego del reintento",
+          retryError,
+        );
         renderAccessDenied({
           title: "No pudimos completar tu acceso",
           copy: "Tu cuenta existe, pero hubo un problema al cargar permisos o datos del perfil.",
@@ -1744,8 +2094,8 @@ function watchSession() {
           canBootstrap: false,
           primaryAction: {
             label: "Volver al ingreso",
-            intent: "sign-out-and-return"
-          }
+            intent: "sign-out-and-return",
+          },
         });
       }
     }
@@ -1802,7 +2152,9 @@ async function maybeRenderTokenPortal() {
   elements.paymentTokenCard.innerHTML = `<p>Cargando cobro...</p>`;
 
   try {
-    const response = await fetch(resolveRuntimeApiUrl("resolvePaymentAccessToken", { token }));
+    const response = await fetch(
+      resolveRuntimeApiUrl("resolvePaymentAccessToken", { token }),
+    );
     const payload = await response.json();
 
     if (!response.ok || !payload.ok) {
@@ -1826,8 +2178,9 @@ async function maybeRenderTokenPortal() {
     const totalAmount = Number(charge.total ?? subtotal + lateFeeAmount);
     const canUploadTransferReceipt = charge.status !== "paid";
 
-    elements.paymentTokenCopy.textContent = "Accedé al detalle puntual del cobro para resolver este período sin navegar toda la app.";
-      elements.paymentTokenCard.innerHTML = `
+    elements.paymentTokenCopy.textContent =
+      "Accedé al detalle puntual del cobro para resolver este período sin navegar toda la app.";
+    elements.paymentTokenCard.innerHTML = `
         <div class="token-summary">
           <div class="token-summary-head">
             <div>
@@ -1858,7 +2211,10 @@ async function maybeRenderTokenPortal() {
           ${
             otherItems.length
               ? `<div class="token-extra-items">${otherItems
-                  .map((item) => `<p>${item.label}: ${formatCurrency(item.amount ?? 0)}</p>`)
+                  .map(
+                    (item) =>
+                      `<p>${item.label}: ${formatCurrency(item.amount ?? 0)}</p>`,
+                  )
                   .join("")}</div>`
               : ""
           }
@@ -1896,42 +2252,55 @@ async function maybeRenderTokenPortal() {
 
     elements.paymentTokenCard.onclick = async (event) => {
       const button = event.target.closest("[data-token-pay]");
-        const transferButton = event.target.closest("[data-token-transfer-toggle]");
-        const instructionsButton = event.target.closest("[data-token-instructions-toggle]");
+      const transferButton = event.target.closest(
+        "[data-token-transfer-toggle]",
+      );
+      const instructionsButton = event.target.closest(
+        "[data-token-instructions-toggle]",
+      );
 
-        if (transferButton) {
-          elements.paymentTokenCard
-            .querySelector("[data-token-transfer-details]")
-            ?.classList.toggle("hidden");
-          return;
-        }
+      if (transferButton) {
+        elements.paymentTokenCard
+          .querySelector("[data-token-transfer-details]")
+          ?.classList.toggle("hidden");
+        return;
+      }
 
-        if (instructionsButton) {
-          openPaymentInstructionsModal();
-          return;
-        }
+      if (instructionsButton) {
+        openPaymentInstructionsModal();
+        return;
+      }
 
-        if (!button) {
-          return;
-        }
+      if (!button) {
+        return;
+      }
 
       try {
-        elements.paymentTokenMessage.textContent = "Preparando pago con tarjeta...";
+        elements.paymentTokenMessage.textContent =
+          "Preparando pago con tarjeta...";
         const checkoutResponse = await fetch(
-          resolveRuntimeApiUrl("createCheckoutFromPaymentAccessToken", { token: button.dataset.tokenPay }),
-          { method: "POST" }
+          resolveRuntimeApiUrl("createCheckoutFromPaymentAccessToken", {
+            token: button.dataset.tokenPay,
+          }),
+          { method: "POST" },
         );
         const checkoutPayload = await checkoutResponse.json();
 
-        if (!checkoutResponse.ok || !checkoutPayload.ok || !checkoutPayload.checkoutUrl) {
-          elements.paymentTokenMessage.textContent = "No se pudo abrir el pago con tarjeta.";
+        if (
+          !checkoutResponse.ok ||
+          !checkoutPayload.ok ||
+          !checkoutPayload.checkoutUrl
+        ) {
+          elements.paymentTokenMessage.textContent =
+            "No se pudo abrir el pago con tarjeta.";
           return;
         }
 
         window.location.href = checkoutPayload.checkoutUrl;
       } catch (error) {
         console.error(error);
-        elements.paymentTokenMessage.textContent = "No se pudo abrir el pago con tarjeta.";
+        elements.paymentTokenMessage.textContent =
+          "No se pudo abrir el pago con tarjeta.";
       }
     };
 
@@ -1946,12 +2315,14 @@ async function maybeRenderTokenPortal() {
       const files = Array.from(form.receipts?.files || []).slice(0, 2);
 
       if (!amountReported || !files.length) {
-        elements.paymentTokenMessage.textContent = "Completa el monto y subi al menos un comprobante.";
+        elements.paymentTokenMessage.textContent =
+          "Completa el monto y subi al menos un comprobante.";
         return;
       }
 
       if (files.some((file) => file.size > 6 * 1024 * 1024)) {
-        elements.paymentTokenMessage.textContent = "Cada comprobante debe pesar menos de 6 MB.";
+        elements.paymentTokenMessage.textContent =
+          "Cada comprobante debe pesar menos de 6 MB.";
         return;
       }
 
@@ -1964,28 +2335,31 @@ async function maybeRenderTokenPortal() {
           files.map(async (file) => ({
             name: file.name,
             type: file.type || "application/octet-stream",
-            dataBase64: await readFileAsDataUrl(file)
-          }))
+            dataBase64: await readFileAsDataUrl(file),
+          })),
         );
 
         const submitResponse = await fetch(
-          resolveRuntimeApiUrl("submitTransferFromPaymentAccessToken", { token }),
+          resolveRuntimeApiUrl("submitTransferFromPaymentAccessToken", {
+            token,
+          }),
           {
             method: "POST",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               token,
               amountReported,
-              files: serializedFiles
-            })
-          }
+              files: serializedFiles,
+            }),
+          },
         );
 
         const submitPayload = await submitResponse.json();
         if (!submitResponse.ok) {
-          elements.paymentTokenMessage.textContent = submitPayload.detail || "No se pudo validar el comprobante.";
+          elements.paymentTokenMessage.textContent =
+            submitPayload.detail || "No se pudo validar el comprobante.";
           return;
         }
 
@@ -1993,17 +2367,25 @@ async function maybeRenderTokenPortal() {
           const validation = submitPayload.validation || {};
           elements.paymentTokenMessage.textContent = [
             submitPayload.reason || "No se pudo validar el comprobante.",
-            validation.expectedAmount ? `Esperado: ${formatCurrency(validation.expectedAmount)}.` : "",
-            validation.totalDetected ? `Detectado: ${formatCurrency(validation.totalDetected)}.` : ""
-          ].filter(Boolean).join(" ");
+            validation.expectedAmount
+              ? `Esperado: ${formatCurrency(validation.expectedAmount)}.`
+              : "",
+            validation.totalDetected
+              ? `Detectado: ${formatCurrency(validation.totalDetected)}.`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
           return;
         }
 
         form.reset();
-        elements.paymentTokenMessage.textContent = "Comprobante validado. El pago quedó enviado para revisión administrativa.";
+        elements.paymentTokenMessage.textContent =
+          "Comprobante validado. El pago quedó enviado para revisión administrativa.";
       } catch (error) {
         console.error(error);
-        elements.paymentTokenMessage.textContent = "No se pudo validar el comprobante en este momento.";
+        elements.paymentTokenMessage.textContent =
+          "No se pudo validar el comprobante en este momento.";
       } finally {
         submitButton?.removeAttribute("disabled");
       }
@@ -2018,7 +2400,7 @@ async function maybeRenderTokenPortal() {
 function resolveRuntimeApiUrl(functionName, params = {}) {
   if (!window.LaCasonaRuntime?.resolveApiUrl) {
     throw new Error(
-      "No se pudo resolver el endpoint de funciones. Revisá que runtime-config.js cargue antes de app.js."
+      "No se pudo resolver el endpoint de funciones. Revisá que runtime-config.js cargue antes de app.js.",
     );
   }
 
@@ -2029,7 +2411,8 @@ function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error || new Error("No se pudo leer el archivo."));
+    reader.onerror = () =>
+      reject(reader.error || new Error("No se pudo leer el archivo."));
     reader.readAsDataURL(file);
   });
 }
@@ -2059,11 +2442,7 @@ async function handleLogin(event) {
 
   try {
     stampSessionActivity(true);
-    await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
+    await signInWithEmailAndPassword(auth, email, password);
   } catch (error) {
     setAuthMessage(humanizeAuthError(error), "error");
   } finally {
@@ -2080,7 +2459,10 @@ async function handleRegister() {
   const password = String(elements.authPassword?.value || "");
 
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    setAuthMessage("Ingresa un correo electrónico válido antes de crear la cuenta.", "error");
+    setAuthMessage(
+      "Ingresa un correo electrónico válido antes de crear la cuenta.",
+      "error",
+    );
     return;
   }
 
@@ -2096,17 +2478,25 @@ async function handleRegister() {
 }
 
 async function handlePasswordReset() {
-  const email = String(elements.authEmail?.value || "").trim().toLowerCase();
+  const email = String(elements.authEmail?.value || "")
+    .trim()
+    .toLowerCase();
 
   if (!email) {
-    setAuthMessage("Ingresa tu correo para enviarte el enlace de recuperación.", "error");
+    setAuthMessage(
+      "Ingresa tu correo para enviarte el enlace de recuperación.",
+      "error",
+    );
     return;
   }
 
   try {
     setAuthMessage("Enviando enlace de recuperación...");
     await sendPasswordResetEmail(auth, email);
-    setAuthMessage("Te enviamos un correo para restablecer la contraseña.", "success");
+    setAuthMessage(
+      "Te enviamos un correo para restablecer la contraseña.",
+      "success",
+    );
   } catch (error) {
     console.error(error);
     setAuthMessage(humanizeAuthError(error), "error");
@@ -2115,8 +2505,11 @@ async function handlePasswordReset() {
 
 function showTenantOnboarding() {
   setAuthPending(false);
-  elements.tenantOnboardingEmail.value = state.authUser?.email || elements.authEmail.value.trim();
-  elements.tenantOnboardingPassword.value = state.authUser ? "" : elements.authPassword.value;
+  elements.tenantOnboardingEmail.value =
+    state.authUser?.email || elements.authEmail.value.trim();
+  elements.tenantOnboardingPassword.value = state.authUser
+    ? ""
+    : elements.authPassword.value;
   elements.loadingSessionPanel?.classList.add("hidden");
   elements.accessDeniedPanel?.classList.add("hidden");
   elements.tenantOnboardingPanel.classList.remove("hidden");
@@ -2164,14 +2557,17 @@ async function handlePropertyTypeChange() {
       ? options
           .map(
             (option) =>
-              `<option value="${option.unitCode}">${propertyType} ${option.unitCode}</option>`
+              `<option value="${option.unitCode}">${propertyType} ${option.unitCode}</option>`,
           )
           .join("")
       : `<option value="">No quedan opciones disponibles</option>`;
   } catch (error) {
     console.error(error);
     elements.tenantPropertyCode.innerHTML = `<option value="">No se pudieron cargar las opciones</option>`;
-    setTenantOnboardingMessage("No pudimos cargar las propiedades disponibles.", "error");
+    setTenantOnboardingMessage(
+      "No pudimos cargar las propiedades disponibles.",
+      "error",
+    );
   }
 }
 
@@ -2185,24 +2581,27 @@ async function handleTenantOnboardingSubmit(event) {
   setTenantOnboardingMessage("Verificando invitacion...");
 
   const formData = new FormData(event.currentTarget);
-  const email = (
-    elements.tenantOnboardingEmail?.value?.trim()
-    || String(formData.get("email") ?? "").trim()
-    || elements.authEmail?.value?.trim()
-    || ""
-  );
-  const password = (
-    elements.tenantOnboardingPassword?.value
-    || String(formData.get("password") ?? "")
-    || elements.authPassword?.value
-    || ""
-  );
+  const email =
+    elements.tenantOnboardingEmail?.value?.trim() ||
+    String(formData.get("email") ?? "").trim() ||
+    elements.authEmail?.value?.trim() ||
+    "";
+  const password =
+    elements.tenantOnboardingPassword?.value ||
+    String(formData.get("password") ?? "") ||
+    elements.authPassword?.value ||
+    "";
   const hasAuthenticatedSessionForEmail =
-    Boolean(auth.currentUser?.uid)
-    && String(auth.currentUser?.email || "").trim().toLowerCase() === email.toLowerCase();
+    Boolean(auth.currentUser?.uid) &&
+    String(auth.currentUser?.email || "")
+      .trim()
+      .toLowerCase() === email.toLowerCase();
   let createdAuthAccountInThisAttempt = false;
   if (!email || (!password && !hasAuthenticatedSessionForEmail)) {
-    setTenantOnboardingMessage("Completá correo y contraseña para reclamar tu acceso.", "error");
+    setTenantOnboardingMessage(
+      "Completá correo y contraseña para reclamar tu acceso.",
+      "error",
+    );
     setTenantOnboardingPending(false);
     return;
   }
@@ -2227,15 +2626,20 @@ async function handleTenantOnboardingSubmit(event) {
     const createProfile = httpsCallable(functions, "createTenantProfile");
     await createProfile();
     await auth.currentUser?.getIdToken(true);
-    setTenantOnboardingMessage("Acceso vinculado. Estamos preparando tu portal.", "success");
+    setTenantOnboardingMessage(
+      "Acceso vinculado. Estamos preparando tu portal.",
+      "success",
+    );
   } catch (error) {
     console.error(error);
     if (createdAuthAccountInThisAttempt) {
       await rollbackTenantOnboardingAccount(email);
     }
     setTenantOnboardingMessage(
-      humanizeFunctionError(error) || humanizeAuthError(error) || "No encontramos una invitacion para este correo. Pedile a administracion que prepare tu acceso.",
-      "error"
+      humanizeFunctionError(error) ||
+        humanizeAuthError(error) ||
+        "No encontramos una invitacion para este correo. Pedile a administracion que prepare tu acceso.",
+      "error",
     );
   } finally {
     setTenantOnboardingPending(false);
@@ -2244,15 +2648,29 @@ async function handleTenantOnboardingSubmit(event) {
 
 async function rollbackTenantOnboardingAccount(email) {
   try {
-    if (auth.currentUser && String(auth.currentUser.email || "").trim().toLowerCase() === String(email || "").trim().toLowerCase()) {
+    if (
+      auth.currentUser &&
+      String(auth.currentUser.email || "")
+        .trim()
+        .toLowerCase() ===
+        String(email || "")
+          .trim()
+          .toLowerCase()
+    ) {
       await deleteUser(auth.currentUser);
     }
   } catch (error) {
-    console.error("No se pudo revertir la cuenta de autenticacion creada durante el onboarding", error);
+    console.error(
+      "No se pudo revertir la cuenta de autenticacion creada durante el onboarding",
+      error,
+    );
     try {
       await signOut(auth);
     } catch (signOutError) {
-      console.error("No se pudo cerrar la sesion tras un fallo de onboarding", signOutError);
+      console.error(
+        "No se pudo cerrar la sesion tras un fallo de onboarding",
+        signOutError,
+      );
     }
   }
 }
@@ -2331,7 +2749,9 @@ function ensureTenantEditSchedulingFields() {
 }
 
 async function loadUserProfile(userId) {
-  const tokenResult = state.authUser ? await getIdTokenResult(state.authUser) : null;
+  const tokenResult = state.authUser
+    ? await getIdTokenResult(state.authUser)
+    : null;
   state.authClaims = extractAuthorityClaims(tokenResult?.claims);
 
   const userRef = doc(db, "users", userId);
@@ -2359,38 +2779,24 @@ async function loadUserProfile(userId) {
     state.role = null;
     renderAccessDenied({
       title: "Tu acceso no está activo",
-      copy: "Tu usuario ya no está activo. Contacta a administración."
+      copy: "Tu usuario ya no está activo. Contacta a administración.",
     });
     return;
   }
 
-  if (state.authUser && sessionClaimsNeedRefresh(state.profile, state.authClaims)) {
-    let claimsRefreshed = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await state.authUser.getIdToken(true);
-      const refreshedTokenResult = await getIdTokenResult(state.authUser, true);
-      state.authClaims = extractAuthorityClaims(refreshedTokenResult?.claims);
-      if (!sessionClaimsNeedRefresh(state.profile, state.authClaims)) {
-        claimsRefreshed = true;
-        break;
-      }
-      if (attempt < 2) {
-        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
-      }
-    }
+  if (
+    state.authUser &&
+    sessionClaimsNeedRefresh(state.profile, state.authClaims)
+  ) {
+    const claimsRefreshed = await refreshSessionClaims({
+      attempts: 5,
+      baseDelayMs: 700,
+    });
     if (!claimsRefreshed) {
-      state.profile = null;
-      state.role = null;
-      renderAccessDenied({
-        title: "Tu sesión necesita actualizar permisos",
-        copy: "Actualizamos tu perfil, pero tu token todavía no refleja los permisos vigentes.",
-        message: "Cerrá sesión y volvé a ingresar para continuar sin usar permisos antiguos.",
-        primaryAction: {
-          label: "Volver al ingreso",
-          intent: "sign-out-and-return"
-        }
-      });
-      return;
+      setMessage(
+        "Tu acceso fue actualizado, pero Firebase todavía está propagando los permisos. Reintentá en unos segundos si algo no carga.",
+        "warning",
+      );
     }
   }
 
@@ -2399,7 +2805,7 @@ async function loadUserProfile(userId) {
     state.role = null;
     renderAccessDenied({
       title: "Rol no válido",
-      copy: "Tu cuenta no tiene un rol válido para ingresar a la aplicación."
+      copy: "Tu cuenta no tiene un rol válido para ingresar a la aplicación.",
     });
     return;
   }
@@ -2414,7 +2820,8 @@ function extractAuthorityClaims(claims) {
         role: claims.role || null,
         tenantId: claims.tenantId || null,
         ownerScope: claims.ownerScope || null,
-        authVersion: typeof claims.authVersion === "number" ? claims.authVersion : null
+        authVersion:
+          typeof claims.authVersion === "number" ? claims.authVersion : null,
       }
     : null;
 }
@@ -2432,14 +2839,81 @@ function sessionClaimsNeedRefresh(profile, claims) {
     return !profile.tenantId || claims.tenantId !== profile.tenantId;
   }
 
-  const profileScope = profile.role === "superadmin" ? "all" : normalizeOwnerScope(profile.ownerScope);
-  if (claims.ownerScope && normalizeOwnerScope(claims.ownerScope) !== profileScope) {
+  const profileScope =
+    profile.role === "superadmin"
+      ? "all"
+      : normalizeOwnerScope(profile.ownerScope);
+  if (
+    claims.ownerScope &&
+    normalizeOwnerScope(claims.ownerScope) !== profileScope
+  ) {
     return true;
   }
 
-  return typeof profile.authVersion === "number"
-    && typeof claims.authVersion === "number"
-    && claims.authVersion !== profile.authVersion;
+  return (
+    typeof profile.authVersion === "number" &&
+    typeof claims.authVersion === "number" &&
+    claims.authVersion !== profile.authVersion
+  );
+}
+
+async function refreshSessionClaims({ attempts = 4, baseDelayMs = 500 } = {}) {
+  if (!state.authUser || !state.profile) {
+    return false;
+  }
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    await state.authUser.getIdToken(true);
+    const refreshedTokenResult = await getIdTokenResult(state.authUser, true);
+    state.authClaims = extractAuthorityClaims(refreshedTokenResult?.claims);
+    if (!sessionClaimsNeedRefresh(state.profile, state.authClaims)) {
+      return true;
+    }
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, baseDelayMs * (attempt + 1)),
+      );
+    }
+  }
+
+  return false;
+}
+
+async function callWithClaimsRefreshRetry(callableName, payload, options = {}) {
+  const callable = httpsCallable(functions, callableName);
+
+  try {
+    return await callable(payload);
+  } catch (error) {
+    if (!shouldRetryWithClaimsRefresh(error, options)) {
+      throw error;
+    }
+
+    const refreshed = await refreshSessionClaims({
+      attempts: options.attempts || 4,
+      baseDelayMs: options.baseDelayMs || 600,
+    });
+    if (!refreshed) {
+      throw error;
+    }
+
+    return callable(payload);
+  }
+}
+
+function shouldRetryWithClaimsRefresh(error, options = {}) {
+  const code = String(error?.code || "").replace(/^functions\//, "");
+  const message = String(error?.message || "").toLowerCase();
+
+  if (code === "failed-precondition") {
+    return (
+      message.includes("sesion necesita") ||
+      message.includes("refrescar permisos") ||
+      options.retryOnFailedPrecondition === true
+    );
+  }
+
+  return code === "unauthenticated" || code === "permission-denied";
 }
 
 async function tryClaimTenantAccess() {
@@ -2469,7 +2943,10 @@ async function getBootstrapEligibility() {
   }
 
   try {
-    const checkBootstrapEligibility = httpsCallable(functions, "checkBootstrapEligibility");
+    const checkBootstrapEligibility = httpsCallable(
+      functions,
+      "checkBootstrapEligibility",
+    );
     const result = await checkBootstrapEligibility();
     return result.data || { canBootstrap: false };
   } catch (error) {
@@ -2500,12 +2977,16 @@ function renderAccessDenied({
   copy = "Revisa tu sesión o comunícate con administración.",
   message = "",
   canBootstrap = false,
-  primaryAction = null
+  primaryAction = null,
 } = {}) {
   setMobileNavOpen(false);
   setAuthPending(false);
   setTenantOnboardingPending(false);
-  document.body.classList.remove("role-admin", "role-tenant", "session-pending");
+  document.body.classList.remove(
+    "role-admin",
+    "role-tenant",
+    "session-pending",
+  );
   hidePublicPanels();
   elements.authScreen.classList.remove("hidden");
   elements.accessDeniedPanel?.classList.remove("hidden");
@@ -2520,7 +3001,11 @@ function renderAccessDenied({
   }
   if (elements.accessDeniedMessage) {
     elements.accessDeniedMessage.textContent = message;
-    elements.accessDeniedMessage.dataset.tone = message ? (canBootstrap ? "info" : "warning") : "info";
+    elements.accessDeniedMessage.dataset.tone = message
+      ? canBootstrap
+        ? "info"
+        : "warning"
+      : "info";
   }
 
   if (elements.accessDeniedActions && elements.bootstrapButton) {
@@ -2586,12 +3071,13 @@ function renderPendingAccess(canBootstrap) {
       ? "Tu cuenta existe pero todavía no tiene rol. Si esta es la primera cuenta, activa el administrador inicial."
       : "Si el sistema no completó tu alta, vuelve a ingresar tus datos desde Completar perfil de inquilino.",
     canBootstrap,
-    primaryAction: !canBootstrap && state.authUser?.email
-      ? {
-          label: "Completar perfil de inquilino",
-          intent: "resume-tenant-onboarding"
-        }
-      : null
+    primaryAction:
+      !canBootstrap && state.authUser?.email
+        ? {
+            label: "Completar perfil de inquilino",
+            intent: "resume-tenant-onboarding",
+          }
+        : null,
   });
 }
 
@@ -2610,7 +3096,6 @@ function humanizeProfileLoadError(error) {
   return "Se produjo un problema al cargar tu acceso. Volvé al ingreso e intentá nuevamente.";
 }
 
-
 async function renderSignedIn() {
   const isAdmin = isAdminRole();
   await mountPrivateApp(state.role);
@@ -2620,7 +3105,8 @@ async function renderSignedIn() {
   document.body.classList.toggle("role-tenant", !isAdmin);
 
   elements.sidebarRole.textContent = isAdmin ? "Administración" : "Mi alquiler";
-  elements.sessionName.textContent = state.profile.displayName || state.authUser.email || "Usuario";
+  elements.sessionName.textContent =
+    state.profile.displayName || state.authUser.email || "Usuario";
   elements.sessionMeta.textContent = isAdmin
     ? getCurrentOwnerScope() === "all"
       ? "Panel administrativo activo."
@@ -2640,7 +3126,9 @@ async function renderSignedIn() {
     : "Inquilino";
   elements.userChip.className = `status ${isAdmin ? "warning" : "neutral"}`;
   resetSectionHistory();
-  setActiveSection(isAdmin ? "resumen" : "mi-alquiler", { replaceHistory: true });
+  setActiveSection(isAdmin ? "resumen" : "mi-alquiler", {
+    replaceHistory: true,
+  });
   renderAdminSettings();
   renderCheckoutFeedback();
   setAuthMessage("");
@@ -2650,7 +3138,6 @@ async function renderSignedIn() {
   document.body.classList.remove("session-pending");
 }
 
-
 async function handleBootstrapAdmin() {
   if (!state.authUser) {
     setAuthMessage("Primero crea o inicia sesión con tu cuenta.");
@@ -2659,10 +3146,16 @@ async function handleBootstrapAdmin() {
 
   try {
     setAuthMessage("Activando administrador inicial...");
-    const bootstrapInitialAdmin = httpsCallable(functions, "bootstrapInitialAdmin");
+    const bootstrapInitialAdmin = httpsCallable(
+      functions,
+      "bootstrapInitialAdmin",
+    );
     await bootstrapInitialAdmin();
     await auth.currentUser?.getIdToken(true);
-    setAuthMessage("Administrador inicial activado. Recargando permisos...", "success");
+    setAuthMessage(
+      "Administrador inicial activado. Recargando permisos...",
+      "success",
+    );
     await loadUserProfile(state.authUser.uid);
   } catch (error) {
     setAuthMessage(humanizeAuthError(error), "error");
@@ -2679,7 +3172,7 @@ function subscribeRoleData() {
 }
 
 function subscribeAdminData() {
-    const currentScope = getCurrentOwnerScope();
+  const currentScope = getCurrentOwnerScope();
 
   state.unsubscribers.push(
     onSnapshot(doc(db, "settings", "general"), (snapshot) => {
@@ -2688,63 +3181,69 @@ function subscribeAdminData() {
       renderSummary();
       renderCharges();
       renderTenants();
-    })
+    }),
   );
 
   state.unsubscribers.push(
     onSnapshot(doc(db, "settings", "bankAccounts"), (snapshot) => {
       state.bankAccounts = snapshot.exists() ? snapshot.data() : null;
       renderAdminSettings();
-    })
+    }),
   );
 
-    state.unsubscribers.push(
-      onSnapshot(query(collection(db, "utilityBills"), orderBy("createdAt", "desc")), (snapshot) => {
+  state.unsubscribers.push(
+    onSnapshot(
+      query(collection(db, "utilityBills"), orderBy("createdAt", "desc")),
+      (snapshot) => {
         state.utilityBills = snapshot.docs.map(mapDoc);
         renderUtilityBills();
-      })
-    );
+      },
+    ),
+  );
 
-    subscribeScopedAdminData(currentScope);
+  subscribeScopedAdminData(currentScope);
 
-    if (isSuperadminRole()) {
-      state.unsubscribers.push(
-        onSnapshot(query(collection(db, "auditLogs"), orderBy("createdAt", "desc")), (snapshot) => {
+  if (isSuperadminRole()) {
+    state.unsubscribers.push(
+      onSnapshot(
+        query(collection(db, "auditLogs"), orderBy("createdAt", "desc")),
+        (snapshot) => {
           state.auditLogs = snapshot.docs.map(mapDoc);
           renderAuditLogs();
-        })
-      );
+        },
+      ),
+    );
 
-      state.unsubscribers.push(
-        onSnapshot(collection(db, "users"), (snapshot) => {
-          state.users = snapshot.docs.map(mapDoc);
-          renderUserAccessList();
-        })
-      );
-      return;
-    }
-
-    state.auditLogs = [];
-    state.users = [];
-    renderAuditLogs();
-    renderUserAccessList();
+    state.unsubscribers.push(
+      onSnapshot(collection(db, "users"), (snapshot) => {
+        state.users = snapshot.docs.map(mapDoc);
+        renderUserAccessList();
+      }),
+    );
+    return;
   }
+
+  state.auditLogs = [];
+  state.users = [];
+  renderAuditLogs();
+  renderUserAccessList();
+}
 
 function subscribeScopedAdminData(currentScope) {
   state.adminDiagnostics = {
-      source: "backend-scoped",
-      frontendScope: currentScope,
-      backendScope: null,
-      counts: {
-        properties: 0,
-        tenants: 0,
-        charges: 0,
-        payments: 0
-      },
-      propertySummary: null,
-      propertySamples: [],
-      error: ""
-    };
+    source: "backend-scoped",
+    frontendScope: currentScope,
+    backendScope: null,
+    counts: {
+      properties: 0,
+      tenants: 0,
+      charges: 0,
+      payments: 0,
+    },
+    propertySummary: null,
+    propertySamples: [],
+    error: "",
+  };
   state.auditLogs = [];
   state.users = [];
   renderAuditLogs();
@@ -2761,39 +3260,65 @@ async function loadScopedAdminDataset(currentScope) {
 
   state.scopedAdminRefreshPending = true;
   try {
-    const getScopedAdminDataset = httpsCallable(functions, "getScopedAdminDataset");
-    const result = await getScopedAdminDataset();
+    const result = await callWithClaimsRefreshRetry(
+      "getScopedAdminDataset",
+      undefined,
+      {
+        attempts: 5,
+        baseDelayMs: 700,
+      },
+    );
     const payload = result.data ?? {};
 
-    state.properties = Array.isArray(payload.properties) ? payload.properties : [];
+    state.properties = Array.isArray(payload.properties)
+      ? payload.properties
+      : [];
     state.tenants = Array.isArray(payload.tenants) ? payload.tenants : [];
     state.charges = Array.isArray(payload.charges)
-      ? payload.charges.sort((left, right) => resolveDateSortValue(left.dueDate) - resolveDateSortValue(right.dueDate))
+      ? payload.charges.sort(
+          (left, right) =>
+            resolveDateSortValue(left.dueDate) -
+            resolveDateSortValue(right.dueDate),
+        )
       : [];
-    state.payments = Array.isArray(payload.payments) ? payload.payments.sort(sortByCreatedAtDesc) : [];
-    state.receipts = Array.isArray(payload.paymentReceipts) ? payload.paymentReceipts.sort(sortByCreatedAtDesc) : [];
-    state.rentReceipts = Array.isArray(payload.rentReceipts) ? payload.rentReceipts.sort(sortByCreatedAtDesc) : [];
-      state.rentAdjustments = Array.isArray(payload.rentAdjustments) ? payload.rentAdjustments.sort(sortByCreatedAtDesc) : [];
-      state.rentAdjustmentPolicies = Array.isArray(payload.rentAdjustmentPolicies) ? payload.rentAdjustmentPolicies : [];
-      state.messages = Array.isArray(payload.messages) ? payload.messages.sort(sortByCreatedAtDesc) : [];
+    state.payments = Array.isArray(payload.payments)
+      ? payload.payments.sort(sortByCreatedAtDesc)
+      : [];
+    state.receipts = Array.isArray(payload.paymentReceipts)
+      ? payload.paymentReceipts.sort(sortByCreatedAtDesc)
+      : [];
+    state.rentReceipts = Array.isArray(payload.rentReceipts)
+      ? payload.rentReceipts.sort(sortByCreatedAtDesc)
+      : [];
+    state.rentAdjustments = Array.isArray(payload.rentAdjustments)
+      ? payload.rentAdjustments.sort(sortByCreatedAtDesc)
+      : [];
+    state.rentAdjustmentPolicies = Array.isArray(payload.rentAdjustmentPolicies)
+      ? payload.rentAdjustmentPolicies
+      : [];
+    state.messages = Array.isArray(payload.messages)
+      ? payload.messages.sort(sortByCreatedAtDesc)
+      : [];
     state.adminDiagnostics = {
-        source: "backend-scoped",
-        frontendScope: currentScope,
-        backendScope: payload.scope || null,
-        counts: {
-          properties: state.properties.length,
-          tenants: state.tenants.length,
-          charges: state.charges.length,
-          payments: state.payments.length
-        },
-        propertySummary: payload.diagnostics?.propertySummary || null,
-        propertySamples: Array.isArray(payload.diagnostics?.propertySamples) ? payload.diagnostics.propertySamples : [],
-        error: ""
-      };
+      source: "backend-scoped",
+      frontendScope: currentScope,
+      backendScope: payload.scope || null,
+      counts: {
+        properties: state.properties.length,
+        tenants: state.tenants.length,
+        charges: state.charges.length,
+        payments: state.payments.length,
+      },
+      propertySummary: payload.diagnostics?.propertySummary || null,
+      propertySamples: Array.isArray(payload.diagnostics?.propertySamples)
+        ? payload.diagnostics.propertySamples
+        : [],
+      error: "",
+    };
 
     state.comprobanteFilters = {
       ...state.comprobanteFilters,
-      owner: currentScope
+      owner: currentScope,
     };
 
     renderPropertySelect();
@@ -2813,23 +3338,23 @@ async function loadScopedAdminDataset(currentScope) {
     state.payments = [];
     state.receipts = [];
     state.rentReceipts = [];
-      state.rentAdjustments = [];
-      state.rentAdjustmentPolicies = [];
-      state.messages = [];
+    state.rentAdjustments = [];
+    state.rentAdjustmentPolicies = [];
+    state.messages = [];
     state.adminDiagnostics = {
-        source: "backend-scoped",
-        frontendScope: currentScope,
-        backendScope: null,
-        counts: {
-          properties: 0,
-          tenants: 0,
-          charges: 0,
-          payments: 0
-        },
-        propertySummary: null,
-        propertySamples: [],
-        error: error?.message || "Sin detalle"
-      };
+      source: "backend-scoped",
+      frontendScope: currentScope,
+      backendScope: null,
+      counts: {
+        properties: 0,
+        tenants: 0,
+        charges: 0,
+        payments: 0,
+      },
+      propertySummary: null,
+      propertySamples: [],
+      error: error?.message || "Sin detalle",
+    };
     renderPropertySelect();
     renderProperties();
     renderTenants();
@@ -2839,7 +3364,10 @@ async function loadScopedAdminDataset(currentScope) {
     renderChargeRentUpdateSuite();
     renderAdminPaymentReview();
     renderMessages();
-    setMessage(`No pudimos cargar la operación de ${normalizeOwnerLabel(currentScope)}.`, "error");
+    setMessage(
+      `No pudimos cargar la operación de ${normalizeOwnerLabel(currentScope)}.`,
+      "error",
+    );
   } finally {
     state.scopedAdminRefreshPending = false;
   }
@@ -2873,13 +3401,20 @@ function startScopedAdminAutoRefresh(currentScope) {
   };
 
   state.scopedAdminRefreshScope = currentScope;
-  const intervalId = window.setInterval(refreshScopedDataset, SCOPED_ADMIN_REFRESH_INTERVAL_MS);
+  const intervalId = window.setInterval(
+    refreshScopedDataset,
+    SCOPED_ADMIN_REFRESH_INTERVAL_MS,
+  );
   window.addEventListener("focus", refreshScopedDataset);
   document.addEventListener("visibilitychange", handleVisibilityRefresh);
 
   state.unsubscribers.push(() => window.clearInterval(intervalId));
-  state.unsubscribers.push(() => window.removeEventListener("focus", refreshScopedDataset));
-  state.unsubscribers.push(() => document.removeEventListener("visibilitychange", handleVisibilityRefresh));
+  state.unsubscribers.push(() =>
+    window.removeEventListener("focus", refreshScopedDataset),
+  );
+  state.unsubscribers.push(() =>
+    document.removeEventListener("visibilitychange", handleVisibilityRefresh),
+  );
 }
 
 function subscribeTenantData() {
@@ -2896,7 +3431,7 @@ function subscribeTenantData() {
     onSnapshot(doc(db, "settings", "bankAccounts"), (snapshot) => {
       state.bankAccounts = snapshot.exists() ? snapshot.data() : null;
       renderTenantPortal();
-    })
+    }),
   );
 
   state.unsubscribers.push(
@@ -2904,8 +3439,12 @@ function subscribeTenantData() {
       state.currentTenant = snapshot.exists() ? mapDoc(snapshot) : null;
 
       if (state.currentTenant?.propertyId) {
-        const propertySnap = await getDoc(doc(db, "properties", state.currentTenant.propertyId));
-        state.currentProperty = propertySnap.exists() ? mapDoc(propertySnap) : null;
+        const propertySnap = await getDoc(
+          doc(db, "properties", state.currentTenant.propertyId),
+        );
+        state.currentProperty = propertySnap.exists()
+          ? mapDoc(propertySnap)
+          : null;
       } else {
         state.currentProperty = null;
       }
@@ -2916,14 +3455,19 @@ function subscribeTenantData() {
       }
 
       if (state.currentProperty) {
-        const allowedGroups = resolveTenantUtilityBillingGroups(state.currentProperty);
+        const allowedGroups = resolveTenantUtilityBillingGroups(
+          state.currentProperty,
+        );
         if (allowedGroups.length > 0) {
           unsubscribeUtilityBills = onSnapshot(
-            query(collection(db, "utilityBills"), where("billingGroup", "in", allowedGroups)),
+            query(
+              collection(db, "utilityBills"),
+              where("billingGroup", "in", allowedGroups),
+            ),
             (snap) => {
               state.utilityBills = snap.docs.map(mapDoc);
               renderTenantPortal();
-            }
+            },
           );
         } else {
           state.utilityBills = [];
@@ -2933,36 +3477,51 @@ function subscribeTenantData() {
       }
 
       renderTenantPortal();
-    })
+    }),
   );
 
   state.unsubscribers.push(
-    onSnapshot(query(collection(db, "charges"), where("tenantId", "==", tenantId)), (snapshot) => {
-      state.charges = snapshot.docs.map(mapDoc);
-      renderTenantPortal();
-    })
+    onSnapshot(
+      query(collection(db, "charges"), where("tenantId", "==", tenantId)),
+      (snapshot) => {
+        state.charges = snapshot.docs.map(mapDoc);
+        renderTenantPortal();
+      },
+    ),
   );
 
-    state.unsubscribers.push(
-      onSnapshot(query(collection(db, "payments"), where("tenantId", "==", tenantId)), (snapshot) => {
+  state.unsubscribers.push(
+    onSnapshot(
+      query(collection(db, "payments"), where("tenantId", "==", tenantId)),
+      (snapshot) => {
         state.payments = snapshot.docs.map(mapDoc);
         renderTenantPortal();
-      })
-    );
+      },
+    ),
+  );
 
-    state.unsubscribers.push(
-      onSnapshot(query(collection(db, "paymentReceipts"), where("tenantId", "==", tenantId)), (snapshot) => {
+  state.unsubscribers.push(
+    onSnapshot(
+      query(
+        collection(db, "paymentReceipts"),
+        where("tenantId", "==", tenantId),
+      ),
+      (snapshot) => {
         state.receipts = snapshot.docs.map(mapDoc);
         renderTenantPortal();
-      })
-    );
+      },
+    ),
+  );
 
-    state.unsubscribers.push(
-      onSnapshot(query(collection(db, "rentReceipts"), where("tenantId", "==", tenantId)), (snapshot) => {
+  state.unsubscribers.push(
+    onSnapshot(
+      query(collection(db, "rentReceipts"), where("tenantId", "==", tenantId)),
+      (snapshot) => {
         state.rentReceipts = snapshot.docs.map(mapDoc);
         renderTenantPortal();
-      })
-    );
+      },
+    ),
+  );
 }
 
 async function handlePropertySubmit(event) {
@@ -2974,33 +3533,40 @@ async function handlePropertySubmit(event) {
   }
 
   const formData = new FormData(event.currentTarget);
-  const transferBlock = formData.get("transferBlock")?.toString()
-    || inferTransferBlockFromUnitCode(formData.get("unitCode")?.toString().trim());
+  const transferBlock =
+    formData.get("transferBlock")?.toString() ||
+    inferTransferBlockFromUnitCode(formData.get("unitCode")?.toString().trim());
   const ownerScope = transferBlockToOwnerScope(transferBlock);
 
-  if (getCurrentOwnerScope() !== "all" && getCurrentOwnerScope() !== ownerScope) {
-    setMessage(`Tu cuenta solo puede crear unidades para ${normalizeOwnerLabel(getCurrentOwnerScope())}.`, "error");
+  if (
+    getCurrentOwnerScope() !== "all" &&
+    getCurrentOwnerScope() !== ownerScope
+  ) {
+    setMessage(
+      `Tu cuenta solo puede crear unidades para ${normalizeOwnerLabel(getCurrentOwnerScope())}.`,
+      "error",
+    );
     return;
   }
 
-    const unitCode = formData.get("unitCode")?.toString().trim() ?? "";
-    const computedSortOrder = Number(unitCode) || state.properties.length + 1;
+  const unitCode = formData.get("unitCode")?.toString().trim() ?? "";
+  const computedSortOrder = Number(unitCode) || state.properties.length + 1;
 
-    await addDoc(collection(db, "properties"), {
-      name: formData.get("name")?.toString().trim() ?? "",
-      unitType: formData.get("unitType")?.toString() ?? "Departamento",
-      unitCode,
-      transferBlock,
-      ownerScope,
-      ownerId: ownerScope,
-      ownerName: normalizeOwnerLabel(ownerScope),
-      status: formData.get("status")?.toString().trim() ?? "active",
-      notes: "",
-      currentTenantId: null,
-      sortOrder: computedSortOrder,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+  await addDoc(collection(db, "properties"), {
+    name: formData.get("name")?.toString().trim() ?? "",
+    unitType: formData.get("unitType")?.toString() ?? "Departamento",
+    unitCode,
+    transferBlock,
+    ownerScope,
+    ownerId: ownerScope,
+    ownerName: normalizeOwnerLabel(ownerScope),
+    status: formData.get("status")?.toString().trim() ?? "active",
+    notes: "",
+    currentTenantId: null,
+    sortOrder: computedSortOrder,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
 
   event.currentTarget.reset();
   setMessage("Propiedad guardada en Firebase.");
@@ -3029,21 +3595,35 @@ async function handleTenantSubmit(event) {
       propertyId: formData.get("propertyId")?.toString() || null,
       baseRent: Number(formData.get("baseRent") ?? 0),
       dueDayOfMonth: normalizeTenantDueDayValue(formData.get("dueDayOfMonth")),
-      rentUpdateFrequency: normalizeTenantRentFrequencyValue(formData.get("rentUpdateFrequency")),
-      nextAdjustmentPeriod: normalizeTenantPeriodValue(formData.get("nextAdjustmentPeriod")),
+      rentUpdateFrequency: normalizeTenantRentFrequencyValue(
+        formData.get("rentUpdateFrequency"),
+      ),
+      nextAdjustmentPeriod: normalizeTenantPeriodValue(
+        formData.get("nextAdjustmentPeriod"),
+      ),
       contractStartDate: formData.get("contractStartDate")?.toString() || null,
-      contractEndDate: formData.get("contractEndDate")?.toString() || null
+      contractEndDate: formData.get("contractEndDate")?.toString() || null,
     });
 
     try {
-      const generateCharges = httpsCallable(functions, "generateMonthlyCharges");
+      const generateCharges = httpsCallable(
+        functions,
+        "generateMonthlyCharges",
+      );
       await generateCharges();
     } catch (error) {
-      console.error("No se pudo generar el cobro actual tras crear el inquilino", error);
+      console.error(
+        "No se pudo generar el cobro actual tras crear el inquilino",
+        error,
+      );
     }
   } catch (error) {
     console.error("No se pudo crear el inquilino", error);
-    setMessage(humanizeFunctionError(error) || "No se pudo crear el inquilino. Revisá si el correo ya tiene una invitación activa.", "error");
+    setMessage(
+      humanizeFunctionError(error) ||
+        "No se pudo crear el inquilino. Revisá si el correo ya tiene una invitación activa.",
+      "error",
+    );
     return;
   }
 
@@ -3052,7 +3632,7 @@ async function handleTenantSubmit(event) {
   setMessage(
     email
       ? "Inquilino guardado e invitacion preparada para ese correo."
-      : "Inquilino guardado en Firebase."
+      : "Inquilino guardado en Firebase.",
   );
 }
 
@@ -3082,7 +3662,7 @@ async function handleUtilityBillSubmit(event) {
     const storageRef = ref(storage, storagePath);
 
     await uploadBytes(storageRef, file, {
-      contentType: file.type || "application/octet-stream"
+      contentType: file.type || "application/octet-stream",
     });
 
     const downloadURL = await getDownloadURL(storageRef);
@@ -3100,7 +3680,7 @@ async function handleUtilityBillSubmit(event) {
       dueDate: null,
       appliedToCharges: false,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
 
     form.reset();
@@ -3138,21 +3718,33 @@ async function handleTenantEditSubmit(event) {
     propertyId: formData.get("propertyId")?.toString() ?? "",
     baseRent: Number(formData.get("baseRent") ?? 0),
     dueDayOfMonth: normalizeTenantDueDayValue(formData.get("dueDayOfMonth")),
-    rentUpdateFrequency: normalizeTenantRentFrequencyValue(formData.get("rentUpdateFrequency")),
-    nextAdjustmentPeriod: normalizeTenantPeriodValue(formData.get("nextAdjustmentPeriod")),
+    rentUpdateFrequency: normalizeTenantRentFrequencyValue(
+      formData.get("rentUpdateFrequency"),
+    ),
+    nextAdjustmentPeriod: normalizeTenantPeriodValue(
+      formData.get("nextAdjustmentPeriod"),
+    ),
     contractStartDate: formData.get("contractStartDate")?.toString() || null,
-    contractEndDate: formData.get("contractEndDate")?.toString() || null
+    contractEndDate: formData.get("contractEndDate")?.toString() || null,
   };
 
   try {
     setMessage("Guardando cambios del inquilino...");
-    const updateTenantAdminProfile = httpsCallable(functions, "updateTenantAdminProfile");
+    const updateTenantAdminProfile = httpsCallable(
+      functions,
+      "updateTenantAdminProfile",
+    );
     await updateTenantAdminProfile(payload);
     closeTenantEditModal();
     setMessage("La ficha del inquilino fue actualizada.");
   } catch (error) {
     console.error(error);
-    setMessage(error?.message?.includes("already") ? "La propiedad seleccionada ya esta ocupada." : "No se pudo actualizar el inquilino.", "error");
+    setMessage(
+      error?.message?.includes("already")
+        ? "La propiedad seleccionada ya esta ocupada."
+        : "No se pudo actualizar el inquilino.",
+      "error",
+    );
   }
 }
 
@@ -3171,7 +3763,7 @@ async function handleGenerateCharges() {
     setMessage(
       created
         ? `Se generaron ${created} cobros del mes y se recalcularon ${synced} estados.`
-        : `No habia cobros nuevos para crear. Se recalcularon ${synced} estados igualmente.`
+        : `No habia cobros nuevos para crear. Se recalcularon ${synced} estados igualmente.`,
     );
   } catch (error) {
     console.error(error);
@@ -3198,7 +3790,10 @@ async function handleSyncCharges() {
 
 async function handleMpSyncAll() {
   if (!isAdminRole()) {
-    setMessage("Solo un administrador puede sincronizar pagos de MercadoPago.", "error");
+    setMessage(
+      "Solo un administrador puede sincronizar pagos de MercadoPago.",
+      "error",
+    );
     return;
   }
 
@@ -3216,15 +3811,17 @@ async function handleMpSyncAll() {
     const approved = (data.results ?? []).filter((r) => r.approved).length;
 
     if (messageEl) {
-      messageEl.textContent = synced === 0
-        ? "No hay pagos pendientes de sync."
-        : `Sincronizados: ${synced} pagos. Aprobados: ${approved}.`;
+      messageEl.textContent =
+        synced === 0
+          ? "No hay pagos pendientes de sync."
+          : `Sincronizados: ${synced} pagos. Aprobados: ${approved}.`;
       messageEl.dataset.tone = synced === 0 ? "info" : "success";
     }
 
-    setMessage(synced === 0
-      ? "No hay pagos de MercadoPago pendientes de sincronización."
-      : `Se sincronizaron ${synced} pagos de MercadoPago. ${approved} aprobados.`
+    setMessage(
+      synced === 0
+        ? "No hay pagos de MercadoPago pendientes de sincronización."
+        : `Se sincronizaron ${synced} pagos de MercadoPago. ${approved} aprobados.`,
     );
 
     renderAdminPaymentReview();
@@ -3246,7 +3843,7 @@ async function handleSendPaymentWarnings() {
   }
 
   const confirmed = window.confirm(
-    "Se enviará un aviso a cada inquilino con un cobro pendiente o vencido. ¿Deseas continuar?"
+    "Se enviará un aviso a cada inquilino con un cobro pendiente o vencido. ¿Deseas continuar?",
   );
   if (!confirmed) {
     return;
@@ -3261,9 +3858,8 @@ async function handleSendPaymentWarnings() {
     setMessage(
       failed
         ? `Se enviaron ${sent} avisos y ${failed} no pudieron entregarse. Revisa la configuración del canal.`
-        : `Se enviaron ${sent} avisos de pago.`
-      ,
-      failed ? "error" : undefined
+        : `Se enviaron ${sent} avisos de pago.`,
+      failed ? "error" : undefined,
     );
   } catch (error) {
     console.error(error);
@@ -3305,52 +3901,73 @@ async function handleTenantPaymentSubmit(event) {
     tenantId,
     files,
     storageFolder: `payment-receipts/${state.authUser.uid}`,
-    source: "tenant_portal"
+    source: "tenant_portal",
   });
 
+  let result;
   try {
     setMessage("Validando comprobante...");
-    const submitTransfer = httpsCallable(functions, "submitTransferPayment");
-    const result = await submitTransfer({
-      tenantId,
-      chargeId,
-      amountReported,
-      receiptIds
-    });
+    result = await callWithClaimsRefreshRetry(
+      "submitTransferPayment",
+      {
+        tenantId,
+        chargeId,
+        amountReported,
+        receiptIds,
+      },
+      { retryOnFailedPrecondition: true },
+    );
 
     if (result.data?.blocked) {
       const validation = result.data?.validation || {};
-        setMessage(
+      setMessage(
         `${result.data.reason} Esperado: ${formatCurrency(validation.expectedAmount || currentCharge.total || 0)}. Detectado: ${formatCurrency(validation.totalDetected || 0)}.`,
-        "error"
+        "error",
       );
-        return;
-      }
-    } catch (error) {
-      console.error(error);
-    setMessage("No se pudo validar el comprobante. Revisa el archivo o intenta de nuevo.", "error");
       return;
     }
+  } catch (error) {
+    console.error(error);
+    setMessage(
+      "No se pudo validar el comprobante. Revisa el archivo o intenta de nuevo.",
+      "error",
+    );
+    return;
+  }
 
   elements.tenantPaymentForm.reset();
-  setMessage("Comprobantes validados. El pago quedó en revisión administrativa.");
+  setMessage(
+    result?.data?.manualReviewRequired
+      ? "Comprobante recibido. No pudimos validarlo automáticamente y quedó pendiente de revisión administrativa."
+      : "Comprobantes validados. El pago quedó en revisión administrativa.",
+    result?.data?.manualReviewRequired ? "warning" : "success",
+  );
 }
 
 async function handleAdminReceiptUploadSubmit(event) {
   event.preventDefault();
 
   if (!isAdminRole()) {
-    setMessage("Solo un administrador puede cargar comprobantes desde esta pantalla.", "error");
+    setMessage(
+      "Solo un administrador puede cargar comprobantes desde esta pantalla.",
+      "error",
+    );
     return;
   }
 
   const tenantId = elements.adminReceiptUploadTenantId?.value;
   const chargeId = elements.adminReceiptUploadChargeId?.value;
   const amountReported = Number(elements.adminReceiptUploadAmount?.value || 0);
-  const files = Array.from(elements.adminReceiptUploadFiles?.files || []).slice(0, 2);
+  const files = Array.from(elements.adminReceiptUploadFiles?.files || []).slice(
+    0,
+    2,
+  );
 
   if (!tenantId || !chargeId || !amountReported) {
-    setMessage("Completa el cobro y el monto antes de enviar el comprobante.", "error");
+    setMessage(
+      "Completa el cobro y el monto antes de enviar el comprobante.",
+      "error",
+    );
     return;
   }
 
@@ -3371,37 +3988,53 @@ async function handleAdminReceiptUploadSubmit(event) {
       tenantId,
       files,
       storageFolder: `payment-receipts/${state.authUser.uid}`,
-      source: "admin_panel"
+      source: "admin_panel",
     });
 
     setMessage("Validando comprobante...");
-    const submitTransfer = httpsCallable(functions, "submitTransferPayment");
-    const result = await submitTransfer({
-      tenantId,
-      chargeId,
-      amountReported,
-      receiptIds
-    });
+    const result = await callWithClaimsRefreshRetry(
+      "submitTransferPayment",
+      {
+        tenantId,
+        chargeId,
+        amountReported,
+        receiptIds,
+      },
+      { retryOnFailedPrecondition: true },
+    );
 
     if (result.data?.blocked) {
       const validation = result.data?.validation || {};
       setMessage(
         `${result.data.reason} Esperado: ${formatCurrency(validation.expectedAmount || currentCharge.total || 0)}. Detectado: ${formatCurrency(validation.totalDetected || 0)}.`,
-        "error"
+        "error",
       );
       return;
     }
 
     closeAdminReceiptUploadModal();
     await reloadScopedAdminOperation();
-    setMessage("Comprobante cargado correctamente. El pago quedó en revisión administrativa.", "success");
+    setMessage(
+      result.data?.manualReviewRequired
+        ? "Comprobante cargado. La validación automática no estuvo disponible y quedó pendiente de revisión administrativa."
+        : "Comprobante cargado correctamente. El pago quedó en revisión administrativa.",
+      result.data?.manualReviewRequired ? "warning" : "success",
+    );
   } catch (error) {
     console.error(error);
-    setMessage("No se pudo cargar el comprobante desde administración.", "error");
+    setMessage(
+      "No se pudo cargar el comprobante desde administración.",
+      "error",
+    );
   }
 }
 
-async function uploadPaymentReceiptFiles({ tenantId, files, storageFolder, source }) {
+async function uploadPaymentReceiptFiles({
+  tenantId,
+  files,
+  storageFolder,
+  source,
+}) {
   const receiptIds = [];
 
   for (const [index, file] of files.entries()) {
@@ -3410,7 +4043,7 @@ async function uploadPaymentReceiptFiles({ tenantId, files, storageFolder, sourc
     const storagePath = `${storageFolder}/${tempReceiptRef.id}/${safeName}`;
     const storageRef = ref(storage, storagePath);
     await uploadBytes(storageRef, file, {
-      contentType: file.type || "application/octet-stream"
+      contentType: file.type || "application/octet-stream",
     });
     const downloadURL = await getDownloadURL(storageRef);
 
@@ -3425,7 +4058,7 @@ async function uploadPaymentReceiptFiles({ tenantId, files, storageFolder, sourc
       source,
       claudeExtractionStatus: "pending",
       reviewSuggestion: "pending_manual_review",
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
     });
     receiptIds.push(tempReceiptRef.id);
   }
@@ -3456,14 +4089,20 @@ async function handleTenantSettingsSubmit(event) {
       await updatePassword(auth.currentUser, password);
     }
 
-    const updateSettings = httpsCallable(functions, "updateTenantContactSettings");
+    const updateSettings = httpsCallable(
+      functions,
+      "updateTenantContactSettings",
+    );
     await updateSettings({ email, phone });
 
     elements.tenantSettingsPassword.value = "";
     setMessage("Tus datos de contacto fueron actualizados.");
   } catch (error) {
     console.error(error);
-    setMessage("No se pudieron guardar tus datos. Puede que necesites volver a iniciar sesión.", "error");
+    setMessage(
+      "No se pudieron guardar tus datos. Puede que necesites volver a iniciar sesión.",
+      "error",
+    );
   }
 }
 
@@ -3471,7 +4110,10 @@ async function handleAdminSettingsSubmit(event) {
   event.preventDefault();
 
   if (!isAdminRole()) {
-    setMessage("Solo un administrador puede editar esta configuración.", "error");
+    setMessage(
+      "Solo un administrador puede editar esta configuración.",
+      "error",
+    );
     return;
   }
 
@@ -3482,15 +4124,38 @@ async function handleAdminSettingsSubmit(event) {
   const generalSettings = resolveGeneralSettings();
   const currentScope = getCurrentOwnerScope();
   const isScopedAdmin = currentScope !== "all";
-  const dueDayOfMonth = Number(elements.adminGeneralDueDay.value || generalSettings.dueDayOfMonth);
-  const lateFeeDailyRatePercent = Number(elements.adminGeneralLateFeeRate.value || (generalSettings.lateFeeDailyRate * 100));
-  const morosoAfterDays = Number(elements.adminGeneralMorosoDays.value || generalSettings.morosoAfterDays);
-  const defaultNotificationChannel = elements.adminDefaultNotificationChannel.value || generalSettings.defaultNotificationChannel;
-  const autoNotifyNewCharge = Boolean(elements.adminAutoNotifyNewCharge.checked);
+  const dueDayOfMonth = Number(
+    elements.adminGeneralDueDay.value || generalSettings.dueDayOfMonth,
+  );
+  const lateFeeDailyRatePercent = Number(
+    elements.adminGeneralLateFeeRate.value ||
+      generalSettings.lateFeeDailyRate * 100,
+  );
+  const morosoAfterDays = Number(
+    elements.adminGeneralMorosoDays.value || generalSettings.morosoAfterDays,
+  );
+  const defaultNotificationChannel =
+    elements.adminDefaultNotificationChannel.value ||
+    generalSettings.defaultNotificationChannel;
+  const autoNotifyNewCharge = Boolean(
+    elements.adminAutoNotifyNewCharge.checked,
+  );
   const autoNotifyOverdue = Boolean(elements.adminAutoNotifyOverdue.checked);
-  const defaultRentDepartamento = Number(document.querySelector("#admin-default-rent-departamento")?.value || generalSettings.defaultRents.Departamento || 0);
-  const defaultRentCasa = Number(document.querySelector("#admin-default-rent-casa")?.value || generalSettings.defaultRents.Casa || 0);
-  const defaultRentLocal = Number(document.querySelector("#admin-default-rent-local")?.value || generalSettings.defaultRents.Local || 0);
+  const defaultRentDepartamento = Number(
+    document.querySelector("#admin-default-rent-departamento")?.value ||
+      generalSettings.defaultRents.Departamento ||
+      0,
+  );
+  const defaultRentCasa = Number(
+    document.querySelector("#admin-default-rent-casa")?.value ||
+      generalSettings.defaultRents.Casa ||
+      0,
+  );
+  const defaultRentLocal = Number(
+    document.querySelector("#admin-default-rent-local")?.value ||
+      generalSettings.defaultRents.Local ||
+      0,
+  );
 
   try {
     setMessage("Guardando configuración del administrador...");
@@ -3509,21 +4174,24 @@ async function handleAdminSettingsSubmit(event) {
         displayName,
         email,
         phone,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
       },
-      { merge: true }
+      { merge: true },
     );
 
     await setDoc(
       doc(db, "settings", "bankAccounts"),
       buildScopedBankAccountPayload(currentScope),
-      { merge: true }
+      { merge: true },
     );
 
     await Promise.all(buildScopedOwnerWrites(currentScope));
 
     if (!isScopedAdmin) {
-      const updateGeneralSettings = httpsCallable(functions, "upsertGeneralSettings");
+      const updateGeneralSettings = httpsCallable(
+        functions,
+        "upsertGeneralSettings",
+      );
       await updateGeneralSettings({
         dueDayOfMonth,
         lateFeeDailyRate: lateFeeDailyRatePercent / 100,
@@ -3532,12 +4200,16 @@ async function handleAdminSettingsSubmit(event) {
         defaultNotificationChannel,
         autoNotifyNewCharge,
         autoNotifyOverdue,
-        lastRentAdjustmentPercent: Number(elements.adminRentAdjustmentPercent.value || generalSettings.lastRentAdjustmentPercent || 0),
+        lastRentAdjustmentPercent: Number(
+          elements.adminRentAdjustmentPercent.value ||
+            generalSettings.lastRentAdjustmentPercent ||
+            0,
+        ),
         defaultRents: {
           Departamento: defaultRentDepartamento,
           Casa: defaultRentCasa,
-          Local: defaultRentLocal
-        }
+          Local: defaultRentLocal,
+        },
       });
     }
 
@@ -3555,17 +4227,19 @@ async function handleAdminSettingsSubmit(event) {
         dueDayOfMonth: isScopedAdmin ? null : dueDayOfMonth,
         lateFeeDailyRatePercent: isScopedAdmin ? null : lateFeeDailyRatePercent,
         morosoAfterDays: isScopedAdmin ? null : morosoAfterDays,
-        defaultNotificationChannel: isScopedAdmin ? null : defaultNotificationChannel,
+        defaultNotificationChannel: isScopedAdmin
+          ? null
+          : defaultNotificationChannel,
         autoNotifyNewCharge: isScopedAdmin ? null : autoNotifyNewCharge,
-        autoNotifyOverdue: isScopedAdmin ? null : autoNotifyOverdue
-      }
+        autoNotifyOverdue: isScopedAdmin ? null : autoNotifyOverdue,
+      },
     });
 
     state.profile = {
       ...state.profile,
       displayName,
       email,
-      phone
+      phone,
     };
     elements.adminSettingsPassword.value = "";
     await renderSignedIn();
@@ -3574,18 +4248,21 @@ async function handleAdminSettingsSubmit(event) {
       isScopedAdmin
         ? `Ajustes guardados para ${normalizeOwnerLabel(currentScope)}.`
         : "Configuración del administrador guardada.",
-      "success"
+      "success",
     );
   } catch (error) {
     console.error(error);
-    setMessage("No se pudo guardar la configuración. Puede que necesites volver a iniciar sesión.", "error");
+    setMessage(
+      "No se pudo guardar la configuración. Puede que necesites volver a iniciar sesión.",
+      "error",
+    );
   }
 }
 
 function buildScopedBankAccountPayload(currentScope) {
   const payload = {
     updatedAt: serverTimestamp(),
-    updatedBy: state.authUser.uid
+    updatedBy: state.authUser.uid,
   };
 
   if (currentScope === "all" || currentScope === "enzo") {
@@ -3595,7 +4272,7 @@ function buildScopedBankAccountPayload(currentScope) {
       cbu: elements.adminBankBlock1Cbu.value.trim(),
       dni: elements.adminBankBlock1Dni.value.trim(),
       email: elements.adminBankBlock1Email.value.trim().toLowerCase(),
-      phone: elements.adminBankBlock1Phone.value.trim()
+      phone: elements.adminBankBlock1Phone.value.trim(),
     };
   }
 
@@ -3606,7 +4283,7 @@ function buildScopedBankAccountPayload(currentScope) {
       cbu: elements.adminBankBlock2Cbu.value.trim(),
       dni: elements.adminBankBlock2Dni.value.trim(),
       email: elements.adminBankBlock2Email.value.trim().toLowerCase(),
-      phone: elements.adminBankBlock2Phone.value.trim()
+      phone: elements.adminBankBlock2Phone.value.trim(),
     };
   }
 
@@ -3629,10 +4306,10 @@ function buildScopedOwnerWrites(currentScope) {
           alias: elements.adminBankBlock1Alias.value.trim(),
           cbu: elements.adminBankBlock1Cbu.value.trim(),
           ownerScope: "enzo",
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
         },
-        { merge: true }
-      )
+        { merge: true },
+      ),
     );
   }
 
@@ -3649,10 +4326,10 @@ function buildScopedOwnerWrites(currentScope) {
           alias: elements.adminBankBlock2Alias.value.trim(),
           cbu: elements.adminBankBlock2Cbu.value.trim(),
           ownerScope: "ivo",
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
         },
-        { merge: true }
-      )
+        { merge: true },
+      ),
     );
   }
 
@@ -3668,12 +4345,15 @@ async function handleRentAdjustmentApply() {
   const percent = Number(elements.adminRentAdjustmentPercent.value || 0);
 
   if (!Number.isFinite(percent) || percent === 0) {
-    setMessage("Ingresa un porcentaje distinto de cero para actualizar alquileres.", "error");
+    setMessage(
+      "Ingresa un porcentaje distinto de cero para actualizar alquileres.",
+      "error",
+    );
     return;
   }
 
   const confirmed = window.confirm(
-    `Se aplicara un ajuste de ${percent}% sobre los alquileres base activos mayores a $0. Queres continuar?`
+    `Se aplicara un ajuste de ${percent}% sobre los alquileres base activos mayores a $0. Queres continuar?`,
   );
 
   if (!confirmed) {
@@ -3692,10 +4372,12 @@ async function handleRentAdjustmentApply() {
       summary: `Aplico un ajuste general de alquileres del ${percent}%.`,
       metadata: {
         percent,
-        updatedTenants: result.data?.updated ?? 0
-      }
+        updatedTenants: result.data?.updated ?? 0,
+      },
     });
-    setMessage(`Ajuste aplicado. Se actualizaron ${result.data?.updated ?? 0} alquileres activos.`);
+    setMessage(
+      `Ajuste aplicado. Se actualizaron ${result.data?.updated ?? 0} alquileres activos.`,
+    );
   } catch (error) {
     console.error(error);
     setMessage("No se pudo aplicar la actualizacion de alquileres.", "error");
@@ -3730,21 +4412,31 @@ async function handleUserAccessAction(event) {
   }
 
   if (userId === state.authUser?.uid) {
-    setMessage("No podes modificar tu propio rol o estado desde esta pantalla.", "error");
+    setMessage(
+      "No podes modificar tu propio rol o estado desde esta pantalla.",
+      "error",
+    );
     return;
   }
 
   const role = card.querySelector("[data-user-role]")?.value || targetUser.role;
-  const status = card.querySelector("[data-user-status]")?.value || targetUser.status || "active";
-  const ownerScope = card.querySelector("[data-user-owner-scope]")?.value || targetUser.ownerScope || "all";
+  const status =
+    card.querySelector("[data-user-status]")?.value ||
+    targetUser.status ||
+    "active";
+  const ownerScope =
+    card.querySelector("[data-user-owner-scope]")?.value ||
+    targetUser.ownerScope ||
+    "all";
 
   try {
     const updateUserAuthority = httpsCallable(functions, "updateUserAuthority");
     await updateUserAuthority({
       userId,
       role,
-      ownerScope: role === "superadmin" ? "all" : normalizeOwnerScope(ownerScope),
-      status
+      ownerScope:
+        role === "superadmin" ? "all" : normalizeOwnerScope(ownerScope),
+      status,
     });
 
     setMessage("Permisos actualizados.");
@@ -3765,19 +4457,27 @@ async function handleMessageSubmit(event) {
 
   const tenantId = elements.messageTenantSelect.value;
   const body = elements.messageBody.value.trim();
-  const channel = elements.messageChannelSelect.value || resolveGeneralSettings().defaultNotificationChannel;
+  const channel =
+    elements.messageChannelSelect.value ||
+    resolveGeneralSettings().defaultNotificationChannel;
   const template = elements.messageTemplateSelect.value || "general";
   const tenant = state.tenants.find((item) => item.id === tenantId);
   const relatedCharge = state.charges
     .filter((charge) => charge.tenantId === tenantId)
-    .sort((left, right) => String(right.period || "").localeCompare(String(left.period || "")))[0];
+    .sort((left, right) =>
+      String(right.period || "").localeCompare(String(left.period || "")),
+    )[0];
 
   if (!tenantId || !body) {
     setMessage("Completa el inquilino y el mensaje antes de enviar.", "error");
     return;
   }
 
-  const requiresExplicitConfirmation = ["late_fee_notice", "payment_rejected", "contract_finalized"].includes(template);
+  const requiresExplicitConfirmation = [
+    "late_fee_notice",
+    "payment_rejected",
+    "contract_finalized",
+  ].includes(template);
   const confirmationMessage = [
     `Destinatario: ${tenant?.fullName || "Inquilino"}`,
     `Canal: ${humanizeMessageChannel(channel)}`,
@@ -3785,13 +4485,13 @@ async function handleMessageSubmit(event) {
     relatedCharge?.period ? `Período asociado: ${relatedCharge.period}` : "",
     "",
     "Mensaje final:",
-    body
+    body,
   ]
     .filter(Boolean)
     .join("\n");
 
   const confirmed = window.confirm(
-    `${requiresExplicitConfirmation ? "Este mensaje es sensible y requiere confirmación.\n\n" : ""}${confirmationMessage}`
+    `${requiresExplicitConfirmation ? "Este mensaje es sensible y requiere confirmación.\n\n" : ""}${confirmationMessage}`,
   );
 
   if (!confirmed) {
@@ -3802,7 +4502,12 @@ async function handleMessageSubmit(event) {
   try {
     setMessage("Enviando mensaje...");
     const sendMessage = httpsCallable(functions, "sendGeneralMessage");
-    const result = await sendMessage({ tenantId, body, channel, type: template });
+    const result = await sendMessage({
+      tenantId,
+      body,
+      channel,
+      type: template,
+    });
     const status = result.data?.status || "queued";
     const deliveredChannel = result.data?.channel;
 
@@ -3816,8 +4521,8 @@ async function handleMessageSubmit(event) {
         template,
         requestedChannel: channel,
         deliveredChannel: deliveredChannel || "",
-        status
-      }
+        status,
+      },
     });
 
     form.reset();
@@ -3825,16 +4530,22 @@ async function handleMessageSubmit(event) {
       elements.messageTemplateSelect.value = "";
     }
     if (elements.messageChannelSelect) {
-      elements.messageChannelSelect.value = resolveGeneralSettings().defaultNotificationChannel;
+      elements.messageChannelSelect.value =
+        resolveGeneralSettings().defaultNotificationChannel;
     }
     handleMessageTemplateChange();
 
     if (status === "sent") {
-      setMessage(`Mensaje enviado${deliveredChannel ? ` por ${humanizeMessageChannel(deliveredChannel)}` : ""}.`);
+      setMessage(
+        `Mensaje enviado${deliveredChannel ? ` por ${humanizeMessageChannel(deliveredChannel)}` : ""}.`,
+      );
       return;
     }
 
-    setMessage("No se pudo enviar el mensaje. Revisá la configuración de Twilio o el historial.", "error");
+    setMessage(
+      "No se pudo enviar el mensaje. Revisá la configuración de Twilio o el historial.",
+      "error",
+    );
   } catch (error) {
     console.error(error);
     setMessage("No se pudo enviar el mensaje desde Twilio.", "error");
@@ -3845,7 +4556,10 @@ async function handleAdminUserCreateSubmit(event) {
   event.preventDefault();
 
   if (!isSuperadminRole()) {
-    setMessage("Solo un superadmin puede crear usuarios administrativos.", "error");
+    setMessage(
+      "Solo un superadmin puede crear usuarios administrativos.",
+      "error",
+    );
     return;
   }
 
@@ -3853,7 +4567,9 @@ async function handleAdminUserCreateSubmit(event) {
   const password = elements.adminUserCreatePassword.value;
   const displayName = elements.adminUserCreateDisplayName.value.trim();
   const role = elements.adminUserCreateRole.value;
-  const ownerScope = elements.adminUserCreateForm?.querySelector("[name='ownerScope']")?.value || "all";
+  const ownerScope =
+    elements.adminUserCreateForm?.querySelector("[name='ownerScope']")?.value ||
+    "all";
 
   if (!email || !password) {
     setMessage("Completa correo y contraseña para crear el usuario.", "error");
@@ -3867,23 +4583,31 @@ async function handleAdminUserCreateSubmit(event) {
 
   try {
     setMessage("Creando usuario administrativo...");
-    const createAdministrativeUser = httpsCallable(functions, "createAdministrativeUser");
+    const createAdministrativeUser = httpsCallable(
+      functions,
+      "createAdministrativeUser",
+    );
     const result = await createAdministrativeUser({
       email,
       password,
       displayName,
       role,
-      ownerScope: role === "superadmin" ? "all" : normalizeOwnerScope(ownerScope)
+      ownerScope:
+        role === "superadmin" ? "all" : normalizeOwnerScope(ownerScope),
     });
 
     elements.adminUserCreateForm.reset();
     elements.adminUserCreateRole.value = "superadmin";
-    const ownerScopeSelect = elements.adminUserCreateForm?.querySelector("[name='ownerScope']");
+    const ownerScopeSelect = elements.adminUserCreateForm?.querySelector(
+      "[name='ownerScope']",
+    );
     if (ownerScopeSelect) {
       ownerScopeSelect.value = "all";
       ownerScopeSelect.disabled = true;
     }
-    setMessage(result.data?.message || "Usuario administrativo creado correctamente.");
+    setMessage(
+      result.data?.message || "Usuario administrativo creado correctamente.",
+    );
   } catch (error) {
     console.error(error);
     setMessage(humanizeFunctionError(error), "error");
@@ -3897,7 +4621,8 @@ function handleMessageTemplateChange() {
 
   if (!template) {
     if (elements.messageTemplateHelper) {
-      elements.messageTemplateHelper.textContent = "Elegí una plantilla para autocompletar el mensaje.";
+      elements.messageTemplateHelper.textContent =
+        "Elegí una plantilla para autocompletar el mensaje.";
     }
     return;
   }
@@ -3917,7 +4642,10 @@ async function handleUserPermanentDeletion(userId) {
   }
 
   if (userId === state.authUser?.uid) {
-    setMessage("No podes eliminar tu propio usuario desde esta pantalla.", "error");
+    setMessage(
+      "No podes eliminar tu propio usuario desde esta pantalla.",
+      "error",
+    );
     return;
   }
 
@@ -3930,7 +4658,7 @@ async function handleUserPermanentDeletion(userId) {
 
   const label = targetUser.displayName || targetUser.email || userId;
   const confirmation = window.prompt(
-    `Esta accion elimina definitivamente el acceso de ${label}. Para confirmar, escribi ELIMINAR.`
+    `Esta accion elimina definitivamente el acceso de ${label}. Para confirmar, escribi ELIMINAR.`,
   );
 
   if (confirmation !== "ELIMINAR") {
@@ -3941,10 +4669,15 @@ async function handleUserPermanentDeletion(userId) {
   try {
     const deleteUserAccess = httpsCallable(functions, "deleteUserAccess");
     await deleteUserAccess({ userId });
-    setMessage("Usuario eliminado definitivamente. Si tenia historial, queda conservado en cobros y pagos.");
+    setMessage(
+      "Usuario eliminado definitivamente. Si tenia historial, queda conservado en cobros y pagos.",
+    );
   } catch (error) {
     console.error(error);
-    setMessage(`No se pudo eliminar el usuario: ${error.message || "revisa permisos y reglas."}`, "error");
+    setMessage(
+      `No se pudo eliminar el usuario: ${error.message || "revisa permisos y reglas."}`,
+      "error",
+    );
   }
 }
 
@@ -3952,7 +4685,9 @@ async function handleTenantContractAction(event) {
   const welcomeButton = event.target.closest("[data-send-profile-email]");
   const paymentLinkButton = event.target.closest("[data-send-payment-link]");
   const dueReminderButton = event.target.closest("[data-send-due-reminder]");
-  const uploadReceiptButton = event.target.closest("[data-admin-upload-receipt]");
+  const uploadReceiptButton = event.target.closest(
+    "[data-admin-upload-receipt]",
+  );
   const editButton = event.target.closest("[data-edit-tenant]");
   const menuButton = event.target.closest("[data-tenant-menu]");
   const historyButton = event.target.closest("[data-view-payment-history]");
@@ -3972,7 +4707,10 @@ async function handleTenantContractAction(event) {
 
     try {
       setMessage("Enviando correo de bienvenida...");
-      const resendWelcome = httpsCallable(functions, "resendProfileCreatedEmail");
+      const resendWelcome = httpsCallable(
+        functions,
+        "resendProfileCreatedEmail",
+      );
       await resendWelcome({ tenantId });
       setMessage(`Correo de bienvenida enviado a ${tenant.fullName}.`);
     } catch (error) {
@@ -3983,10 +4721,14 @@ async function handleTenantContractAction(event) {
   }
 
   if (paymentLinkButton || dueReminderButton) {
-    const tenantId = paymentLinkButton?.dataset.sendPaymentLink || dueReminderButton?.dataset.sendDueReminder;
+    const tenantId =
+      paymentLinkButton?.dataset.sendPaymentLink ||
+      dueReminderButton?.dataset.sendDueReminder;
     const tenant = state.tenants.find((item) => item.id === tenantId);
     const type = paymentLinkButton ? "period_available" : "due_reminder";
-    const actionLabel = paymentLinkButton ? "link de pago" : "recordatorio de vencimiento";
+    const actionLabel = paymentLinkButton
+      ? "link de pago"
+      : "recordatorio de vencimiento";
 
     if (!tenantId || !tenant) {
       setMessage("No se encontro el inquilino seleccionado.", "error");
@@ -3995,9 +4737,14 @@ async function handleTenantContractAction(event) {
 
     try {
       setMessage(`Enviando ${actionLabel}...`);
-      const sendOperationalEmail = httpsCallable(functions, "sendTenantOperationalEmail");
+      const sendOperationalEmail = httpsCallable(
+        functions,
+        "sendTenantOperationalEmail",
+      );
       await sendOperationalEmail({ tenantId, type });
-      setMessage(`${actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)} enviado a ${tenant.fullName}.`);
+      setMessage(
+        `${actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)} enviado a ${tenant.fullName}.`,
+      );
     } catch (error) {
       console.error(error);
       setMessage(`No se pudo enviar el ${actionLabel}.`, "error");
@@ -4006,7 +4753,9 @@ async function handleTenantContractAction(event) {
   }
 
   if (uploadReceiptButton) {
-    await openAdminReceiptUploadModal(uploadReceiptButton.dataset.adminUploadReceipt);
+    await openAdminReceiptUploadModal(
+      uploadReceiptButton.dataset.adminUploadReceipt,
+    );
     return;
   }
 
@@ -4039,7 +4788,9 @@ async function handleTenantContractAction(event) {
     return;
   }
 
-  const tenantId = renewButton?.dataset.renewContract || finalizeButton?.dataset.finalizeContract;
+  const tenantId =
+    renewButton?.dataset.renewContract ||
+    finalizeButton?.dataset.finalizeContract;
   const action = renewButton ? "renew" : "finalize";
   openContractModal(tenantId, action);
 }
@@ -4065,10 +4816,12 @@ function openContractModal(tenantId, action) {
   elements.contractTenantId.value = tenantId;
   elements.contractAction.value = action;
   elements.contractEffectiveDate.value = tenant.contractEndDate || "";
-  elements.contractModalTitle.textContent = action === "renew" ? "Renovar contrato" : "Finalizar contrato";
-  elements.contractModalCopy.textContent = action === "renew"
-    ? `Defini hasta que fecha se renovara el contrato de ${tenant.fullName}.`
-    : `Defini la fecha en la que finalizara el contrato de ${tenant.fullName}.`;
+  elements.contractModalTitle.textContent =
+    action === "renew" ? "Renovar contrato" : "Finalizar contrato";
+  elements.contractModalCopy.textContent =
+    action === "renew"
+      ? `Defini hasta que fecha se renovara el contrato de ${tenant.fullName}.`
+      : `Defini la fecha en la que finalizara el contrato de ${tenant.fullName}.`;
   elements.contractModal.classList.remove("hidden");
 }
 
@@ -4080,7 +4833,8 @@ function openTenantEditModal(tenantId) {
     return;
   }
 
-  const property = state.properties.find((item) => item.id === tenant.propertyId) || null;
+  const property =
+    state.properties.find((item) => item.id === tenant.propertyId) || null;
   if (!elements.tenantEditModal || !elements.tenantEditForm) {
     setMessage("No se pudo abrir el editor del inquilino.", "error");
     return;
@@ -4093,18 +4847,36 @@ function openTenantEditModal(tenantId) {
   elements.tenantEditPhone.value = tenant.phone || "";
   elements.tenantEditEmail.value = tenant.email || "";
   elements.tenantEditPropertyId.value = tenant.propertyId || "";
-  elements.tenantEditBaseRent.value = String(resolveDisplayedBaseRent(tenant, property, getPropertyCurrentCharge(tenant.id)));
+  elements.tenantEditBaseRent.value = String(
+    resolveDisplayedBaseRent(
+      tenant,
+      property,
+      getPropertyCurrentCharge(tenant.id),
+    ),
+  );
   const tenantEditDueDay = document.querySelector("#tenant-edit-due-day");
-  const tenantEditFrequency = document.querySelector("#tenant-edit-rent-frequency");
-  const tenantEditNextPeriod = document.querySelector("#tenant-edit-next-adjustment-period");
+  const tenantEditFrequency = document.querySelector(
+    "#tenant-edit-rent-frequency",
+  );
+  const tenantEditNextPeriod = document.querySelector(
+    "#tenant-edit-next-adjustment-period",
+  );
   if (tenantEditDueDay) {
-    tenantEditDueDay.value = tenant.dueDayOfMonth ? String(tenant.dueDayOfMonth) : "";
+    tenantEditDueDay.value = tenant.dueDayOfMonth
+      ? String(tenant.dueDayOfMonth)
+      : "";
   }
   if (tenantEditFrequency) {
-    tenantEditFrequency.value = tenant.rentSchedule?.frequency || tenant.rentUpdateConfig?.frequency || "quarterly";
+    tenantEditFrequency.value =
+      tenant.rentSchedule?.frequency ||
+      tenant.rentUpdateConfig?.frequency ||
+      "quarterly";
   }
   if (tenantEditNextPeriod) {
-    tenantEditNextPeriod.value = tenant.rentSchedule?.nextAdjustmentPeriod || tenant.rentUpdateConfig?.nextAdjustmentPeriod || "";
+    tenantEditNextPeriod.value =
+      tenant.rentSchedule?.nextAdjustmentPeriod ||
+      tenant.rentUpdateConfig?.nextAdjustmentPeriod ||
+      "";
   }
   elements.tenantEditContractStartDate.value = tenant.contractStartDate || "";
   elements.tenantEditContractEndDate.value = tenant.contractEndDate || "";
@@ -4115,7 +4887,11 @@ function openTenantEditModal(tenantId) {
 async function openAdminReceiptUploadModal(tenantId) {
   const tenant = state.tenants.find((item) => item.id === tenantId);
 
-  if (!tenant || !elements.adminReceiptUploadModal || !elements.adminReceiptUploadForm) {
+  if (
+    !tenant ||
+    !elements.adminReceiptUploadModal ||
+    !elements.adminReceiptUploadForm
+  ) {
     setMessage("No se pudo abrir la carga manual del comprobante.", "error");
     return;
   }
@@ -4126,14 +4902,22 @@ async function openAdminReceiptUploadModal(tenantId) {
     openCharges = getTenantReceiptableCharges(tenantId);
   }
   if (!openCharges.length) {
-    setMessage("Ese inquilino no tiene cobros abiertos disponibles para cargar comprobantes.", "error");
+    setMessage(
+      "Ese inquilino no tiene cobros abiertos disponibles para cargar comprobantes.",
+      "error",
+    );
     return;
   }
 
-  setMessage(`Preparando carga manual para ${tenant.fullName || "el inquilino"}...`);
+  setMessage(
+    `Preparando carga manual para ${tenant.fullName || "el inquilino"}...`,
+  );
   elements.adminReceiptUploadTenantId.value = tenantId;
   elements.adminReceiptUploadChargeId.innerHTML = openCharges
-    .map((charge) => `<option value="${charge.id}">${formatPeriodLabel(charge.period)} · ${formatCurrency(charge.total || 0)} · ${humanizeChargeStatus(charge.status)}</option>`)
+    .map(
+      (charge) =>
+        `<option value="${charge.id}">${formatPeriodLabel(charge.period)} · ${formatCurrency(charge.total || 0)} · ${humanizeChargeStatus(charge.status)}</option>`,
+    )
     .join("");
   elements.adminReceiptUploadFiles.value = "";
   if (elements.adminReceiptUploadCopy) {
@@ -4192,10 +4976,18 @@ function openHistoryModal(tenantId) {
   elements.historyModalList.innerHTML = tenantPayments.length
     ? tenantPayments
         .map((payment) => {
-          const charge = state.charges.find((item) => item.id === payment.chargeId);
-          const paymentReceipts = state.receipts.filter((receipt) => receipt.paymentId === payment.id);
-          const rentReceipt = state.rentReceipts.find((receipt) => receipt.paymentId === payment.id);
-          const approvalDate = resolveDisplayDate(payment.approvedAt ?? payment.providerConfirmedAt ?? payment.paidAt);
+          const charge = state.charges.find(
+            (item) => item.id === payment.chargeId,
+          );
+          const paymentReceipts = state.receipts.filter(
+            (receipt) => receipt.paymentId === payment.id,
+          );
+          const rentReceipt = state.rentReceipts.find(
+            (receipt) => receipt.paymentId === payment.id,
+          );
+          const approvalDate = resolveDisplayDate(
+            payment.approvedAt ?? payment.providerConfirmedAt ?? payment.paidAt,
+          );
           return `
             <article class="entity-card">
               <div>
@@ -4209,7 +5001,10 @@ function openHistoryModal(tenantId) {
                   paymentReceipts.length
                     ? `<div class="entity-card-actions">
                         ${paymentReceipts
-                          .map((receipt, index) => `<a class="entity-link" href="${receipt.downloadURL}" target="_blank" rel="noreferrer">Ver comprobante ${index + 1}</a>`)
+                          .map(
+                            (receipt, index) =>
+                              `<a class="entity-link" href="${receipt.downloadURL}" target="_blank" rel="noreferrer">Ver comprobante ${index + 1}</a>`,
+                          )
                           .join("")}
                       </div>`
                     : ""
@@ -4254,20 +5049,30 @@ async function handleHistoryModalAction(event) {
   if (resendButton) {
     await handleRentReceiptSend(
       resendButton.dataset.sendRentReceipt,
-      resendButton.dataset.regenerateReceipt === "true"
+      resendButton.dataset.regenerateReceipt === "true",
     );
   }
 }
 
 async function handlePrivateShellClick(event) {
-  const propertyToggleButton = event.target.closest("[data-toggle-property-details]");
-  const tenantToggleButton = event.target.closest("[data-toggle-tenant-details]");
-  const adminReceiptUploadButton = event.target.closest("[data-admin-upload-receipt]");
-  const reviewChargePaymentButton = event.target.closest("[data-review-charge-payment]");
+  const propertyToggleButton = event.target.closest(
+    "[data-toggle-property-details]",
+  );
+  const tenantToggleButton = event.target.closest(
+    "[data-toggle-tenant-details]",
+  );
+  const adminReceiptUploadButton = event.target.closest(
+    "[data-admin-upload-receipt]",
+  );
+  const reviewChargePaymentButton = event.target.closest(
+    "[data-review-charge-payment]",
+  );
   const sectionButton = event.target.closest("[data-open-section]");
   const tenantTabButton = event.target.closest("[data-tenant-doc-tab]");
   const comprobanteTabButton = event.target.closest("[data-comprobante-tab]");
-  const rentReceiptsDownloadButton = event.target.closest("[data-download-rent-receipts]");
+  const rentReceiptsDownloadButton = event.target.closest(
+    "[data-download-rent-receipts]",
+  );
   const receiptButton = event.target.closest("[data-view-rent-receipt]");
   if (propertyToggleButton) {
     const propertyId = propertyToggleButton.dataset.togglePropertyDetails;
@@ -4286,7 +5091,9 @@ async function handlePrivateShellClick(event) {
   }
 
   if (adminReceiptUploadButton) {
-    openAdminReceiptUploadModal(adminReceiptUploadButton.dataset.adminUploadReceipt);
+    openAdminReceiptUploadModal(
+      adminReceiptUploadButton.dataset.adminUploadReceipt,
+    );
     return;
   }
 
@@ -4300,7 +5107,7 @@ async function handlePrivateShellClick(event) {
       period: String(charge?.period || ""),
       propertyId: String(charge?.propertyId || ""),
       tenantSearch: tenant?.fullName || "",
-      status: "reported"
+      status: "reported",
     };
     setActiveSection("comprobantes");
     renderAdminPaymentReview();
@@ -4315,21 +5122,26 @@ async function handlePrivateShellClick(event) {
   if (comprobanteTabButton) {
     state.comprobanteFilters = {
       ...state.comprobanteFilters,
-      tab: comprobanteTabButton.dataset.comprobanteTab || "all"
+      tab: comprobanteTabButton.dataset.comprobanteTab || "all",
     };
     renderAdminPaymentReview();
     return;
   }
 
   if (tenantTabButton) {
-    state.tenantDocumentTab = tenantTabButton.dataset.tenantDocTab || "receipts";
+    state.tenantDocumentTab =
+      tenantTabButton.dataset.tenantDocTab || "receipts";
     renderTenantPortal();
     return;
   }
 
   if (rentReceiptsDownloadButton) {
-    const mode = rentReceiptsDownloadButton.dataset.downloadRentReceipts || "selected";
-    await handleRentReceiptDownloadRequest(mode, rentReceiptsDownloadButton.dataset.period || "");
+    const mode =
+      rentReceiptsDownloadButton.dataset.downloadRentReceipts || "selected";
+    await handleRentReceiptDownloadRequest(
+      mode,
+      rentReceiptsDownloadButton.dataset.period || "",
+    );
     return;
   }
 
@@ -4341,7 +5153,9 @@ async function handlePrivateShellClick(event) {
 function handlePrivateShellChange(event) {
   const target = event.target;
   if (target?.id === "admin-user-create-role") {
-    const ownerScopeSelect = elements.adminUserCreateForm?.querySelector("[name='ownerScope']");
+    const ownerScopeSelect = elements.adminUserCreateForm?.querySelector(
+      "[name='ownerScope']",
+    );
     if (ownerScopeSelect) {
       ownerScopeSelect.disabled = target.value === "superadmin";
       if (target.value === "superadmin") {
@@ -4363,7 +5177,10 @@ function handlePrivateShellChange(event) {
   }
 
   if (target?.matches?.("[data-rent-receipt-select-all]")) {
-    toggleRentReceiptPeriodSelection(target.dataset.period || "", target.checked);
+    toggleRentReceiptPeriodSelection(
+      target.dataset.period || "",
+      target.checked,
+    );
     renderChargePeriods();
     return;
   }
@@ -4372,13 +5189,16 @@ function handlePrivateShellChange(event) {
     toggleRentReceiptSelection(
       target.dataset.period || "",
       target.dataset.rentReceiptSelect || "",
-      target.checked
+      target.checked,
     );
     renderChargePeriods();
     return;
   }
 
-  if (target?.id === "mp-sync-all-button" || target?.closest?.("#mp-sync-all-button")) {
+  if (
+    target?.id === "mp-sync-all-button" ||
+    target?.closest?.("#mp-sync-all-button")
+  ) {
     handleMpSyncAll();
     return;
   }
@@ -4390,18 +5210,21 @@ function handlePrivateShellChange(event) {
   state.comprobanteFilters = {
     ...state.comprobanteFilters,
     period: document.querySelector("#comprobante-filter-period")?.value || "",
-    propertyId: document.querySelector("#comprobante-filter-property")?.value || "",
-    status: document.querySelector("#comprobante-filter-status")?.value || "all",
-    tenantSearch: document.querySelector("#comprobante-filter-tenant")?.value || "",
-    owner: document.querySelector("#comprobante-filter-owner")?.value || "all"
+    propertyId:
+      document.querySelector("#comprobante-filter-property")?.value || "",
+    status:
+      document.querySelector("#comprobante-filter-status")?.value || "all",
+    tenantSearch:
+      document.querySelector("#comprobante-filter-tenant")?.value || "",
+    owner: document.querySelector("#comprobante-filter-owner")?.value || "all",
   };
   renderAdminPaymentReview();
 }
 
 function handleReceiptViewerModalClick(event) {
   if (
-    event.target?.id === "receipt-viewer-modal"
-    || event.target?.closest?.("[data-close-receipt-viewer]")
+    event.target?.id === "receipt-viewer-modal" ||
+    event.target?.closest?.("[data-close-receipt-viewer]")
   ) {
     closeReceiptViewer();
   }
@@ -4435,11 +5258,16 @@ async function handleContractSubmit(event) {
     await updateContract({
       tenantId: elements.contractTenantId.value,
       action: elements.contractAction.value,
-      effectiveDate: elements.contractEffectiveDate.value
+      effectiveDate: elements.contractEffectiveDate.value,
     });
-    const tenant = state.tenants.find((item) => item.id === elements.contractTenantId.value);
+    const tenant = state.tenants.find(
+      (item) => item.id === elements.contractTenantId.value,
+    );
     await writeAuditLog({
-      action: elements.contractAction.value === "renew" ? "contract_renewed" : "contract_finalized",
+      action:
+        elements.contractAction.value === "renew"
+          ? "contract_renewed"
+          : "contract_finalized",
       entityType: "tenant",
       entityId: elements.contractTenantId.value,
       summary:
@@ -4448,8 +5276,8 @@ async function handleContractSubmit(event) {
           : `Configuró la finalización del contrato de ${tenant?.fullName || "un inquilino"} para ${elements.contractEffectiveDate.value}.`,
       metadata: {
         tenantName: tenant?.fullName || "",
-        effectiveDate: elements.contractEffectiveDate.value
-      }
+        effectiveDate: elements.contractEffectiveDate.value,
+      },
     });
     closeContractModal();
     setMessage("Contrato actualizado y notificacion preparada.");
@@ -4473,7 +5301,7 @@ async function handleTenantRemoval(tenantId) {
   }
 
   const confirmed = window.confirm(
-    `Vas a dar de baja a ${tenant.fullName}. Su historial quedara guardado, pero dejara de figurar como inquilino activo.`
+    `Vas a dar de baja a ${tenant.fullName}. Su historial quedara guardado, pero dejara de figurar como inquilino activo.`,
   );
 
   if (!confirmed) {
@@ -4483,7 +5311,9 @@ async function handleTenantRemoval(tenantId) {
   try {
     const deactivateTenant = httpsCallable(functions, "deactivateTenant");
     await deactivateTenant({ tenantId });
-    setMessage("Inquilino dado de baja. El historial se conserva y el acceso quedó desactivado.");
+    setMessage(
+      "Inquilino dado de baja. El historial se conserva y el acceso quedó desactivado.",
+    );
   } catch (error) {
     console.error(error);
     setMessage("No se pudo eliminar el inquilino.", "error");
@@ -4492,7 +5322,10 @@ async function handleTenantRemoval(tenantId) {
 
 async function handleTenantPermanentDeletion(tenantId) {
   if (!isAdminRole()) {
-    setMessage("Solo un administrador puede eliminar definitivamente un inquilino.", "error");
+    setMessage(
+      "Solo un administrador puede eliminar definitivamente un inquilino.",
+      "error",
+    );
     return;
   }
 
@@ -4504,7 +5337,7 @@ async function handleTenantPermanentDeletion(tenantId) {
   }
 
   const confirmation = window.prompt(
-    `Esta accion elimina definitivamente el perfil de ${tenant.fullName}. Para confirmar, escribi el nombre exacto del inquilino.`
+    `Esta accion elimina definitivamente el perfil de ${tenant.fullName}. Para confirmar, escribi el nombre exacto del inquilino.`,
   );
 
   if (confirmation !== tenant.fullName) {
@@ -4516,10 +5349,15 @@ async function handleTenantPermanentDeletion(tenantId) {
     const deleteTenantProfile = httpsCallable(functions, "deleteTenantProfile");
     await deleteTenantProfile({ tenantId });
 
-    setMessage("Inquilino eliminado definitivamente. Los movimientos historicos se conservaron como respaldo.");
+    setMessage(
+      "Inquilino eliminado definitivamente. Los movimientos historicos se conservaron como respaldo.",
+    );
   } catch (error) {
     console.error(error);
-    setMessage(`No se pudo eliminar definitivamente el inquilino: ${error.message || "revisa permisos y reglas."}`, "error");
+    setMessage(
+      `No se pudo eliminar definitivamente el inquilino: ${error.message || "revisa permisos y reglas."}`,
+      "error",
+    );
   }
 }
 
@@ -4535,7 +5373,10 @@ async function handlePaymentReviewAction(event) {
   }
 
   if (sendReceiptButton) {
-    await handleRentReceiptSend(sendReceiptButton.dataset.sendRentReceipt, sendReceiptButton.dataset.regenerateReceipt === "true");
+    await handleRentReceiptSend(
+      sendReceiptButton.dataset.sendRentReceipt,
+      sendReceiptButton.dataset.regenerateReceipt === "true",
+    );
     return;
   }
 
@@ -4548,8 +5389,11 @@ async function handlePaymentReviewAction(event) {
     return;
   }
 
-  const paymentId = approveButton?.dataset.approvePayment || rejectButton?.dataset.rejectPayment;
-  const chargeId = approveButton?.dataset.chargeId || rejectButton?.dataset.chargeId;
+  const paymentId =
+    approveButton?.dataset.approvePayment ||
+    rejectButton?.dataset.rejectPayment;
+  const chargeId =
+    approveButton?.dataset.chargeId || rejectButton?.dataset.chargeId;
 
   if (!paymentId || !chargeId) {
     setMessage("No se pudo identificar el pago a revisar.");
@@ -4565,9 +5409,13 @@ async function handlePaymentReviewAction(event) {
   if (approveButton) {
     const charge = state.charges.find((item) => item.id === chargeId);
     const tenant = state.tenants.find((item) => item.id === payment.tenantId);
-    const property = state.properties.find((item) => item.id === charge?.propertyId);
+    const property = state.properties.find(
+      (item) => item.id === charge?.propertyId,
+    );
     const ownerLabel = normalizeOwnerLabel(resolvePropertyOwnerScope(property));
-    const paymentReceipts = state.receipts.filter((receipt) => receipt.paymentId === payment.id);
+    const paymentReceipts = state.receipts.filter(
+      (receipt) => receipt.paymentId === payment.id,
+    );
     const confirmed = window.confirm(
       [
         "Vas a aprobar este pago y generar el recibo oficial.",
@@ -4581,8 +5429,8 @@ async function handlePaymentReviewAction(event) {
         `Locador: ${ownerLabel}`,
         `Archivo adjunto: ${paymentReceipts.length ? paymentReceipts[0].fileName || "Comprobante cargado" : "Sin archivo"}`,
         "",
-        "¿Confirmás la aprobación?"
-      ].join("\n")
+        "¿Confirmás la aprobación?",
+      ].join("\n"),
     );
 
     if (!confirmed) {
@@ -4594,7 +5442,10 @@ async function handlePaymentReviewAction(event) {
   }
 
   if (rejectButton) {
-    const reason = window.prompt("Motivo del rechazo:", "Monto incorrecto o comprobante no valido");
+    const reason = window.prompt(
+      "Motivo del rechazo:",
+      "Monto incorrecto o comprobante no valido",
+    );
     if (reason === null) {
       return;
     }
@@ -4604,7 +5455,10 @@ async function handlePaymentReviewAction(event) {
 
 async function handleRentReceiptSend(paymentId, regenerate = false) {
   if (!paymentId) {
-    setMessage("No se pudo identificar el pago para emitir el comprobante.", "error");
+    setMessage(
+      "No se pudo identificar el pago para emitir el comprobante.",
+      "error",
+    );
     return;
   }
 
@@ -4614,7 +5468,11 @@ async function handleRentReceiptSend(paymentId, regenerate = false) {
   }
 
   try {
-    setMessage(regenerate ? "Regenerando y enviando comprobante..." : "Generando y enviando comprobante...");
+    setMessage(
+      regenerate
+        ? "Regenerando y enviando comprobante..."
+        : "Generando y enviando comprobante...",
+    );
     const sendPaymentReceipt = httpsCallable(functions, "sendPaymentReceipt");
     const result = await sendPaymentReceipt({ paymentId, regenerate });
     const payload = result.data || {};
@@ -4627,11 +5485,14 @@ async function handleRentReceiptSend(paymentId, regenerate = false) {
       payload.resent
         ? `Comprobante ${payload.receiptNumber || ""} reenviado correctamente.`
         : `Comprobante ${payload.receiptNumber || ""} generado y enviado correctamente.`,
-      "success"
+      "success",
     );
   } catch (error) {
     console.error(error);
-    setMessage(humanizeFunctionError(error) || "No se pudo emitir el comprobante.", "error");
+    setMessage(
+      humanizeFunctionError(error) || "No se pudo emitir el comprobante.",
+      "error",
+    );
   }
 }
 
@@ -4659,14 +5520,17 @@ async function handleUtilityBillAction(event) {
     }
 
     if (!canAutoApplyBillToProperty(bill)) {
-      setMessage("Esta factura grupal necesita una distribucion manual antes de aplicarse.", "error");
+      setMessage(
+        "Esta factura grupal necesita una distribucion manual antes de aplicarse.",
+        "error",
+      );
       return;
     }
 
     try {
       await updateDoc(doc(db, "utilityBills", billId), {
         appliedToCharges: true,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
       });
       setMessage("La factura quedó aplicada al proximo calculo.");
     } catch (error) {
@@ -4683,8 +5547,12 @@ async function handleUtilityBillAction(event) {
   try {
     setMessage("Analizando factura...");
     const extractBill = httpsCallable(functions, "extractUtilityBillData");
-    const result = await extractBill({ billId: analyzeButton.dataset.analyzeBill });
-    const summary = result.data?.result?.summary || "La lectura de la factura termino correctamente.";
+    const result = await extractBill({
+      billId: analyzeButton.dataset.analyzeBill,
+    });
+    const summary =
+      result.data?.result?.summary ||
+      "La lectura de la factura termino correctamente.";
     setMessage(`Analisis listo: ${summary}`);
   } catch (error) {
     console.error(error);
@@ -4707,7 +5575,7 @@ async function handleChargeAction(event) {
     const createToken = httpsCallable(functions, "createPaymentAccessToken");
     const result = await createToken({
       chargeId: createLinkButton.dataset.createChargeLink,
-      expiresInHours: 72
+      expiresInHours: 72,
     });
     const token = result.data?.token;
 
@@ -4724,8 +5592,8 @@ async function handleChargeAction(event) {
       entityId: createLinkButton.dataset.createChargeLink,
       summary: "Generó un link único de pago.",
       metadata: {
-        expiresInHours: 72
-      }
+        expiresInHours: 72,
+      },
     });
     setMessage("Link único generado y copiado al portapapeles.");
   } catch (error) {
@@ -4750,7 +5618,10 @@ async function handleMercadoPagoAction(event) {
 
   try {
     setMessage("Preparando checkout de Mercado Pago...");
-    const createCheckout = httpsCallable(functions, "createMercadoPagoCheckout");
+    const createCheckout = httpsCallable(
+      functions,
+      "createMercadoPagoCheckout",
+    );
     const result = await createCheckout({ chargeId, tenantId });
     const checkoutUrl = result.data?.checkoutUrl;
 
@@ -4762,7 +5633,10 @@ async function handleMercadoPagoAction(event) {
     window.location.href = checkoutUrl;
   } catch (error) {
     console.error(error);
-    setMessage("Mercado Pago todavía no esta listo. Falta desplegar Functions o configurar credenciales.", "error");
+    setMessage(
+      "Mercado Pago todavía no esta listo. Falta desplegar Functions o configurar credenciales.",
+      "error",
+    );
   }
 }
 
@@ -4773,7 +5647,9 @@ function handleTenantChargeActions(event) {
 
 function handleTransferInfoToggle(event) {
   const transferButton = event.target.closest("[data-transfer-toggle]");
-  const instructionsButton = event.target.closest("[data-payment-instructions-toggle]");
+  const instructionsButton = event.target.closest(
+    "[data-payment-instructions-toggle]",
+  );
 
   if (transferButton) {
     event.currentTarget
@@ -4788,11 +5664,14 @@ function handleTransferInfoToggle(event) {
 }
 
 async function approvePayment(payment, chargeId) {
-  const approveTransferPayment = httpsCallable(functions, "approveTransferPayment");
+  const approveTransferPayment = httpsCallable(
+    functions,
+    "approveTransferPayment",
+  );
   const result = await approveTransferPayment({
     paymentId: payment.id,
     chargeId,
-    amountConfirmed: Number(payment.amountReported ?? 0)
+    amountConfirmed: Number(payment.amountReported ?? 0),
   });
 
   await writeAuditLog({
@@ -4803,18 +5682,26 @@ async function approvePayment(payment, chargeId) {
     metadata: {
       chargeId,
       tenantId: payment.tenantId || "",
-      amount: Number(payment.amountReported ?? 0)
-    }
+      amount: Number(payment.amountReported ?? 0),
+    },
   });
 
   const receipt = result.data?.receipt || null;
 
   if (receipt?.ok === false) {
-    setMessage(`Pago aprobado, pero el recibo no pudo enviarse: ${receipt.error || "Faltan datos del locador o del inquilino."}`, "warning");
+    setMessage(
+      `Pago aprobado, pero el recibo no pudo enviarse: ${receipt.error || "Faltan datos del locador o del inquilino."}`,
+      "warning",
+    );
     return;
   }
 
-  setMessage(receipt?.resent ? "Pago aprobado y recibo reenviado." : "Pago aprobado y recibo emitido.", "success");
+  setMessage(
+    receipt?.resent
+      ? "Pago aprobado y recibo reenviado."
+      : "Pago aprobado y recibo emitido.",
+    "success",
+  );
 }
 
 async function rejectPayment(payment, chargeId, reason) {
@@ -4823,12 +5710,12 @@ async function rejectPayment(payment, chargeId, reason) {
     reviewNotes: reason || "Pago rechazado por administración.",
     rejectedAt: serverTimestamp(),
     rejectedBy: state.authUser.uid,
-    updatedAt: serverTimestamp()
+    updatedAt: serverTimestamp(),
   });
 
   await updateDoc(doc(db, "charges", chargeId), {
     status: "pending",
-    updatedAt: serverTimestamp()
+    updatedAt: serverTimestamp(),
   });
 
   await writeAuditLog({
@@ -4840,8 +5727,8 @@ async function rejectPayment(payment, chargeId, reason) {
       chargeId,
       tenantId: payment.tenantId || "",
       amount: Number(payment.amountReported ?? 0),
-      reason: reason || ""
-    }
+      reason: reason || "",
+    },
   });
 
   setMessage("Pago rechazado. El cobro volvio a pendiente.");
@@ -4860,13 +5747,20 @@ async function handleReceiptAnalysis(receiptId) {
 
   try {
     setMessage("Analizando comprobante...");
-    const extractReceipt = httpsCallable(functions, "extractPaymentReceiptData");
+    const extractReceipt = httpsCallable(
+      functions,
+      "extractPaymentReceiptData",
+    );
     const result = await extractReceipt({ receiptId });
-    const summary = result.data?.result?.summary || "Claude termino el analisis.";
+    const summary =
+      result.data?.result?.summary || "Claude termino el analisis.";
     setMessage(`Analisis listo: ${summary}`);
   } catch (error) {
     console.error(error);
-    setMessage("No se pudo analizar el comprobante. Revisa la clave de Claude y el deploy de Functions.", "error");
+    setMessage(
+      "No se pudo analizar el comprobante. Revisa la clave de Claude y el deploy de Functions.",
+      "error",
+    );
   }
 }
 
@@ -4886,7 +5780,7 @@ function renderPropertySelect() {
   const options = scopedProperties
     .map(
       (property) =>
-        `<option value="${property.id}">${property.name} - ${property.unitCode || "sin código"}</option>`
+        `<option value="${property.id}">${property.name} - ${property.unitCode || "sin código"}</option>`,
     )
     .join("");
 
@@ -4894,7 +5788,7 @@ function renderPropertySelect() {
   renderUtilityBillGroupOptions();
 }
 
-  function renderTenantEditPropertyOptions(tenantId, currentPropertyId) {
+function renderTenantEditPropertyOptions(tenantId, currentPropertyId) {
   if (!elements.tenantEditPropertyId) {
     return;
   }
@@ -4902,179 +5796,240 @@ function renderPropertySelect() {
   const scopedProperties = getScopedProperties();
   const occupiedByOthers = new Set(
     getScopedTenants()
-      .filter((tenant) => tenant.id !== tenantId && !["inactive", "deleted"].includes(String(tenant.status || "active")))
+      .filter(
+        (tenant) =>
+          tenant.id !== tenantId &&
+          !["inactive", "deleted"].includes(String(tenant.status || "active")),
+      )
       .map((tenant) => String(tenant.propertyId || ""))
-      .filter(Boolean)
+      .filter(Boolean),
   );
 
   const options = scopedProperties
-    .filter((property) => property.id === currentPropertyId || !occupiedByOthers.has(property.id))
-    .map((property) => `<option value="${property.id}">${property.name} - ${property.unitCode || "sin código"}</option>`)
+    .filter(
+      (property) =>
+        property.id === currentPropertyId || !occupiedByOthers.has(property.id),
+    )
+    .map(
+      (property) =>
+        `<option value="${property.id}">${property.name} - ${property.unitCode || "sin código"}</option>`,
+    )
     .join("");
 
-    elements.tenantEditPropertyId.innerHTML = options || `<option value="">Sin propiedades disponibles</option>`;
+  elements.tenantEditPropertyId.innerHTML =
+    options || `<option value="">Sin propiedades disponibles</option>`;
+}
+
+function formatPeriodLabel(period) {
+  if (!period) {
+    return "Sin período";
   }
 
-  function formatPeriodLabel(period) {
-    if (!period) {
-      return "Sin período";
+  const [year, month] = String(period).split("-");
+  const date = new Date(Number(year), Math.max(Number(month || 1) - 1, 0), 1);
+  if (Number.isNaN(date.getTime())) {
+    return String(period);
+  }
+
+  return new Intl.DateTimeFormat("es-AR", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function buildOwnerSnapshot(ownerScope) {
+  const properties = state.properties.filter(
+    (property) => resolvePropertyOwnerScope(property) === ownerScope,
+  );
+  const propertyIds = new Set(properties.map((property) => property.id));
+  const tenants = state.tenants.filter((tenant) =>
+    propertyIds.has(tenant.propertyId),
+  );
+  const tenantIds = new Set(tenants.map((tenant) => tenant.id));
+  const charges = state.charges.filter((charge) =>
+    propertyIds.has(charge.propertyId),
+  );
+  const chargeIds = new Set(charges.map((charge) => charge.id));
+  const payments = state.payments.filter(
+    (payment) =>
+      chargeIds.has(payment.chargeId) || tenantIds.has(payment.tenantId),
+  );
+  const rentReceipts = state.rentReceipts.filter((receipt) =>
+    tenantIds.has(receipt.tenantId),
+  );
+
+  return { properties, tenants, charges, payments, rentReceipts };
+}
+
+function countPendingPaymentReviews(payments) {
+  return payments.filter((payment) => {
+    if (isMercadoPagoCheckoutPlaceholder(payment)) {
+      return false;
     }
 
-    const [year, month] = String(period).split("-");
-    const date = new Date(Number(year), Math.max(Number(month || 1) - 1, 0), 1);
-    if (Number.isNaN(date.getTime())) {
-      return String(period);
-    }
+    return ["reported", "in_review", "pending"].includes(
+      String(payment.status || ""),
+    );
+  }).length;
+}
 
-    return new Intl.DateTimeFormat("es-AR", {
-      month: "long",
-      year: "numeric"
-    }).format(date);
-  }
+function countDelinquentCharges(charges) {
+  const generalSettings = resolveGeneralSettings();
+  return charges.filter((charge) => {
+    const overdueDays = Number(charge.overdueDays ?? 0);
+    return (
+      charge.status === "overdue" ||
+      overdueDays >= generalSettings.morosoAfterDays
+    );
+  }).length;
+}
 
-  function buildOwnerSnapshot(ownerScope) {
-    const properties = state.properties.filter((property) => resolvePropertyOwnerScope(property) === ownerScope);
-    const propertyIds = new Set(properties.map((property) => property.id));
-    const tenants = state.tenants.filter((tenant) => propertyIds.has(tenant.propertyId));
-    const tenantIds = new Set(tenants.map((tenant) => tenant.id));
-    const charges = state.charges.filter((charge) => propertyIds.has(charge.propertyId));
-    const chargeIds = new Set(charges.map((charge) => charge.id));
-    const payments = state.payments.filter((payment) => chargeIds.has(payment.chargeId) || tenantIds.has(payment.tenantId));
-    const rentReceipts = state.rentReceipts.filter((receipt) => tenantIds.has(receipt.tenantId));
+function sumChargeTotals(charges, statuses) {
+  return charges
+    .filter((charge) => statuses.includes(String(charge.status || "")))
+    .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
+}
 
-    return { properties, tenants, charges, payments, rentReceipts };
-  }
+function countReceiptsForPeriod(rentReceipts, currentPeriod) {
+  return rentReceipts.filter(
+    (receipt) => String(receipt.period || "") === currentPeriod,
+  ).length;
+}
 
-  function countPendingPaymentReviews(payments) {
-    return payments.filter((payment) => {
-      if (isMercadoPagoCheckoutPlaceholder(payment)) {
-        return false;
-      }
+function updateSummarySectionChrome() {
+  const chargesLabel =
+    document.querySelector("#charges-title")?.previousElementSibling;
+  const chargesTitle = document.querySelector("#charges-title");
+  const reviewLabel =
+    document.querySelector("#review-title")?.previousElementSibling;
+  const reviewTitle = document.querySelector("#review-title");
+  const reportSections = Array.from(
+    document.querySelectorAll(
+      '.summary-report-grid.view-section[data-section="resumen"] .surface',
+    ),
+  );
 
-      return ["reported", "in_review", "pending"].includes(String(payment.status || ""));
-    }).length;
-  }
-
-  function countDelinquentCharges(charges) {
-    const generalSettings = resolveGeneralSettings();
-    return charges.filter((charge) => {
-      const overdueDays = Number(charge.overdueDays ?? 0);
-      return charge.status === "overdue" || overdueDays >= generalSettings.morosoAfterDays;
-    }).length;
-  }
-
-  function sumChargeTotals(charges, statuses) {
-    return charges
-      .filter((charge) => statuses.includes(String(charge.status || "")))
-      .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
-  }
-
-  function countReceiptsForPeriod(rentReceipts, currentPeriod) {
-    return rentReceipts.filter(
-      (receipt) => String(receipt.period || "") === currentPeriod
-    ).length;
-  }
-
-  function updateSummarySectionChrome() {
-    const chargesLabel = document.querySelector("#charges-title")?.previousElementSibling;
-    const chargesTitle = document.querySelector("#charges-title");
-    const reviewLabel = document.querySelector("#review-title")?.previousElementSibling;
-    const reviewTitle = document.querySelector("#review-title");
-    const reportSections = Array.from(document.querySelectorAll('.summary-report-grid.view-section[data-section="resumen"] .surface'));
-
-    if (isSuperadminRole()) {
-      if (chargesLabel) chargesLabel.textContent = "Seguimiento global";
-      if (chargesTitle) chargesTitle.textContent = "Próximos vencimientos y revisión";
-      if (reviewLabel) reviewLabel.textContent = "Comparativa";
-      if (reviewTitle) reviewTitle.textContent = "Operación por locador";
-      if (reportSections[0]) {
-        reportSections[0].querySelector(".section-label").textContent = "Visión consolidada";
-        reportSections[0].querySelector("h3").textContent = "Indicadores globales";
-      }
-      if (reportSections[1]) {
-        reportSections[1].querySelector(".section-label").textContent = "Bloques";
-        reportSections[1].querySelector("h3").textContent = "Enzo vs Ivo";
-      }
-      if (reportSections[2]) {
-        reportSections[2].querySelector(".section-label").textContent = "Deuda";
-        reportSections[2].querySelector("h3").textContent = "Inquilinos a seguir";
-      }
-      if (reportSections[3]) {
-        reportSections[3].querySelector(".section-label").textContent = "Actividad global";
-        reportSections[3].querySelector("h3").textContent = "Últimos pagos confirmados";
-      }
-      return;
-    }
-
-    const ownerLabel = normalizeOwnerLabel(getCurrentOwnerScope());
-    if (chargesLabel) chargesLabel.textContent = "Agenda operativa";
-    if (chargesTitle) chargesTitle.textContent = "Vencimientos y cobros a seguir";
-    if (reviewLabel) reviewLabel.textContent = "Prioridades";
-    if (reviewTitle) reviewTitle.textContent = `Lectura rápida de ${ownerLabel}`;
+  if (isSuperadminRole()) {
+    if (chargesLabel) chargesLabel.textContent = "Seguimiento global";
+    if (chargesTitle)
+      chargesTitle.textContent = "Próximos vencimientos y revisión";
+    if (reviewLabel) reviewLabel.textContent = "Comparativa";
+    if (reviewTitle) reviewTitle.textContent = "Operación por locador";
     if (reportSections[0]) {
-      reportSections[0].querySelector(".section-label").textContent = "Estado financiero";
-      reportSections[0].querySelector("h3").textContent = `Totales de ${ownerLabel}`;
+      reportSections[0].querySelector(".section-label").textContent =
+        "Visión consolidada";
+      reportSections[0].querySelector("h3").textContent =
+        "Indicadores globales";
     }
     if (reportSections[1]) {
-      reportSections[1].querySelector(".section-label").textContent = "Métodos";
-      reportSections[1].querySelector("h3").textContent = "Transferencia y tarjeta";
+      reportSections[1].querySelector(".section-label").textContent = "Bloques";
+      reportSections[1].querySelector("h3").textContent = "Enzo vs Ivo";
     }
     if (reportSections[2]) {
-      reportSections[2].querySelector(".section-label").textContent = "Seguimiento";
-      reportSections[2].querySelector("h3").textContent = "Cobros vencidos";
+      reportSections[2].querySelector(".section-label").textContent = "Deuda";
+      reportSections[2].querySelector("h3").textContent = "Inquilinos a seguir";
     }
     if (reportSections[3]) {
-      reportSections[3].querySelector(".section-label").textContent = "Actividad reciente";
-      reportSections[3].querySelector("h3").textContent = "Últimos pagos";
+      reportSections[3].querySelector(".section-label").textContent =
+        "Actividad global";
+      reportSections[3].querySelector("h3").textContent =
+        "Últimos pagos confirmados";
     }
+    return;
   }
-  
-  function renderSummary() {
-    const scopedProperties = getScopedProperties();
-    const scopedTenants = getScopedTenants();
-    const scopedCharges = getScopedCharges();
-    const scopedPayments = getScopedPayments();
-    const scopedRentReceipts = getScopedRentReceipts();
-    const summaryPeriod = resolveSummaryPeriod(scopedCharges);
-    const summaryCharges = scopedCharges.filter((charge) => String(charge.period || "") === summaryPeriod);
-    const reportCharges = summaryCharges.length ? summaryCharges : scopedCharges;
-    const totalCharges = reportCharges.reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
-    const totalCollected = reportCharges
-      .filter((charge) => charge.status === "paid")
-      .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
-    const pendingCharges = scopedCharges.filter((charge) => charge.status !== "paid");
-    const overdueCharges = scopedCharges.filter((charge) => charge.status === "overdue");
-    const pendingReviews = countPendingPaymentReviews(scopedPayments);
-    const receiptCount = countReceiptsForPeriod(scopedRentReceipts, summaryPeriod);
-    const progress = totalCharges > 0 ? Math.min((totalCollected / totalCharges) * 100, 100) : 0;
-    const currentScopeLabel = normalizeOwnerLabel(getCurrentOwnerScope());
-    const ownerSnapshots = {
-      enzo: buildOwnerSnapshot("enzo"),
-      ivo: buildOwnerSnapshot("ivo")
-    };
 
-    elements.summaryHeadline.textContent = isSuperadminRole()
-      ? `${pendingReviews} comprobantes pendientes y ${overdueCharges.length} cobros vencidos en toda La Casona.`
-      : `${pendingReviews} comprobantes pendientes y ${overdueCharges.length} cobros vencidos en ${currentScopeLabel}.`;
-    elements.summarySubtitle.textContent = isSuperadminRole()
-      ? `${scopedProperties.length} unidades, ${scopedTenants.length} inquilinos y visión consolidada para supervisar la operación de Enzo e Ivo.`
-      : `${scopedProperties.length} unidades y ${scopedTenants.length} inquilinos dentro de la operación de ${currentScopeLabel}.`;
-    elements.collectedTotal.textContent = formatCurrency(totalCollected);
-    elements.collectionProgress.style.width = `${Math.max(progress, 6)}%`;
-    elements.collectionFootnote.textContent = isSuperadminRole()
-      ? `${Math.round(progress)}% del total de ${formatPeriodLabel(summaryPeriod)} ya figura como cobrado. ${receiptCount} recibos emitidos este período.`
-      : `${Math.round(progress)}% del total de ${formatPeriodLabel(summaryPeriod)} ya figura como cobrado para ${currentScopeLabel}. ${receiptCount} recibos emitidos.`;
+  const ownerLabel = normalizeOwnerLabel(getCurrentOwnerScope());
+  if (chargesLabel) chargesLabel.textContent = "Agenda operativa";
+  if (chargesTitle) chargesTitle.textContent = "Vencimientos y cobros a seguir";
+  if (reviewLabel) reviewLabel.textContent = "Prioridades";
+  if (reviewTitle) reviewTitle.textContent = `Lectura rápida de ${ownerLabel}`;
+  if (reportSections[0]) {
+    reportSections[0].querySelector(".section-label").textContent =
+      "Estado financiero";
+    reportSections[0].querySelector("h3").textContent =
+      `Totales de ${ownerLabel}`;
+  }
+  if (reportSections[1]) {
+    reportSections[1].querySelector(".section-label").textContent = "Métodos";
+    reportSections[1].querySelector("h3").textContent =
+      "Transferencia y tarjeta";
+  }
+  if (reportSections[2]) {
+    reportSections[2].querySelector(".section-label").textContent =
+      "Seguimiento";
+    reportSections[2].querySelector("h3").textContent = "Cobros vencidos";
+  }
+  if (reportSections[3]) {
+    reportSections[3].querySelector(".section-label").textContent =
+      "Actividad reciente";
+    reportSections[3].querySelector("h3").textContent = "Últimos pagos";
+  }
+}
 
-    elements.urgentCharges.innerHTML = pendingCharges.length
-      ? pendingCharges
-          .slice(0, 4)
-          .map((charge) => {
-            const tenant = scopedTenants.find((item) => item.id === charge.tenantId);
-            const property = scopedProperties.find((item) => item.id === charge.propertyId);
-            const statusClass = charge.status === "overdue" ? "danger" : "warning";
-            const ownerScope = resolvePropertyOwnerScope(property);
+function renderSummary() {
+  const scopedProperties = getScopedProperties();
+  const scopedTenants = getScopedTenants();
+  const scopedCharges = getScopedCharges();
+  const scopedPayments = getScopedPayments();
+  const scopedRentReceipts = getScopedRentReceipts();
+  const summaryPeriod = resolveSummaryPeriod(scopedCharges);
+  const summaryCharges = scopedCharges.filter(
+    (charge) => String(charge.period || "") === summaryPeriod,
+  );
+  const reportCharges = summaryCharges.length ? summaryCharges : scopedCharges;
+  const totalCharges = reportCharges.reduce(
+    (sum, charge) => sum + Number(charge.total ?? 0),
+    0,
+  );
+  const totalCollected = reportCharges
+    .filter((charge) => charge.status === "paid")
+    .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
+  const pendingCharges = scopedCharges.filter(
+    (charge) => charge.status !== "paid",
+  );
+  const overdueCharges = scopedCharges.filter(
+    (charge) => charge.status === "overdue",
+  );
+  const pendingReviews = countPendingPaymentReviews(scopedPayments);
+  const receiptCount = countReceiptsForPeriod(
+    scopedRentReceipts,
+    summaryPeriod,
+  );
+  const progress =
+    totalCharges > 0 ? Math.min((totalCollected / totalCharges) * 100, 100) : 0;
+  const currentScopeLabel = normalizeOwnerLabel(getCurrentOwnerScope());
+  const ownerSnapshots = {
+    enzo: buildOwnerSnapshot("enzo"),
+    ivo: buildOwnerSnapshot("ivo"),
+  };
 
-            return `
+  elements.summaryHeadline.textContent = isSuperadminRole()
+    ? `${pendingReviews} comprobantes pendientes y ${overdueCharges.length} cobros vencidos en toda La Casona.`
+    : `${pendingReviews} comprobantes pendientes y ${overdueCharges.length} cobros vencidos en ${currentScopeLabel}.`;
+  elements.summarySubtitle.textContent = isSuperadminRole()
+    ? `${scopedProperties.length} unidades, ${scopedTenants.length} inquilinos y visión consolidada para supervisar la operación de Enzo e Ivo.`
+    : `${scopedProperties.length} unidades y ${scopedTenants.length} inquilinos dentro de la operación de ${currentScopeLabel}.`;
+  elements.collectedTotal.textContent = formatCurrency(totalCollected);
+  elements.collectionProgress.style.width = `${Math.max(progress, 6)}%`;
+  elements.collectionFootnote.textContent = isSuperadminRole()
+    ? `${Math.round(progress)}% del total de ${formatPeriodLabel(summaryPeriod)} ya figura como cobrado. ${receiptCount} recibos emitidos este período.`
+    : `${Math.round(progress)}% del total de ${formatPeriodLabel(summaryPeriod)} ya figura como cobrado para ${currentScopeLabel}. ${receiptCount} recibos emitidos.`;
+
+  elements.urgentCharges.innerHTML = pendingCharges.length
+    ? pendingCharges
+        .slice(0, 4)
+        .map((charge) => {
+          const tenant = scopedTenants.find(
+            (item) => item.id === charge.tenantId,
+          );
+          const property = scopedProperties.find(
+            (item) => item.id === charge.propertyId,
+          );
+          const statusClass =
+            charge.status === "overdue" ? "danger" : "warning";
+          const ownerScope = resolvePropertyOwnerScope(property);
+
+          return `
               <article class="table-row">
                 <div>
                   <strong>${property?.name || "Unidad"} - ${tenant?.fullName || "Sin inquilino"}</strong>
@@ -5087,20 +6042,26 @@ function renderPropertySelect() {
               <span class="status ${statusClass}">${humanizeChargeStatus(charge.status)}</span>
             </article>
             `;
-          })
-          .join("")
-      : buildEmptyState("Todavía no hay cobros activos para revisar.");
+        })
+        .join("")
+    : buildEmptyState("Todavía no hay cobros activos para revisar.");
 
-    if (isSuperadminRole()) {
-      elements.summaryMetrics.innerHTML = ["enzo", "ivo"]
-        .map((ownerScope) => {
-          const snapshot = ownerSnapshots[ownerScope];
-          const periodCharges = snapshot.charges.filter((charge) => String(charge.period || "") === summaryPeriod);
-          const ownerCollected = sumChargeTotals(periodCharges, ["paid"]);
-          const ownerPending = sumChargeTotals(periodCharges, ["pending", "overdue", "in_review"]);
-          const ownerReviews = countPendingPaymentReviews(snapshot.payments);
-          const ownerDelinquent = countDelinquentCharges(snapshot.charges);
-          return `
+  if (isSuperadminRole()) {
+    elements.summaryMetrics.innerHTML = ["enzo", "ivo"]
+      .map((ownerScope) => {
+        const snapshot = ownerSnapshots[ownerScope];
+        const periodCharges = snapshot.charges.filter(
+          (charge) => String(charge.period || "") === summaryPeriod,
+        );
+        const ownerCollected = sumChargeTotals(periodCharges, ["paid"]);
+        const ownerPending = sumChargeTotals(periodCharges, [
+          "pending",
+          "overdue",
+          "in_review",
+        ]);
+        const ownerReviews = countPendingPaymentReviews(snapshot.payments);
+        const ownerDelinquent = countDelinquentCharges(snapshot.charges);
+        return `
             <article class="review-item owner-comparison-card">
               <div>
                 <p class="section-label">Operación ${normalizeOwnerLabel(ownerScope)}</p>
@@ -5113,39 +6074,43 @@ function renderPropertySelect() {
               </div>
             </article>
           `;
-        })
-        .join("");
-    } else {
-      const nextDueDate = pendingCharges
-        .map((charge) => charge.dueDate)
-        .filter(Boolean)
-        .sort()[0];
-      const activeReceipts = scopedRentReceipts.filter((receipt) => ["sent", "resent"].includes(String(receipt.status || ""))).length;
-      elements.summaryMetrics.innerHTML = [
-        {
-          title: `${pendingCharges.length} cobros abiertos`,
-          copy: `Seguimiento activo dentro de ${currentScopeLabel}.`,
-          badge: "Operación"
-        },
-        {
-          title: `${pendingReviews} comprobantes por revisar`,
-          copy: "Pagos reportados esperando validación administrativa.",
-          badge: pendingReviews ? "Revisión" : "Sin revisión pendiente",
-          tone: pendingReviews ? "warning" : "neutral"
-        },
-        {
-          title: nextDueDate ? `Próximo vencimiento ${formatDate(nextDueDate)}` : "Sin vencimientos próximos",
-          copy: "Usa Cobros y Comunicación para actuar rápido.",
-          badge: "Agenda"
-        },
-        {
-          title: `${activeReceipts} recibos emitidos`,
-          copy: `Recibos oficiales asociados a ${formatPeriodLabel(summaryPeriod)}.`,
-          badge: "Recibos"
-        }
-      ]
-        .map(
-          (metric) => `
+      })
+      .join("");
+  } else {
+    const nextDueDate = pendingCharges
+      .map((charge) => charge.dueDate)
+      .filter(Boolean)
+      .sort()[0];
+    const activeReceipts = scopedRentReceipts.filter((receipt) =>
+      ["sent", "resent"].includes(String(receipt.status || "")),
+    ).length;
+    elements.summaryMetrics.innerHTML = [
+      {
+        title: `${pendingCharges.length} cobros abiertos`,
+        copy: `Seguimiento activo dentro de ${currentScopeLabel}.`,
+        badge: "Operación",
+      },
+      {
+        title: `${pendingReviews} comprobantes por revisar`,
+        copy: "Pagos reportados esperando validación administrativa.",
+        badge: pendingReviews ? "Revisión" : "Sin revisión pendiente",
+        tone: pendingReviews ? "warning" : "neutral",
+      },
+      {
+        title: nextDueDate
+          ? `Próximo vencimiento ${formatDate(nextDueDate)}`
+          : "Sin vencimientos próximos",
+        copy: "Usa Cobros y Comunicación para actuar rápido.",
+        badge: "Agenda",
+      },
+      {
+        title: `${activeReceipts} recibos emitidos`,
+        copy: `Recibos oficiales asociados a ${formatPeriodLabel(summaryPeriod)}.`,
+        badge: "Recibos",
+      },
+    ]
+      .map(
+        (metric) => `
             <article class="review-item">
               <div>
                 <strong>${metric.title}</strong>
@@ -5153,20 +6118,33 @@ function renderPropertySelect() {
               </div>
               <span class="status ${metric.tone || "neutral"}">${metric.badge}</span>
             </article>
-          `
-        )
-        .join("");
-    }
-
-    updateSummarySectionChrome();
-    renderSummaryReports(reportCharges, summaryPeriod, scopedProperties, scopedTenants);
-    renderAdminScopeDiagnostics();
+          `,
+      )
+      .join("");
   }
-  
-  function renderSummaryReports(reportCharges, currentPeriod, scopedProperties = getScopedProperties(), scopedTenants = getScopedTenants()) {
-    const generalSettings = resolveGeneralSettings();
+
+  updateSummarySectionChrome();
+  renderSummaryReports(
+    reportCharges,
+    summaryPeriod,
+    scopedProperties,
+    scopedTenants,
+  );
+  renderAdminScopeDiagnostics();
+}
+
+function renderSummaryReports(
+  reportCharges,
+  currentPeriod,
+  scopedProperties = getScopedProperties(),
+  scopedTenants = getScopedTenants(),
+) {
+  const generalSettings = resolveGeneralSettings();
   const scopedCharges = getScopedCharges();
-  const total = reportCharges.reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
+  const total = reportCharges.reduce(
+    (sum, charge) => sum + Number(charge.total ?? 0),
+    0,
+  );
   const collected = reportCharges
     .filter((charge) => charge.status === "paid")
     .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
@@ -5179,57 +6157,86 @@ function renderPropertySelect() {
   const inReview = reportCharges
     .filter((charge) => charge.status === "in_review")
     .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
-    const scopedPayments = getScopedPayments();
-    const scopedRentReceipts = getScopedRentReceipts();
-    const transferTotal = scopedPayments
-      .filter((payment) => payment.method === "transfer")
-      .reduce((sum, payment) => sum + Number(payment.amountConfirmed ?? payment.amountReported ?? 0), 0);
-    const cardTotal = scopedPayments
-      .filter((payment) => payment.method === "mercado_pago")
-      .reduce((sum, payment) => sum + Number(payment.amountConfirmed ?? payment.amountReported ?? 0), 0);
-    const delinquentCharges = scopedCharges.filter((charge) => charge.status === "overdue");
-    const recentPayments = [...scopedPayments].sort((a, b) => sortByCreatedAtDesc(a, b)).slice(0, 5);
-    const pendingReviews = countPendingPaymentReviews(scopedPayments);
-    const delinquentCount = countDelinquentCharges(scopedCharges);
-    const receiptCount = countReceiptsForPeriod(scopedRentReceipts, currentPeriod);
-    const currentScopeLabel = normalizeOwnerLabel(getCurrentOwnerScope());
+  const scopedPayments = getScopedPayments();
+  const scopedRentReceipts = getScopedRentReceipts();
+  const transferTotal = scopedPayments
+    .filter((payment) => payment.method === "transfer")
+    .reduce(
+      (sum, payment) =>
+        sum + Number(payment.amountConfirmed ?? payment.amountReported ?? 0),
+      0,
+    );
+  const cardTotal = scopedPayments
+    .filter((payment) => payment.method === "mercado_pago")
+    .reduce(
+      (sum, payment) =>
+        sum + Number(payment.amountConfirmed ?? payment.amountReported ?? 0),
+      0,
+    );
+  const delinquentCharges = scopedCharges.filter(
+    (charge) => charge.status === "overdue",
+  );
+  const recentPayments = [...scopedPayments]
+    .sort((a, b) => sortByCreatedAtDesc(a, b))
+    .slice(0, 5);
+  const pendingReviews = countPendingPaymentReviews(scopedPayments);
+  const delinquentCount = countDelinquentCharges(scopedCharges);
+  const receiptCount = countReceiptsForPeriod(
+    scopedRentReceipts,
+    currentPeriod,
+  );
+  const currentScopeLabel = normalizeOwnerLabel(getCurrentOwnerScope());
 
-    if (isSuperadminRole()) {
-      const snapshots = {
-        enzo: buildOwnerSnapshot("enzo"),
-        ivo: buildOwnerSnapshot("ivo")
-      };
-      elements.summaryFinancialReport.innerHTML = [
-        ["Cobrado general", collected, "Toda La Casona"],
-        ["Pendiente general", pending + overdue + inReview, formatPeriodLabel(currentPeriod)],
-        ["Comprobantes pendientes", pendingReviews, "Revisión"],
-        ["Inquilinos con deuda", delinquentCount, "Seguimiento"],
-        ["Recibos emitidos", receiptCount, formatPeriodLabel(currentPeriod)]
-      ]
-        .map(
-          ([label, value, footnote]) => `
+  if (isSuperadminRole()) {
+    const snapshots = {
+      enzo: buildOwnerSnapshot("enzo"),
+      ivo: buildOwnerSnapshot("ivo"),
+    };
+    elements.summaryFinancialReport.innerHTML = [
+      ["Cobrado general", collected, "Toda La Casona"],
+      [
+        "Pendiente general",
+        pending + overdue + inReview,
+        formatPeriodLabel(currentPeriod),
+      ],
+      ["Comprobantes pendientes", pendingReviews, "Revisión"],
+      ["Inquilinos con deuda", delinquentCount, "Seguimiento"],
+      ["Recibos emitidos", receiptCount, formatPeriodLabel(currentPeriod)],
+    ]
+      .map(
+        ([label, value, footnote]) => `
             <article class="summary-mini-card">
               <span>${label}</span>
               <strong>${
-                typeof value === "number"
-                && !["Comprobantes pendientes", "Inquilinos con deuda", "Recibos emitidos"].includes(label)
+                typeof value === "number" &&
+                ![
+                  "Comprobantes pendientes",
+                  "Inquilinos con deuda",
+                  "Recibos emitidos",
+                ].includes(label)
                   ? formatCurrency(value)
                   : value
               }</strong>
               <p>${footnote}</p>
             </article>
-          `
-        )
-        .join("");
+          `,
+      )
+      .join("");
 
-      elements.summaryPaymentMethods.innerHTML = ["enzo", "ivo"]
-        .map((ownerScope) => {
-          const snapshot = snapshots[ownerScope];
-          const periodCharges = snapshot.charges.filter((charge) => String(charge.period || "") === currentPeriod);
-          const ownerCollected = sumChargeTotals(periodCharges, ["paid"]);
-          const ownerPending = sumChargeTotals(periodCharges, ["pending", "overdue", "in_review"]);
-          const ownerReviews = countPendingPaymentReviews(snapshot.payments);
-          return `
+    elements.summaryPaymentMethods.innerHTML = ["enzo", "ivo"]
+      .map((ownerScope) => {
+        const snapshot = snapshots[ownerScope];
+        const periodCharges = snapshot.charges.filter(
+          (charge) => String(charge.period || "") === currentPeriod,
+        );
+        const ownerCollected = sumChargeTotals(periodCharges, ["paid"]);
+        const ownerPending = sumChargeTotals(periodCharges, [
+          "pending",
+          "overdue",
+          "in_review",
+        ]);
+        const ownerReviews = countPendingPaymentReviews(snapshot.payments);
+        return `
             <article class="review-item owner-comparison-card">
               <div>
                 <strong>${normalizeOwnerLabel(ownerScope)}</strong>
@@ -5239,28 +6246,28 @@ function renderPropertySelect() {
               <span class="status ${ownerReviews ? "warning" : "neutral"}">${ownerReviews} por revisar</span>
             </article>
           `;
-        })
-        .join("");
-    } else {
-      elements.summaryFinancialReport.innerHTML = [
-        ["Total generado", total, formatPeriodLabel(currentPeriod)],
-        ["Cobrado", collected, currentScopeLabel],
-        ["Pendiente", pending, "Sin pagar"],
-        ["Vencido", overdue, "A seguir"],
-        ["En revisión", inReview, "Pagos reportados"]
-      ]
-        .map(
-          ([label, value, footnote]) => `
+      })
+      .join("");
+  } else {
+    elements.summaryFinancialReport.innerHTML = [
+      ["Total generado", total, formatPeriodLabel(currentPeriod)],
+      ["Cobrado", collected, currentScopeLabel],
+      ["Pendiente", pending, "Sin pagar"],
+      ["Vencido", overdue, "A seguir"],
+      ["En revisión", inReview, "Pagos reportados"],
+    ]
+      .map(
+        ([label, value, footnote]) => `
             <article class="summary-mini-card">
               <span>${label}</span>
               <strong>${formatCurrency(value)}</strong>
               <p>${footnote}</p>
             </article>
-          `
-        )
-        .join("");
+          `,
+      )
+      .join("");
 
-      elements.summaryPaymentMethods.innerHTML = `
+    elements.summaryPaymentMethods.innerHTML = `
         <article class="review-item">
           <div>
             <strong>${formatCurrency(transferTotal)}</strong>
@@ -5276,16 +6283,20 @@ function renderPropertySelect() {
           <span class="status neutral">Tarjeta</span>
         </article>
       `;
-    }
+  }
 
-    elements.summaryDelinquency.innerHTML = delinquentCharges.length
-      ? delinquentCharges
-          .slice(0, 6)
-          .map((charge) => {
-            const tenant = scopedTenants.find((item) => item.id === charge.tenantId);
-            const property = scopedProperties.find((item) => item.id === charge.propertyId);
-            const ownerScope = resolvePropertyOwnerScope(property);
-            return `
+  elements.summaryDelinquency.innerHTML = delinquentCharges.length
+    ? delinquentCharges
+        .slice(0, 6)
+        .map((charge) => {
+          const tenant = scopedTenants.find(
+            (item) => item.id === charge.tenantId,
+          );
+          const property = scopedProperties.find(
+            (item) => item.id === charge.propertyId,
+          );
+          const ownerScope = resolvePropertyOwnerScope(property);
+          return `
               <article class="table-row">
                 <div>
                   <strong>${tenant?.fullName || "Sin inquilino"}</strong>
@@ -5306,12 +6317,18 @@ function renderPropertySelect() {
 
   elements.summaryRecentPayments.innerHTML = recentPayments.length
     ? recentPayments
-          .map((payment) => {
-            const tenant = scopedTenants.find((item) => item.id === payment.tenantId);
-            const charge = scopedProperties.length ? getScopedCharges().find((item) => item.id === payment.chargeId) : null;
-            const property = charge ? scopedProperties.find((item) => item.id === charge.propertyId) : null;
-            const ownerScope = resolvePropertyOwnerScope(property);
-            return `
+        .map((payment) => {
+          const tenant = scopedTenants.find(
+            (item) => item.id === payment.tenantId,
+          );
+          const charge = scopedProperties.length
+            ? getScopedCharges().find((item) => item.id === payment.chargeId)
+            : null;
+          const property = charge
+            ? scopedProperties.find((item) => item.id === charge.propertyId)
+            : null;
+          const ownerScope = resolvePropertyOwnerScope(property);
+          return `
               <article class="table-row">
                 <div>
                   <strong>${tenant?.fullName || "Inquilino"}</strong>
@@ -5334,76 +6351,121 @@ function renderCheckoutFeedback() {
   }
 
   const messages = {
-    success: "Mercado Pago informo que el pago fue aprobado. El webhook puede tardar unos segundos en reflejarlo.",
-    failure: "Mercado Pago informo que el pago no se completo. Puedes intentarlo de nuevo.",
-    pending: "Mercado Pago informo que el pago quedó pendiente. Cuando se confirme, el sistema actualizara el cobro."
+    success:
+      "Mercado Pago informo que el pago fue aprobado. El webhook puede tardar unos segundos en reflejarlo.",
+    failure:
+      "Mercado Pago informo que el pago no se completo. Puedes intentarlo de nuevo.",
+    pending:
+      "Mercado Pago informo que el pago quedó pendiente. Cuando se confirme, el sistema actualizara el cobro.",
   };
 
-  setMessage(messages[state.checkoutStatus] || "Se recibio una respuesta de Mercado Pago.");
+  setMessage(
+    messages[state.checkoutStatus] ||
+      "Se recibio una respuesta de Mercado Pago.",
+  );
   state.checkoutStatus = null;
 }
 
-  function renderProperties() {
-    const scopedProperties = getScopedProperties();
-    const scopedTenants = getScopedTenants();
-    const summaryHost = document.querySelector("#property-suite-summary");
-    const occupiedCount = scopedProperties.filter((property) =>
-      scopedTenants.some((tenant) => tenant.propertyId === property.id && !["inactive", "deleted"].includes(String(tenant.status || "active")))
-    ).length;
-    const availableCount = Math.max(scopedProperties.length - occupiedCount, 0);
-    const currentCharges = scopedTenants
-      .map((tenant) => getPropertyCurrentCharge(tenant.id))
-      .filter(Boolean);
-    const pendingReviewCount = currentCharges.filter((charge) => ["in_review", "pending"].includes(String(charge.status || ""))).length;
-    const delinquentCount = currentCharges.filter((charge) => {
-      const overdueDays = Number(charge.overdueDays ?? 0);
-      return charge.status === "overdue" || overdueDays >= resolveGeneralSettings().morosoAfterDays;
-    }).length;
+function renderProperties() {
+  const scopedProperties = getScopedProperties();
+  const scopedTenants = getScopedTenants();
+  const summaryHost = document.querySelector("#property-suite-summary");
+  const occupiedCount = scopedProperties.filter((property) =>
+    scopedTenants.some(
+      (tenant) =>
+        tenant.propertyId === property.id &&
+        !["inactive", "deleted"].includes(String(tenant.status || "active")),
+    ),
+  ).length;
+  const availableCount = Math.max(scopedProperties.length - occupiedCount, 0);
+  const currentCharges = scopedTenants
+    .map((tenant) => getPropertyCurrentCharge(tenant.id))
+    .filter(Boolean);
+  const pendingReviewCount = currentCharges.filter((charge) =>
+    ["in_review", "pending"].includes(String(charge.status || "")),
+  ).length;
+  const delinquentCount = currentCharges.filter((charge) => {
+    const overdueDays = Number(charge.overdueDays ?? 0);
+    return (
+      charge.status === "overdue" ||
+      overdueDays >= resolveGeneralSettings().morosoAfterDays
+    );
+  }).length;
 
-    if (summaryHost) {
-      summaryHost.innerHTML = [
-        ["Unidades ocupadas", occupiedCount, "Con inquilino activo"],
-        ["Unidades disponibles", availableCount, "Listas para asignar"],
-        ["Cobros en revisión", pendingReviewCount, "Pagos reportados"],
-        ["Cobros con deuda", delinquentCount, "Seguimiento prioritario"]
-      ]
-        .map(([label, value, footnote]) => `
+  if (summaryHost) {
+    summaryHost.innerHTML = [
+      ["Unidades ocupadas", occupiedCount, "Con inquilino activo"],
+      ["Unidades disponibles", availableCount, "Listas para asignar"],
+      ["Cobros en revisión", pendingReviewCount, "Pagos reportados"],
+      ["Cobros con deuda", delinquentCount, "Seguimiento prioritario"],
+    ]
+      .map(
+        ([label, value, footnote]) => `
           <article class="summary-mini-card">
             <span>${label}</span>
             <strong>${value}</strong>
             <p>${footnote}</p>
           </article>
-        `)
-        .join("");
-    }
+        `,
+      )
+      .join("");
+  }
 
-    elements.propertyList.innerHTML = scopedProperties.length
-        ? scopedProperties
-          .map((property) => {
-            const expanded = Boolean(state.propertyCardExpanded[property.id]);
-            const detailPanelId = `property-detail-${property.id}`;
-            const tenant = scopedTenants.find(
-              (item) => item.propertyId === property.id && !["inactive", "deleted"].includes(String(item.status || "active"))
-            );
+  elements.propertyList.innerHTML = scopedProperties.length
+    ? scopedProperties
+        .map((property) => {
+          const expanded = Boolean(state.propertyCardExpanded[property.id]);
+          const detailPanelId = `property-detail-${property.id}`;
+          const tenant = scopedTenants.find(
+            (item) =>
+              item.propertyId === property.id &&
+              !["inactive", "deleted"].includes(
+                String(item.status || "active"),
+              ),
+          );
           const occupancyStatus = getPropertyOccupancyStatus(property, tenant);
           const ownerScope = resolvePropertyOwnerScope(property);
           const ownerLabel = normalizeOwnerLabel(ownerScope);
-          const tenantRentalStatus = tenant ? getTenantRentalStatus(tenant.id) : null;
-          const tenantContractStatus = tenant ? getTenantContractStatus(tenant) : null;
-          const punctuality = tenant ? getTenantPunctuality(tenant.id) : "Puntualidad: sin historial";
-          const currentCharge = tenant ? getPropertyCurrentCharge(tenant.id) : null;
+          const tenantRentalStatus = tenant
+            ? getTenantRentalStatus(tenant.id)
+            : null;
+          const tenantContractStatus = tenant
+            ? getTenantContractStatus(tenant)
+            : null;
+          const punctuality = tenant
+            ? getTenantPunctuality(tenant.id)
+            : "Puntualidad: sin historial";
+          const currentCharge = tenant
+            ? getPropertyCurrentCharge(tenant.id)
+            : null;
           const openCharges = tenant ? getOpenChargesForTenant(tenant.id) : [];
-          const pendingReviewPayment = currentCharge ? getPendingReviewPaymentForCharge(currentCharge.id) : null;
-          const chargeVisualStatus = currentCharge ? getChargeVisualStatus(currentCharge) : null;
-          const baseRentAmount = resolveDisplayedBaseRent(tenant, property, currentCharge);
-          const totalAmount = Number(currentCharge?.total ?? currentCharge?.subtotal ?? baseRentAmount ?? 0);
-          const contractCopy = tenant ? describeTenantContract(tenant) : "Todavía no hay un contrato activo en esta unidad.";
+          const pendingReviewPayment = currentCharge
+            ? getPendingReviewPaymentForCharge(currentCharge.id)
+            : null;
+          const chargeVisualStatus = currentCharge
+            ? getChargeVisualStatus(currentCharge)
+            : null;
+          const baseRentAmount = resolveDisplayedBaseRent(
+            tenant,
+            property,
+            currentCharge,
+          );
+          const totalAmount = Number(
+            currentCharge?.total ??
+              currentCharge?.subtotal ??
+              baseRentAmount ??
+              0,
+          );
+          const contractCopy = tenant
+            ? describeTenantContract(tenant)
+            : "Todavía no hay un contrato activo en esta unidad.";
           const referenceRent = getDefaultRentForUnitType(property?.unitType);
-          const vacantNote = property.status === "maintenance"
-            ? "La unidad está marcada en mantenimiento."
-            : "Esta unidad todavía no tiene un inquilino activo asignado.";
+          const vacantNote =
+            property.status === "maintenance"
+              ? "La unidad está marcada en mantenimiento."
+              : "Esta unidad todavía no tiene un inquilino activo asignado.";
 
-            return `
+          return `
               <article class="entity-card property-entity-card">
                 <div class="property-card-layout">
                   <div class="property-card-main">
@@ -5430,14 +6492,14 @@ function renderCheckoutFeedback() {
                       <span class="status ${occupancyStatus.className}">${occupancyStatus.label}</span>
                       ${
                         tenantRentalStatus
-                        ? `<span class="status ${tenantRentalStatus.className}">${tenantRentalStatus.label}</span>`
-                        : ""
-                    }
+                          ? `<span class="status ${tenantRentalStatus.className}">${tenantRentalStatus.label}</span>`
+                          : ""
+                      }
                     ${
                       tenantContractStatus
                         ? `<span class="status ${tenantContractStatus.className}">${tenantContractStatus.label}</span>`
                         : ""
-                      }
+                    }
                       ${tenant ? `<span class="status neutral">${punctuality}</span>` : ""}
                     </div>
                       <div id="${detailPanelId}" class="property-detail-panel ${expanded ? "" : "hidden"}">
@@ -5523,7 +6585,7 @@ function renderCheckoutFeedback() {
                               }
                               <p class="property-detail-note">Desde esta unidad podés entrar al historial de pagos, revisar comprobantes y gestionar contrato sin cambiar de contexto.</p>
                             `
-                          : `
+                            : `
                             <div class="property-empty-tenant">
                               <p class="property-tenant-label">Unidad disponible</p>
                               <p>${vacantNote}</p>
@@ -5541,7 +6603,7 @@ function renderCheckoutFeedback() {
                               </div>
                             </div>
                           `
-                      }
+                        }
                     </div>
                   </div>
                 </div>
@@ -5555,21 +6617,28 @@ function renderCheckoutFeedback() {
 }
 
 function renderAdminScopeDiagnostics() {
-    document.querySelectorAll("[data-admin-diagnostics]").forEach((node) => node.remove());
+  document
+    .querySelectorAll("[data-admin-diagnostics]")
+    .forEach((node) => node.remove());
 
-    const shouldShowDiagnostics = new URLSearchParams(window.location.search).get("debugScope") === "1";
-    if (!shouldShowDiagnostics) {
-      return;
-    }
+  const shouldShowDiagnostics =
+    new URLSearchParams(window.location.search).get("debugScope") === "1";
+  if (!shouldShowDiagnostics) {
+    return;
+  }
 
-    if (!isAdminRole() || isSuperadminRole()) {
-      return;
+  if (!isAdminRole() || isSuperadminRole()) {
+    return;
   }
 
   const diagnostics = state.adminDiagnostics;
   const hosts = [
-    document.querySelector('.view-section[data-section="resumen"] .section-head'),
-    document.querySelector('.view-section[data-section="propiedades"] .section-head')
+    document.querySelector(
+      '.view-section[data-section="resumen"] .section-head',
+    ),
+    document.querySelector(
+      '.view-section[data-section="propiedades"] .section-head',
+    ),
   ].filter(Boolean);
 
   hosts.forEach((host) => {
@@ -5577,28 +6646,38 @@ function renderAdminScopeDiagnostics() {
     banner.dataset.adminDiagnostics = "true";
     banner.className = "owner-scope-note";
     const frontendScope = normalizeOwnerLabel(getCurrentOwnerScope());
-    const backendScope = diagnostics?.backendScope ? normalizeOwnerLabel(diagnostics.backendScope) : "sin respuesta";
+    const backendScope = diagnostics?.backendScope
+      ? normalizeOwnerLabel(diagnostics.backendScope)
+      : "sin respuesta";
     const counts = diagnostics?.counts || {};
     const sourceLabel = diagnostics?.source || "sin diagnóstico";
-    const errorText = diagnostics?.error ? `<br><strong>Error:</strong> ${diagnostics.error}` : "";
+    const errorText = diagnostics?.error
+      ? `<br><strong>Error:</strong> ${diagnostics.error}`
+      : "";
     const propertySummary = diagnostics?.propertySummary;
     const summaryText = propertySummary
       ? `<br>Total propiedades: ${propertySummary.total ?? 0} · Enzo: ${propertySummary.enzo ?? 0} · Ivo: ${propertySummary.ivo ?? 0}`
       : "";
-    const sampleText = Array.isArray(diagnostics?.propertySamples) && diagnostics.propertySamples.length
-      ? `<br><strong>Muestras:</strong><br>${diagnostics.propertySamples
-          .map((sample) => {
-            const rawBits = [
-              sample.ownerScope ? `ownerScope=${sample.ownerScope}` : "",
-              sample.ownerId ? `ownerId=${sample.ownerId}` : "",
-              sample.transferBlock ? `transferBlock=${sample.transferBlock}` : "",
-              sample.unitCode ? `unitCode=${sample.unitCode}` : "",
-              sample.sortOrder ? `sortOrder=${sample.sortOrder}` : ""
-            ].filter(Boolean).join(" · ");
-            return `${sample.name} => ${normalizeOwnerLabel(sample.resolvedScope)} (${sample.inferenceReason})${rawBits ? ` [${rawBits}]` : ""}`;
-          })
-          .join("<br>")}`
-      : "";
+    const sampleText =
+      Array.isArray(diagnostics?.propertySamples) &&
+      diagnostics.propertySamples.length
+        ? `<br><strong>Muestras:</strong><br>${diagnostics.propertySamples
+            .map((sample) => {
+              const rawBits = [
+                sample.ownerScope ? `ownerScope=${sample.ownerScope}` : "",
+                sample.ownerId ? `ownerId=${sample.ownerId}` : "",
+                sample.transferBlock
+                  ? `transferBlock=${sample.transferBlock}`
+                  : "",
+                sample.unitCode ? `unitCode=${sample.unitCode}` : "",
+                sample.sortOrder ? `sortOrder=${sample.sortOrder}` : "",
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return `${sample.name} => ${normalizeOwnerLabel(sample.resolvedScope)} (${sample.inferenceReason})${rawBits ? ` [${rawBits}]` : ""}`;
+            })
+            .join("<br>")}`
+        : "";
     banner.innerHTML = `
         <strong>Diagnóstico de alcance</strong><br>
         Frontend: ${frontendScope} · Backend: ${backendScope} · Fuente: ${sourceLabel}<br>
@@ -5612,62 +6691,99 @@ function renderAdminScopeDiagnostics() {
 }
 
 function renderTenants() {
-    const visibleTenants = getScopedTenants().filter(
-      (tenant) => !["inactive", "deleted"].includes(String(tenant.status || "active"))
-    ).sort((left, right) => {
-      const leftProperty = getScopedProperties().find((item) => item.id === left.propertyId);
-      const rightProperty = getScopedProperties().find((item) => item.id === right.propertyId);
-      return comparePropertiesByDisplayOrder(leftProperty, rightProperty)
-        || String(left.fullName || "").localeCompare(String(right.fullName || ""), "es", { sensitivity: "base" });
+  const visibleTenants = getScopedTenants()
+    .filter(
+      (tenant) =>
+        !["inactive", "deleted"].includes(String(tenant.status || "active")),
+    )
+    .sort((left, right) => {
+      const leftProperty = getScopedProperties().find(
+        (item) => item.id === left.propertyId,
+      );
+      const rightProperty = getScopedProperties().find(
+        (item) => item.id === right.propertyId,
+      );
+      return (
+        comparePropertiesByDisplayOrder(leftProperty, rightProperty) ||
+        String(left.fullName || "").localeCompare(
+          String(right.fullName || ""),
+          "es",
+          { sensitivity: "base" },
+        )
+      );
     });
-    const scopedProperties = getScopedProperties();
-    const summaryHost = document.querySelector("#tenant-suite-summary");
-    if (summaryHost) {
-      const activeCount = visibleTenants.length;
-      const upToDateCount = visibleTenants.filter((tenant) => getTenantRentalStatus(tenant.id).className === "success").length;
-      const attentionCount = visibleTenants.filter((tenant) => getTenantRentalStatus(tenant.id).className !== "success").length;
-      const contractReviewCount = visibleTenants.filter((tenant) => getTenantContractStatus(tenant).className === "warning").length;
-      summaryHost.innerHTML = [
-        {
-          label: "Inquilinos activos",
-          value: String(activeCount),
-          footnote: activeCount ? "Cuentas visibles en este alcance." : "Todavía no hay inquilinos cargados."
-        },
-        {
-          label: "Al día",
-          value: String(upToDateCount),
-          footnote: upToDateCount ? "Sin deuda ni revisión pendiente." : "No hay cuentas totalmente regularizadas."
-        },
-        {
-          label: "Con seguimiento",
-          value: String(attentionCount),
-          footnote: attentionCount ? "Incluye pendientes, vencidos o morosos." : "Sin alertas activas por ahora."
-        },
-        {
-          label: "Contratos a revisar",
-          value: String(contractReviewCount),
-          footnote: contractReviewCount ? "Conviene revisar renovaciones o cierres." : "No hay contratos por cerrar todavía."
-        }
-      ].map((item) => `
+  const scopedProperties = getScopedProperties();
+  const summaryHost = document.querySelector("#tenant-suite-summary");
+  if (summaryHost) {
+    const activeCount = visibleTenants.length;
+    const upToDateCount = visibleTenants.filter(
+      (tenant) => getTenantRentalStatus(tenant.id).className === "success",
+    ).length;
+    const attentionCount = visibleTenants.filter(
+      (tenant) => getTenantRentalStatus(tenant.id).className !== "success",
+    ).length;
+    const contractReviewCount = visibleTenants.filter(
+      (tenant) => getTenantContractStatus(tenant).className === "warning",
+    ).length;
+    summaryHost.innerHTML = [
+      {
+        label: "Inquilinos activos",
+        value: String(activeCount),
+        footnote: activeCount
+          ? "Cuentas visibles en este alcance."
+          : "Todavía no hay inquilinos cargados.",
+      },
+      {
+        label: "Al día",
+        value: String(upToDateCount),
+        footnote: upToDateCount
+          ? "Sin deuda ni revisión pendiente."
+          : "No hay cuentas totalmente regularizadas.",
+      },
+      {
+        label: "Con seguimiento",
+        value: String(attentionCount),
+        footnote: attentionCount
+          ? "Incluye pendientes, vencidos o morosos."
+          : "Sin alertas activas por ahora.",
+      },
+      {
+        label: "Contratos a revisar",
+        value: String(contractReviewCount),
+        footnote: contractReviewCount
+          ? "Conviene revisar renovaciones o cierres."
+          : "No hay contratos por cerrar todavía.",
+      },
+    ]
+      .map(
+        (item) => `
         <article class="summary-card">
           <span>${item.label}</span>
           <strong>${item.value}</strong>
           <small>${item.footnote}</small>
         </article>
-      `).join("");
-    }
+      `,
+      )
+      .join("");
+  }
 
   elements.tenantList.innerHTML = visibleTenants.length
-      ? visibleTenants
-          .map((tenant) => {
-            const expanded = Boolean(state.tenantCardExpanded[tenant.id]);
-            const detailPanelId = `tenant-detail-${tenant.id}`;
-            const property = scopedProperties.find((item) => item.id === tenant.propertyId);
-            const displayedBaseRent = resolveDisplayedBaseRent(tenant, property, getPropertyCurrentCharge(tenant.id));
-            const rentalStatus = getTenantRentalStatus(tenant.id);
-            const contractStatus = getTenantContractStatus(tenant);
-            const punctuality = getTenantPunctuality(tenant.id);
-            return `
+    ? visibleTenants
+        .map((tenant) => {
+          const expanded = Boolean(state.tenantCardExpanded[tenant.id]);
+          const detailPanelId = `tenant-detail-${tenant.id}`;
+          const property = scopedProperties.find(
+            (item) => item.id === tenant.propertyId,
+          );
+          const displayedBaseRent = resolveDisplayedBaseRent(
+            tenant,
+            property,
+            getPropertyCurrentCharge(tenant.id),
+          );
+          const rentalStatus = getTenantRentalStatus(tenant.id);
+          const contractStatus = getTenantContractStatus(tenant);
+          const punctuality = getTenantPunctuality(tenant.id);
+          return `
               <article class="entity-card tenant-entity-card">
                 <div class="tenant-card-layout">
                   <div class="tenant-card-main">
@@ -5779,10 +6895,16 @@ function renderCharges() {
   elements.chargeList.innerHTML = scopedCharges.length
     ? scopedCharges
         .map((charge) => {
-          const tenant = scopedTenants.find((item) => item.id === charge.tenantId);
-          const property = scopedProperties.find((item) => item.id === charge.propertyId);
+          const tenant = scopedTenants.find(
+            (item) => item.id === charge.tenantId,
+          );
+          const property = scopedProperties.find(
+            (item) => item.id === charge.propertyId,
+          );
           const visualStatus = getChargeVisualStatus(charge);
-          const pendingReviewPayment = getPendingReviewPaymentForCharge(charge.id);
+          const pendingReviewPayment = getPendingReviewPaymentForCharge(
+            charge.id,
+          );
           const cardId = `charge-card-${charge.id}`;
 
           return `
@@ -5848,14 +6970,16 @@ function renderCharges() {
           `;
         })
         .join("")
-      : buildEmptyState("Todavía no hay cobros generados para este alcance.");
+    : buildEmptyState("Todavía no hay cobros generados para este alcance.");
 
   bindCollapsibleTriggers(elements.chargeList);
   renderChargePeriods();
 }
 
 function ensureChargePeriodSection() {
-  const chargesSection = document.querySelector('.view-section[data-section="cobros"][data-admin-only="true"]');
+  const chargesSection = document.querySelector(
+    '.view-section[data-section="cobros"][data-admin-only="true"]',
+  );
   const periodsPanel = document.querySelector("#charges-periods-panel");
   if (!elements.chargeList || !chargesSection) {
     return;
@@ -5887,12 +7011,20 @@ function renderChargePeriods() {
     return;
   }
 
-  const scopedReceipts = getScopedRentReceipts().filter((receipt) => receipt?.pdfUrl);
+  const scopedReceipts = getScopedRentReceipts().filter(
+    (receipt) => receipt?.pdfUrl,
+  );
   const scopedTenants = getScopedTenants();
   const scopedProperties = getScopedProperties();
-  const paymentsById = new Map(getScopedPayments().map((payment) => [payment.id, payment]));
-  const tenantById = new Map(scopedTenants.map((tenant) => [tenant.id, tenant]));
-  const propertyById = new Map(scopedProperties.map((property) => [property.id, property]));
+  const paymentsById = new Map(
+    getScopedPayments().map((payment) => [payment.id, payment]),
+  );
+  const tenantById = new Map(
+    scopedTenants.map((tenant) => [tenant.id, tenant]),
+  );
+  const propertyById = new Map(
+    scopedProperties.map((property) => [property.id, property]),
+  );
   const groupedReceipts = scopedReceipts.reduce((groups, receipt) => {
     const period = String(receipt.period || "sin-periodo");
     if (!groups[period]) {
@@ -5901,24 +7033,37 @@ function renderChargePeriods() {
     groups[period].push(receipt);
     return groups;
   }, {});
-  const periods = Object.keys(groupedReceipts).sort((left, right) => right.localeCompare(left));
+  const periods = Object.keys(groupedReceipts).sort((left, right) =>
+    right.localeCompare(left),
+  );
 
   if (!periods.length) {
-    elements.chargePeriodReceipts.innerHTML = buildEmptyState("Todavía no hay recibos emitidos para descargar.");
+    elements.chargePeriodReceipts.innerHTML = buildEmptyState(
+      "Todavía no hay recibos emitidos para descargar.",
+    );
     return;
   }
 
   pruneChargePeriodSelections(periods, groupedReceipts);
 
-  elements.chargePeriodReceipts.innerHTML = periods.map((period) => {
-    const receipts = groupedReceipts[period].slice().sort((left, right) => sortByCreatedAtDesc(left, right));
-    const selectedIds = new Set(state.chargePeriodSelections[period] || []);
-    const selectableIds = receipts.map((receipt) => getRentReceiptSelectionKey(receipt));
-    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
-    const selectedCount = selectableIds.filter((id) => selectedIds.has(id)).length;
-    const periodPanelId = `charge-period-${period}`;
+  elements.chargePeriodReceipts.innerHTML = periods
+    .map((period) => {
+      const receipts = groupedReceipts[period]
+        .slice()
+        .sort((left, right) => sortByCreatedAtDesc(left, right));
+      const selectedIds = new Set(state.chargePeriodSelections[period] || []);
+      const selectableIds = receipts.map((receipt) =>
+        getRentReceiptSelectionKey(receipt),
+      );
+      const allSelected =
+        selectableIds.length > 0 &&
+        selectableIds.every((id) => selectedIds.has(id));
+      const selectedCount = selectableIds.filter((id) =>
+        selectedIds.has(id),
+      ).length;
+      const periodPanelId = `charge-period-${period}`;
 
-    return `
+      return `
       <article class="entity-card charge-period-card">
         <button
           class="collapsible-trigger charge-period-trigger"
@@ -5952,12 +7097,15 @@ function renderChargePeriods() {
             </div>
           </div>
           <div class="charge-period-receipt-list">
-          ${receipts.map((receipt) => {
-            const payment = paymentsById.get(receipt.paymentId);
-            const tenant = tenantById.get(receipt.tenantId);
-            const property = propertyById.get(payment?.propertyId || tenant?.propertyId);
-            const receiptId = getRentReceiptSelectionKey(receipt);
-            return `
+          ${receipts
+            .map((receipt) => {
+              const payment = paymentsById.get(receipt.paymentId);
+              const tenant = tenantById.get(receipt.tenantId);
+              const property = propertyById.get(
+                payment?.propertyId || tenant?.propertyId,
+              );
+              const receiptId = getRentReceiptSelectionKey(receipt);
+              return `
               <article class="charge-period-receipt-row">
                 <div class="charge-period-receipt-check">
                   <input type="checkbox" data-rent-receipt-select="${receiptId}" data-period="${period}" ${selectedIds.has(receiptId) ? "checked" : ""} />
@@ -5975,20 +7123,28 @@ function renderChargePeriods() {
                 </div>
               </article>
             `;
-          }).join("")}
+            })
+            .join("")}
           </div>
         </div>
       </article>
     `;
-  }).join("");
+    })
+    .join("");
   bindCollapsibleTriggers(elements.chargePeriodReceipts);
 }
 
 function pruneChargePeriodSelections(periods, groupedReceipts) {
   const nextSelections = {};
   periods.forEach((period) => {
-    const validIds = new Set((groupedReceipts[period] || []).map((receipt) => getRentReceiptSelectionKey(receipt)));
-    const currentIds = (state.chargePeriodSelections[period] || []).filter((id) => validIds.has(String(id)));
+    const validIds = new Set(
+      (groupedReceipts[period] || []).map((receipt) =>
+        getRentReceiptSelectionKey(receipt),
+      ),
+    );
+    const currentIds = (state.chargePeriodSelections[period] || []).filter(
+      (id) => validIds.has(String(id)),
+    );
     if (currentIds.length) {
       nextSelections[period] = currentIds;
     }
@@ -6011,7 +7167,7 @@ function toggleRentReceiptSelection(period, receiptId, checked) {
   if (currentIds.size) {
     state.chargePeriodSelections = {
       ...state.chargePeriodSelections,
-      [period]: [...currentIds]
+      [period]: [...currentIds],
     };
   } else {
     const nextSelections = { ...state.chargePeriodSelections };
@@ -6026,14 +7182,17 @@ function toggleRentReceiptPeriodSelection(period, checked) {
   }
 
   const ids = getScopedRentReceipts()
-    .filter((receipt) => String(receipt.period || "sin-periodo") === period && receipt?.pdfUrl)
+    .filter(
+      (receipt) =>
+        String(receipt.period || "sin-periodo") === period && receipt?.pdfUrl,
+    )
     .map((receipt) => getRentReceiptSelectionKey(receipt))
     .filter(Boolean);
 
   if (checked && ids.length) {
     state.chargePeriodSelections = {
       ...state.chargePeriodSelections,
-      [period]: ids
+      [period]: ids,
     };
     return;
   }
@@ -6050,27 +7209,38 @@ async function handleRentReceiptDownloadRequest(mode, period = "") {
       mode === "selected"
         ? "Primero seleccioná al menos un recibo para descargar."
         : "No encontramos recibos para descargar en ese período.",
-      "error"
+      "error",
     );
     return;
   }
 
   const scopeCopy = period ? ` de ${formatPeriodLabel(period)}` : "";
   try {
-    setMessage(`Preparando archivo ZIP con ${receipts.length} recibo${receipts.length === 1 ? "" : "s"}${scopeCopy}...`);
+    setMessage(
+      `Preparando archivo ZIP con ${receipts.length} recibo${receipts.length === 1 ? "" : "s"}${scopeCopy}...`,
+    );
     await requestRentReceiptsZip(receipts, period);
-    setMessage(`ZIP listo: ${receipts.length} recibo${receipts.length === 1 ? "" : "s"}${scopeCopy}.`);
+    setMessage(
+      `ZIP listo: ${receipts.length} recibo${receipts.length === 1 ? "" : "s"}${scopeCopy}.`,
+    );
   } catch (error) {
     console.error(error);
-    setMessage("No pudimos preparar el archivo ZIP de recibos. Intentá nuevamente.", "error");
+    setMessage(
+      "No pudimos preparar el archivo ZIP de recibos. Intentá nuevamente.",
+      "error",
+    );
   }
 }
 
 function resolveRentReceiptsForDownload(mode, period = "") {
-  const scopedReceipts = getScopedRentReceipts().filter((receipt) => receipt?.pdfUrl);
+  const scopedReceipts = getScopedRentReceipts().filter(
+    (receipt) => receipt?.pdfUrl,
+  );
   if (mode === "all") {
     return period
-      ? scopedReceipts.filter((receipt) => String(receipt.period || "sin-periodo") === period)
+      ? scopedReceipts.filter(
+          (receipt) => String(receipt.period || "sin-periodo") === period,
+        )
       : scopedReceipts;
   }
 
@@ -6078,17 +7248,22 @@ function resolveRentReceiptsForDownload(mode, period = "") {
     ? new Set(state.chargePeriodSelections[period] || [])
     : new Set(Object.values(state.chargePeriodSelections).flat());
 
-  return scopedReceipts.filter((receipt) => selectedIds.has(getRentReceiptSelectionKey(receipt)));
+  return scopedReceipts.filter((receipt) =>
+    selectedIds.has(getRentReceiptSelectionKey(receipt)),
+  );
 }
 
 async function requestRentReceiptsZip(receipts, period = "") {
   const prepareZip = httpsCallable(functions, "prepareRentReceiptsZip");
   const result = await prepareZip({
-    receiptIds: receipts.map((receipt) => String(receipt.id || "")).filter(Boolean),
-    period
+    receiptIds: receipts
+      .map((receipt) => String(receipt.id || ""))
+      .filter(Boolean),
+    period,
   });
   const downloadUrl = result.data?.downloadUrl;
-  const fileName = result.data?.fileName || buildRentReceiptZipName(receipts, period);
+  const fileName =
+    result.data?.fileName || buildRentReceiptZipName(receipts, period);
 
   if (!downloadUrl) {
     throw new Error("La Function no devolvió una URL de descarga.");
@@ -6099,22 +7274,29 @@ async function requestRentReceiptsZip(receipts, period = "") {
 
 function buildRentReceiptDownloadName(receipt, tenant, property) {
   const period = String(receipt.period || "sin-periodo");
-  const unit = sanitizeDownloadSegment(property?.unitCode || property?.name || "unidad");
+  const unit = sanitizeDownloadSegment(
+    property?.unitCode || property?.name || "unidad",
+  );
   const tenantName = sanitizeDownloadSegment(tenant?.fullName || "inquilino");
   return `recibo-${period}-${unit}-${tenantName}.pdf`;
 }
 
 function sanitizeDownloadSegment(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9-_]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase() || "archivo";
+  return (
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9-_]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase() || "archivo"
+  );
 }
 
 function getRentReceiptSelectionKey(receipt) {
-  return String(receipt?.id || `${receipt?.paymentId || "pago"}-${receipt?.period || "sin-periodo"}-${receipt?.receiptNumber || "recibo"}`);
+  return String(
+    receipt?.id ||
+      `${receipt?.paymentId || "pago"}-${receipt?.period || "sin-periodo"}-${receipt?.receiptNumber || "recibo"}`,
+  );
 }
 
 function buildRentReceiptZipName(receipts, period = "") {
@@ -6126,7 +7308,11 @@ function buildRentReceiptZipName(receipts, period = "") {
     return `recibos-${String(receipts[0]?.period || "seleccion")}.zip`;
   }
 
-  const sortedPeriods = [...new Set(receipts.map((receipt) => String(receipt.period || "sin-periodo")))].sort();
+  const sortedPeriods = [
+    ...new Set(
+      receipts.map((receipt) => String(receipt.period || "sin-periodo")),
+    ),
+  ].sort();
   const from = sortedPeriods[0] || "inicio";
   const to = sortedPeriods[sortedPeriods.length - 1] || "fin";
   return `recibos-${from}-a-${to}.zip`;
@@ -6160,9 +7346,10 @@ function renderChargeRentUpdateSuite() {
 
   const policyCardsHost = suite.querySelector("#rent-policy-card-list");
   if (policyCardsHost) {
-    policyCardsHost.innerHTML = ["Departamento", "Local", "Casa"].map((unitType) => {
-      const policy = getRentPolicyForCategory(unitType);
-      return `
+    policyCardsHost.innerHTML = ["Departamento", "Local", "Casa"]
+      .map((unitType) => {
+        const policy = getRentPolicyForCategory(unitType);
+        return `
         <article class="entity-card rent-policy-card">
           <div>
             <p class="section-label">${unitType}</p>
@@ -6172,18 +7359,26 @@ function renderChargeRentUpdateSuite() {
           <button class="ghost-action small-button" type="button" data-rent-policy-pick="${unitType}">Editar política</button>
         </article>
       `;
-    }).join("");
+      })
+      .join("");
   }
 
   const policyForm = suite.querySelector("#rent-policy-form");
-  const selectedPolicyUnitType = suite.querySelector("#rent-policy-unit-type")?.value || "Departamento";
+  const selectedPolicyUnitType =
+    suite.querySelector("#rent-policy-unit-type")?.value || "Departamento";
   const selectedPolicy = getRentPolicyForCategory(selectedPolicyUnitType);
   if (policyForm) {
-    const updateSourceSelect = policyForm.querySelector("#rent-policy-update-source");
+    const updateSourceSelect = policyForm.querySelector(
+      "#rent-policy-update-source",
+    );
     const indexNameSelect = policyForm.querySelector("#rent-policy-index-name");
     const frequencySelect = policyForm.querySelector("#rent-policy-frequency");
-    const nextPeriodInput = policyForm.querySelector("#rent-policy-next-period");
-    const requiresApprovalInput = policyForm.querySelector("#rent-policy-requires-approval");
+    const nextPeriodInput = policyForm.querySelector(
+      "#rent-policy-next-period",
+    );
+    const requiresApprovalInput = policyForm.querySelector(
+      "#rent-policy-requires-approval",
+    );
 
     if (updateSourceSelect && document.activeElement !== updateSourceSelect) {
       updateSourceSelect.value = selectedPolicy?.updateSource || "manual";
@@ -6195,10 +7390,13 @@ function renderChargeRentUpdateSuite() {
       frequencySelect.value = selectedPolicy?.frequency || "quarterly";
     }
     if (nextPeriodInput && document.activeElement !== nextPeriodInput) {
-      nextPeriodInput.value = selectedPolicy?.nextAdjustmentPeriod || resolveNextPeriodValue();
+      nextPeriodInput.value =
+        selectedPolicy?.nextAdjustmentPeriod || resolveNextPeriodValue();
     }
     if (requiresApprovalInput) {
-      requiresApprovalInput.checked = Boolean(selectedPolicy?.requiresOwnerApproval);
+      requiresApprovalInput.checked = Boolean(
+        selectedPolicy?.requiresOwnerApproval,
+      );
     }
   }
 
@@ -6206,13 +7404,18 @@ function renderChargeRentUpdateSuite() {
 
   const propertySelect = suite.querySelector("#rent-update-property-id");
   const propertyOptions = getScopedProperties()
-    .filter((property) => getScopedTenants().some((tenant) => tenant.propertyId === property.id))
+    .filter((property) =>
+      getScopedTenants().some((tenant) => tenant.propertyId === property.id),
+    )
     .sort(comparePropertiesByDisplayOrder)
-    .map((property) => `<option value="${property.id}">${property.name}</option>`)
+    .map(
+      (property) => `<option value="${property.id}">${property.name}</option>`,
+    )
     .join("");
 
   if (propertySelect) {
-    propertySelect.innerHTML = propertyOptions || `<option value="">Sin unidades ocupadas</option>`;
+    propertySelect.innerHTML =
+      propertyOptions || `<option value="">Sin unidades ocupadas</option>`;
     if (propertySelect.dataset.bound !== "true") {
       propertySelect.addEventListener("change", () => {
         renderChargeRentUpdateSuite();
@@ -6221,14 +7424,21 @@ function renderChargeRentUpdateSuite() {
     }
   }
 
-  const effectivePeriodInput = suite.querySelector("#rent-update-effective-period");
-  const currentTargetMode = suite.querySelector("#rent-update-target-mode")?.value || "category";
+  const effectivePeriodInput = suite.querySelector(
+    "#rent-update-effective-period",
+  );
+  const currentTargetMode =
+    suite.querySelector("#rent-update-target-mode")?.value || "category";
   if (effectivePeriodInput) {
     if (currentTargetMode === "property") {
       const selectedPropertyId = propertySelect?.value || "";
-      const propertySchedule = getPropertyRentScheduleDefaults(selectedPropertyId);
+      const propertySchedule =
+        getPropertyRentScheduleDefaults(selectedPropertyId);
       if (document.activeElement !== effectivePeriodInput) {
-        effectivePeriodInput.value = propertySchedule?.nextAdjustmentPeriod || effectivePeriodInput.value || resolveNextPeriodValue();
+        effectivePeriodInput.value =
+          propertySchedule?.nextAdjustmentPeriod ||
+          effectivePeriodInput.value ||
+          resolveNextPeriodValue();
       }
     } else if (!effectivePeriodInput.value) {
       effectivePeriodInput.value = resolveNextPeriodValue();
@@ -6239,11 +7449,16 @@ function renderChargeRentUpdateSuite() {
 
   const policyContextCopy = suite.querySelector("#rent-policy-context-copy");
   if (policyContextCopy) {
-    const selectedUnitType = suite.querySelector("#rent-update-unit-type")?.value || "Departamento";
-    const selectedPropertyId = suite.querySelector("#rent-update-property-id")?.value || "";
+    const selectedUnitType =
+      suite.querySelector("#rent-update-unit-type")?.value || "Departamento";
+    const selectedPropertyId =
+      suite.querySelector("#rent-update-property-id")?.value || "";
     const activePolicy = getRentPolicyForCategory(selectedUnitType);
-    const isCategoryMode = (suite.querySelector("#rent-update-target-mode")?.value || "category") === "category";
-    const propertySchedule = getPropertyRentScheduleDefaults(selectedPropertyId);
+    const isCategoryMode =
+      (suite.querySelector("#rent-update-target-mode")?.value || "category") ===
+      "category";
+    const propertySchedule =
+      getPropertyRentScheduleDefaults(selectedPropertyId);
     policyContextCopy.classList.remove("hidden");
     if (isCategoryMode) {
       policyContextCopy.innerHTML = activePolicy
@@ -6273,7 +7488,9 @@ function renderChargeRentUpdateSuite() {
               <span class="status neutral">${preview.targetMode === "category" ? "Categoría" : "Unidad puntual"}</span>
             </div>
           <div class="rent-preview-list">
-            ${preview.items.map((item) => `
+            ${preview.items
+              .map(
+                (item) => `
               <article class="rent-preview-item">
                 <div>
                   <strong>${item.propertyName} · ${item.tenantName}</strong>
@@ -6288,11 +7505,15 @@ function renderChargeRentUpdateSuite() {
                   <strong>${formatCurrency(item.nextBaseRent)}</strong>
                 </div>
               </article>
-            `).join("")}
+            `,
+              )
+              .join("")}
           </div>
         </article>
       `
-      : buildEmptyState("Elegí el alcance del ajuste y pedí una vista previa antes de aplicar cambios.");
+      : buildEmptyState(
+          "Elegí el alcance del ajuste y pedí una vista previa antes de aplicar cambios.",
+        );
   }
 
   const historyHost = suite.querySelector("#rent-update-history-list");
@@ -6300,7 +7521,8 @@ function renderChargeRentUpdateSuite() {
     historyHost.innerHTML = state.rentAdjustments.length
       ? state.rentAdjustments
           .slice(0, 8)
-          .map((adjustment) => `
+          .map(
+            (adjustment) => `
             <article class="entity-card rent-adjustment-history-card">
               <div>
                 <p class="section-label">${formatPeriodLabel(adjustment.effectivePeriod || "")}</p>
@@ -6311,9 +7533,12 @@ function renderChargeRentUpdateSuite() {
                   <p>${adjustment.createdAt ? `Aplicado ${formatDateTime(adjustment.createdAt)}` : "Aplicado recientemente"}</p>
                 </div>
               </article>
-          `)
+          `,
+          )
           .join("")
-      : buildEmptyState("Todavía no registramos ajustes manuales de alquiler para este alcance.");
+      : buildEmptyState(
+          "Todavía no registramos ajustes manuales de alquiler para este alcance.",
+        );
   }
 
   const applyButton = suite.querySelector("#rent-update-apply-button");
@@ -6326,7 +7551,10 @@ async function handleRentUpdatePreviewSubmit(event) {
   event.preventDefault();
 
   if (!isAdminRole()) {
-    setMessage("Solo un administrador puede planificar actualizaciones de alquiler.", "error");
+    setMessage(
+      "Solo un administrador puede planificar actualizaciones de alquiler.",
+      "error",
+    );
     return;
   }
 
@@ -6349,13 +7577,17 @@ async function handleRentUpdatePreviewSubmit(event) {
     setMessage(
       state.rentUpdatePreview?.affectedCount
         ? `Vista previa lista. Se afectarían ${state.rentUpdatePreview.affectedCount} alquileres.`
-        : "No encontramos alquileres activos para ese criterio."
+        : "No encontramos alquileres activos para ese criterio.",
     );
   } catch (error) {
     console.error(error);
     state.rentUpdatePreview = null;
     renderChargeRentUpdateSuite();
-    setMessage(humanizeFunctionError(error) || "No pudimos calcular la vista previa del ajuste.", "error");
+    setMessage(
+      humanizeFunctionError(error) ||
+        "No pudimos calcular la vista previa del ajuste.",
+      "error",
+    );
   }
 }
 
@@ -6363,7 +7595,10 @@ async function handleRentPolicySubmit(event) {
   event.preventDefault();
 
   if (!isAdminRole()) {
-    setMessage("Solo un administrador puede guardar políticas de alquiler.", "error");
+    setMessage(
+      "Solo un administrador puede guardar políticas de alquiler.",
+      "error",
+    );
     return;
   }
 
@@ -6380,13 +7615,23 @@ async function handleRentPolicySubmit(event) {
 
   try {
     setMessage("Guardando política de alquiler...");
-    const saveRentUpdatePolicy = httpsCallable(functions, "saveRentUpdatePolicy");
+    const saveRentUpdatePolicy = httpsCallable(
+      functions,
+      "saveRentUpdatePolicy",
+    );
     const result = await saveRentUpdatePolicy(payload);
     await reloadScopedAdminOperation();
-    setMessage(result.data?.summary || "Política guardada correctamente.", "success");
+    setMessage(
+      result.data?.summary || "Política guardada correctamente.",
+      "success",
+    );
   } catch (error) {
     console.error(error);
-    setMessage(humanizeFunctionError(error) || "No pudimos guardar la política de alquiler.", "error");
+    setMessage(
+      humanizeFunctionError(error) ||
+        "No pudimos guardar la política de alquiler.",
+      "error",
+    );
   }
 }
 
@@ -6408,7 +7653,10 @@ function handleRentPolicyCardAction(event) {
 
 async function handleRentUpdateApplyPlan() {
   if (!isAdminRole()) {
-    setMessage("Solo un administrador puede aplicar actualizaciones de alquiler.", "error");
+    setMessage(
+      "Solo un administrador puede aplicar actualizaciones de alquiler.",
+      "error",
+    );
     return;
   }
 
@@ -6419,12 +7667,15 @@ async function handleRentUpdateApplyPlan() {
 
   const preview = state.rentUpdatePreview;
   if (!preview?.affectedCount) {
-    setMessage("Primero genera una vista previa válida antes de aplicar cambios.", "error");
+    setMessage(
+      "Primero genera una vista previa válida antes de aplicar cambios.",
+      "error",
+    );
     return;
   }
 
   const confirmed = window.confirm(
-    `Se actualizarán ${preview.affectedCount} alquileres para ${formatPeriodLabel(preview.effectivePeriod)} y ese valor se cobrará desde ${formatPeriodLabel(preview.billingEffectivePeriod || addMonthsToPeriod(preview.effectivePeriod, 1))}. ¿Querés continuar?`
+    `Se actualizarán ${preview.affectedCount} alquileres para ${formatPeriodLabel(preview.effectivePeriod)} y ese valor se cobrará desde ${formatPeriodLabel(preview.billingEffectivePeriod || addMonthsToPeriod(preview.effectivePeriod, 1))}. ¿Querés continuar?`,
   );
   if (!confirmed) {
     setMessage("Actualización de alquileres cancelada.");
@@ -6438,10 +7689,18 @@ async function handleRentUpdateApplyPlan() {
     const result = await applyRentUpdatePlan(payload);
     state.rentUpdatePreview = null;
     await reloadScopedAdminOperation();
-    setMessage(result.data?.summary || `Se actualizaron ${result.data?.applied ?? 0} alquileres.`, "success");
+    setMessage(
+      result.data?.summary ||
+        `Se actualizaron ${result.data?.applied ?? 0} alquileres.`,
+      "success",
+    );
   } catch (error) {
     console.error(error);
-    setMessage(humanizeFunctionError(error) || "No pudimos aplicar el ajuste de alquileres.", "error");
+    setMessage(
+      humanizeFunctionError(error) ||
+        "No pudimos aplicar el ajuste de alquileres.",
+      "error",
+    );
   }
 }
 
@@ -6451,7 +7710,8 @@ function syncRentUpdateSuiteVisibility() {
     return;
   }
 
-  const targetMode = suite.querySelector("#rent-update-target-mode")?.value || "category";
+  const targetMode =
+    suite.querySelector("#rent-update-target-mode")?.value || "category";
   const categoryWrap = suite.querySelector("#rent-update-unit-type-wrap");
   const propertyWrap = suite.querySelector("#rent-update-property-wrap");
 
@@ -6465,18 +7725,24 @@ function syncRentPolicyFormVisibility() {
     return;
   }
 
-  const updateSource = suite.querySelector("#rent-policy-update-source")?.value || "manual";
+  const updateSource =
+    suite.querySelector("#rent-policy-update-source")?.value || "manual";
   const indexWrap = suite.querySelector("#rent-policy-index-wrap");
   indexWrap?.classList.toggle("hidden", updateSource !== "indexed");
 }
 
 function readRentUpdateFormPayload(host) {
-  const targetMode = host.querySelector("#rent-update-target-mode")?.value || "category";
-  const adjustmentMode = host.querySelector("#rent-update-value-mode")?.value || "percent";
+  const targetMode =
+    host.querySelector("#rent-update-target-mode")?.value || "category";
+  const adjustmentMode =
+    host.querySelector("#rent-update-value-mode")?.value || "percent";
   const value = Number(host.querySelector("#rent-update-value")?.value || 0);
   const unitType = host.querySelector("#rent-update-unit-type")?.value || "";
-  const propertyId = host.querySelector("#rent-update-property-id")?.value || "";
-  const effectivePeriod = host.querySelector("#rent-update-effective-period")?.value || resolveNextPeriodValue();
+  const propertyId =
+    host.querySelector("#rent-update-property-id")?.value || "";
+  const effectivePeriod =
+    host.querySelector("#rent-update-effective-period")?.value ||
+    resolveNextPeriodValue();
 
   if (!Number.isFinite(value) || value === 0) {
     setMessage("Indica un valor distinto de cero para el ajuste.", "error");
@@ -6493,11 +7759,16 @@ function readRentUpdateFormPayload(host) {
     return null;
   }
 
-  const propertySchedule = targetMode === "property" ? getPropertyRentScheduleDefaults(propertyId) : null;
-  const categoryPolicy = targetMode === "category" ? getRentPolicyForCategory(unitType) : null;
-  const effectivePeriodValue = normalizeTenantPeriodValue(effectivePeriod)
-    || propertySchedule?.nextAdjustmentPeriod
-    || resolveNextPeriodValue();
+  const propertySchedule =
+    targetMode === "property"
+      ? getPropertyRentScheduleDefaults(propertyId)
+      : null;
+  const categoryPolicy =
+    targetMode === "category" ? getRentPolicyForCategory(unitType) : null;
+  const effectivePeriodValue =
+    normalizeTenantPeriodValue(effectivePeriod) ||
+    propertySchedule?.nextAdjustmentPeriod ||
+    resolveNextPeriodValue();
 
   return {
     targetMode,
@@ -6506,31 +7777,42 @@ function readRentUpdateFormPayload(host) {
     unitType,
     propertyId,
     effectivePeriod: effectivePeriodValue,
-    updateSource: targetMode === "property"
-      ? propertySchedule?.updateSource || "manual"
-      : categoryPolicy?.updateSource || "manual",
-    indexName: targetMode === "property"
-      ? propertySchedule?.indexName || null
-      : categoryPolicy?.indexName || null,
-    frequency: targetMode === "property"
-      ? propertySchedule?.frequency || "quarterly"
-      : categoryPolicy?.frequency || "quarterly",
-    nextAdjustmentPeriod: targetMode === "property"
-      ? propertySchedule?.nextAdjustmentPeriod || effectivePeriodValue
-      : categoryPolicy?.nextAdjustmentPeriod || effectivePeriodValue,
-    requiresOwnerApproval: targetMode === "property"
-      ? Boolean(propertySchedule?.requiresOwnerApproval)
-      : Boolean(categoryPolicy?.requiresOwnerApproval)
+    updateSource:
+      targetMode === "property"
+        ? propertySchedule?.updateSource || "manual"
+        : categoryPolicy?.updateSource || "manual",
+    indexName:
+      targetMode === "property"
+        ? propertySchedule?.indexName || null
+        : categoryPolicy?.indexName || null,
+    frequency:
+      targetMode === "property"
+        ? propertySchedule?.frequency || "quarterly"
+        : categoryPolicy?.frequency || "quarterly",
+    nextAdjustmentPeriod:
+      targetMode === "property"
+        ? propertySchedule?.nextAdjustmentPeriod || effectivePeriodValue
+        : categoryPolicy?.nextAdjustmentPeriod || effectivePeriodValue,
+    requiresOwnerApproval:
+      targetMode === "property"
+        ? Boolean(propertySchedule?.requiresOwnerApproval)
+        : Boolean(categoryPolicy?.requiresOwnerApproval),
   };
 }
 
 function readRentPolicyFormPayload(host) {
   const unitType = host.querySelector("#rent-policy-unit-type")?.value || "";
-  const updateSource = host.querySelector("#rent-policy-update-source")?.value || "manual";
-  const indexName = host.querySelector("#rent-policy-index-name")?.value || "ICL";
-  const frequency = host.querySelector("#rent-policy-frequency")?.value || "quarterly";
-  const nextAdjustmentPeriod = host.querySelector("#rent-policy-next-period")?.value || resolveNextPeriodValue();
-  const requiresOwnerApproval = host.querySelector("#rent-policy-requires-approval")?.checked === true;
+  const updateSource =
+    host.querySelector("#rent-policy-update-source")?.value || "manual";
+  const indexName =
+    host.querySelector("#rent-policy-index-name")?.value || "ICL";
+  const frequency =
+    host.querySelector("#rent-policy-frequency")?.value || "quarterly";
+  const nextAdjustmentPeriod =
+    host.querySelector("#rent-policy-next-period")?.value ||
+    resolveNextPeriodValue();
+  const requiresOwnerApproval =
+    host.querySelector("#rent-policy-requires-approval")?.checked === true;
 
   if (!unitType) {
     setMessage("Elegí una categoría para guardar la política.", "error");
@@ -6543,7 +7825,7 @@ function readRentPolicyFormPayload(host) {
     indexName,
     frequency,
     nextAdjustmentPeriod,
-    requiresOwnerApproval
+    requiresOwnerApproval,
   };
 }
 
@@ -6558,33 +7840,59 @@ function buildRentUpdatePreviewCopy(preview) {
     return "";
   }
 
-  const changeCopy = preview.adjustmentMode === "percent"
-    ? `${Number(preview.value || 0) > 0 ? "+" : ""}${Number(preview.value || 0)}%`
-    : formatCurrency(Number(preview.value || 0));
-  const scopeCopy = preview.targetMode === "category"
-    ? `${preview.unitType || "Categoría"}`
-    : preview.propertyName || "Unidad";
+  const changeCopy =
+    preview.adjustmentMode === "percent"
+      ? `${Number(preview.value || 0) > 0 ? "+" : ""}${Number(preview.value || 0)}%`
+      : formatCurrency(Number(preview.value || 0));
+  const scopeCopy =
+    preview.targetMode === "category"
+      ? `${preview.unitType || "Categoría"}`
+      : preview.propertyName || "Unidad";
 
-  const billingCopy = formatPeriodLabel(preview.billingEffectivePeriod || addMonthsToPeriod(preview.effectivePeriod, 1));
+  const billingCopy = formatPeriodLabel(
+    preview.billingEffectivePeriod ||
+      addMonthsToPeriod(preview.effectivePeriod, 1),
+  );
   return `${scopeCopy} · ${changeCopy} · alcance ${normalizeOwnerLabel(preview.ownerScope || getCurrentOwnerScope())} · se cobra desde ${billingCopy}.`;
 }
 
 function getRentPolicyForCategory(unitType) {
-  const normalizedType = String(unitType || "").trim().toLowerCase();
+  const normalizedType = String(unitType || "")
+    .trim()
+    .toLowerCase();
   const currentScope = getCurrentOwnerScope();
-  return state.rentAdjustmentPolicies.find((policy) => {
-    const sameType = String(policy.unitType || "").trim().toLowerCase() === normalizedType;
-    if (!sameType) {
-      return false;
-    }
+  return (
+    state.rentAdjustmentPolicies.find((policy) => {
+      const sameType =
+        String(policy.unitType || "")
+          .trim()
+          .toLowerCase() === normalizedType;
+      if (!sameType) {
+        return false;
+      }
 
-    const policyScope = String(policy.ownerScope || "all").trim().toLowerCase();
-    return policyScope === String(currentScope || "all").trim().toLowerCase();
-  }) || state.rentAdjustmentPolicies.find((policy) => {
-    const sameType = String(policy.unitType || "").trim().toLowerCase() === normalizedType;
-    const policyScope = String(policy.ownerScope || "all").trim().toLowerCase();
-    return sameType && policyScope === "all";
-  }) || null;
+      const policyScope = String(policy.ownerScope || "all")
+        .trim()
+        .toLowerCase();
+      return (
+        policyScope ===
+        String(currentScope || "all")
+          .trim()
+          .toLowerCase()
+      );
+    }) ||
+    state.rentAdjustmentPolicies.find((policy) => {
+      const sameType =
+        String(policy.unitType || "")
+          .trim()
+          .toLowerCase() === normalizedType;
+      const policyScope = String(policy.ownerScope || "all")
+        .trim()
+        .toLowerCase();
+      return sameType && policyScope === "all";
+    }) ||
+    null
+  );
 }
 
 function getRentPolicyForProperty(propertyId) {
@@ -6593,9 +7901,18 @@ function getRentPolicyForProperty(propertyId) {
     return null;
   }
 
-  return state.rentAdjustmentPolicies.find((policy) => String(policy.propertyId || "").trim() === normalizedPropertyId)
-    || state.rentAdjustmentPolicies.find((policy) => String(policy.scopeKey || "").trim() === normalizedPropertyId && String(policy.scopeType || "").trim() === "property")
-    || null;
+  return (
+    state.rentAdjustmentPolicies.find(
+      (policy) =>
+        String(policy.propertyId || "").trim() === normalizedPropertyId,
+    ) ||
+    state.rentAdjustmentPolicies.find(
+      (policy) =>
+        String(policy.scopeKey || "").trim() === normalizedPropertyId &&
+        String(policy.scopeType || "").trim() === "property",
+    ) ||
+    null
+  );
 }
 
 function getPropertyRentScheduleDefaults(propertyId) {
@@ -6606,11 +7923,13 @@ function getPropertyRentScheduleDefaults(propertyId) {
       indexName: propertyPolicy.indexName || null,
       frequency: propertyPolicy.frequency || "quarterly",
       nextAdjustmentPeriod: propertyPolicy.nextAdjustmentPeriod || null,
-      requiresOwnerApproval: Boolean(propertyPolicy.requiresOwnerApproval)
+      requiresOwnerApproval: Boolean(propertyPolicy.requiresOwnerApproval),
     };
   }
 
-  const tenant = getScopedTenants().find((item) => item.propertyId === propertyId);
+  const tenant = getScopedTenants().find(
+    (item) => item.propertyId === propertyId,
+  );
   if (!tenant) {
     return null;
   }
@@ -6618,9 +7937,17 @@ function getPropertyRentScheduleDefaults(propertyId) {
   return {
     updateSource: "manual",
     indexName: null,
-    frequency: tenant.rentSchedule?.frequency || tenant.rentUpdateConfig?.frequency || "quarterly",
-    nextAdjustmentPeriod: tenant.rentSchedule?.nextAdjustmentPeriod || tenant.rentUpdateConfig?.nextAdjustmentPeriod || null,
-    requiresOwnerApproval: Boolean(tenant.rentUpdateConfig?.requiresOwnerApproval)
+    frequency:
+      tenant.rentSchedule?.frequency ||
+      tenant.rentUpdateConfig?.frequency ||
+      "quarterly",
+    nextAdjustmentPeriod:
+      tenant.rentSchedule?.nextAdjustmentPeriod ||
+      tenant.rentUpdateConfig?.nextAdjustmentPeriod ||
+      null,
+    requiresOwnerApproval: Boolean(
+      tenant.rentUpdateConfig?.requiresOwnerApproval,
+    ),
   };
 }
 
@@ -6673,8 +8000,14 @@ function normalizeTenantDueDayValue(value) {
 }
 
 function normalizeTenantRentFrequencyValue(value) {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized === "monthly" || normalized === "quarterly" || normalized === "semiannual") {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (
+    normalized === "monthly" ||
+    normalized === "quarterly" ||
+    normalized === "semiannual"
+  ) {
     return normalized;
   }
 
@@ -6696,8 +8029,15 @@ function describeTenantDueDay(tenant) {
 }
 
 function describeTenantRentSchedule(tenant) {
-  const frequency = humanizeRentFrequency(tenant?.rentSchedule?.frequency || tenant?.rentUpdateConfig?.frequency || "quarterly");
-  const nextPeriod = tenant?.rentSchedule?.nextAdjustmentPeriod || tenant?.rentUpdateConfig?.nextAdjustmentPeriod || "";
+  const frequency = humanizeRentFrequency(
+    tenant?.rentSchedule?.frequency ||
+      tenant?.rentUpdateConfig?.frequency ||
+      "quarterly",
+  );
+  const nextPeriod =
+    tenant?.rentSchedule?.nextAdjustmentPeriod ||
+    tenant?.rentUpdateConfig?.nextAdjustmentPeriod ||
+    "";
   if (!nextPeriod) {
     return `${frequency} · sin período definido`;
   }
@@ -6711,9 +8051,9 @@ function renderUtilityBills() {
     ? scopedBills
         .map((bill) => {
           const canApply =
-            typeof bill.amount === "number"
-            && !Number.isNaN(Number(bill.amount))
-            && canAutoApplyBillToProperty(bill);
+            typeof bill.amount === "number" &&
+            !Number.isNaN(Number(bill.amount)) &&
+            canAutoApplyBillToProperty(bill);
           return `
             <article class="entity-card">
               <div>
@@ -6748,7 +8088,7 @@ function renderUtilityBills() {
           `;
         })
         .join("")
-      : buildEmptyState("Todavía no hay facturas cargadas.");
+    : buildEmptyState("Todavía no hay facturas cargadas.");
 }
 
 function renderUtilityBillGroupOptions() {
@@ -6756,7 +8096,9 @@ function renderUtilityBillGroupOptions() {
     return;
   }
 
-  const groups = getBillingGroups(elements.utilityBillServiceType?.value || "electricity");
+  const groups = getBillingGroups(
+    elements.utilityBillServiceType?.value || "electricity",
+  );
   elements.utilityBillPropertySelect.innerHTML = groups
     .map((group) => `<option value="${group.value}">${group.label}</option>`)
     .join("");
@@ -6781,25 +8123,33 @@ function renderAdminPaymentReview() {
 
   if (metricsWrap) {
     const approvedThisMonth = scopedPayments.filter((payment) => {
-      const approvedAt = String(payment.approvedAt ?? payment.providerConfirmedAt ?? "");
+      const approvedAt = String(
+        payment.approvedAt ?? payment.providerConfirmedAt ?? "",
+      );
       return approvedAt.startsWith(currentMonth);
     }).length;
-    const rejectedCount = scopedPayments.filter((payment) => payment.status === "rejected").length;
-    const pendingCount = scopedPayments.filter((payment) => ["reported", "in_review"].includes(String(payment.status || ""))).length;
+    const rejectedCount = scopedPayments.filter(
+      (payment) => payment.status === "rejected",
+    ).length;
+    const pendingCount = scopedPayments.filter((payment) =>
+      ["reported", "in_review"].includes(String(payment.status || "")),
+    ).length;
     const emittedCount = scopedRentReceipts.length;
     metricsWrap.innerHTML = [
       ["Pendientes de revisión", pendingCount],
       ["Aprobados este mes", approvedThisMonth],
       ["Rechazados", rejectedCount],
-      ["Recibos emitidos", emittedCount]
+      ["Recibos emitidos", emittedCount],
     ]
-      .map(([label, value]) => `
+      .map(
+        ([label, value]) => `
         <article class="summary-mini-card comprobante-summary-card">
           <span>${label}</span>
           <strong>${value}</strong>
           <p>${isSuperadminRole() ? "Vista global" : normalizeOwnerLabel(getCurrentOwnerScope())}</p>
         </article>
-      `)
+      `,
+      )
       .join("");
   }
 
@@ -6809,23 +8159,24 @@ function renderAdminPaymentReview() {
       ["approved", "Aprobados"],
       ["rejected", "Rechazados"],
       ["receipt_issued", "Recibos emitidos"],
-      ["all", "Todos"]
+      ["all", "Todos"],
     ];
     tabRow.innerHTML = tabs
       .map(
         ([value, label]) =>
-          `<button class="ghost-action comprobante-tab-button ${state.comprobanteFilters.tab === value ? "active" : ""}" type="button" data-comprobante-tab="${value}">${label}</button>`
+          `<button class="ghost-action comprobante-tab-button ${state.comprobanteFilters.tab === value ? "active" : ""}" type="button" data-comprobante-tab="${value}">${label}</button>`,
       )
       .join("");
   }
 
   if (propertyFilter) {
     const currentValue = state.comprobanteFilters.propertyId;
-    propertyFilter.innerHTML = `<option value="">Todas</option>${
-      scopedProperties
-        .map((property) => `<option value="${property.id}" ${currentValue === property.id ? "selected" : ""}>${property.name}</option>`)
-        .join("")
-    }`;
+    propertyFilter.innerHTML = `<option value="">Todas</option>${scopedProperties
+      .map(
+        (property) =>
+          `<option value="${property.id}" ${currentValue === property.id ? "selected" : ""}>${property.name}</option>`,
+      )
+      .join("")}`;
   }
 
   if (ownerWrap) {
@@ -6835,29 +8186,56 @@ function renderAdminPaymentReview() {
   const filteredPayments = scopedPayments.filter((payment) => {
     const tenant = scopedTenants.find((item) => item.id === payment.tenantId);
     const charge = scopedCharges.find((item) => item.id === payment.chargeId);
-    const property = scopedProperties.find((item) => item.id === charge?.propertyId);
-    const rentReceipt = scopedRentReceipts.find((receipt) => receipt.paymentId === payment.id);
+    const property = scopedProperties.find(
+      (item) => item.id === charge?.propertyId,
+    );
+    const rentReceipt = scopedRentReceipts.find(
+      (receipt) => receipt.paymentId === payment.id,
+    );
     const ownerScope = resolvePropertyOwnerScope(property);
-    const searchTerm = state.comprobanteFilters.tenantSearch.trim().toLowerCase();
+    const searchTerm = state.comprobanteFilters.tenantSearch
+      .trim()
+      .toLowerCase();
     const tab = state.comprobanteFilters.tab;
     const statusFilter = state.comprobanteFilters.status;
 
-    if (state.comprobanteFilters.period && charge?.period !== state.comprobanteFilters.period) {
+    if (
+      state.comprobanteFilters.period &&
+      charge?.period !== state.comprobanteFilters.period
+    ) {
       return false;
     }
-    if (state.comprobanteFilters.propertyId && charge?.propertyId !== state.comprobanteFilters.propertyId) {
+    if (
+      state.comprobanteFilters.propertyId &&
+      charge?.propertyId !== state.comprobanteFilters.propertyId
+    ) {
       return false;
     }
-    if (searchTerm && !String(tenant?.fullName || "").toLowerCase().includes(searchTerm)) {
+    if (
+      searchTerm &&
+      !String(tenant?.fullName || "")
+        .toLowerCase()
+        .includes(searchTerm)
+    ) {
       return false;
     }
-    if (isSuperadminRole() && state.comprobanteFilters.owner !== "all" && ownerScope !== state.comprobanteFilters.owner) {
+    if (
+      isSuperadminRole() &&
+      state.comprobanteFilters.owner !== "all" &&
+      ownerScope !== state.comprobanteFilters.owner
+    ) {
       return false;
     }
-    if (tab === "pending" && !["reported", "in_review"].includes(String(payment.status || ""))) {
+    if (
+      tab === "pending" &&
+      !["reported", "in_review"].includes(String(payment.status || ""))
+    ) {
       return false;
     }
-    if (tab === "approved" && !["approved", "provider_confirmed"].includes(String(payment.status || ""))) {
+    if (
+      tab === "approved" &&
+      !["approved", "provider_confirmed"].includes(String(payment.status || ""))
+    ) {
       return false;
     }
     if (tab === "rejected" && payment.status !== "rejected") {
@@ -6866,10 +8244,16 @@ function renderAdminPaymentReview() {
     if (tab === "receipt_issued" && !rentReceipt) {
       return false;
     }
-    if (statusFilter === "reported" && !["reported", "in_review"].includes(String(payment.status || ""))) {
+    if (
+      statusFilter === "reported" &&
+      !["reported", "in_review"].includes(String(payment.status || ""))
+    ) {
       return false;
     }
-    if (statusFilter === "approved" && !["approved", "provider_confirmed"].includes(String(payment.status || ""))) {
+    if (
+      statusFilter === "approved" &&
+      !["approved", "provider_confirmed"].includes(String(payment.status || ""))
+    ) {
       return false;
     }
     if (statusFilter === "rejected" && payment.status !== "rejected") {
@@ -6878,10 +8262,16 @@ function renderAdminPaymentReview() {
     if (statusFilter === "receipt_issued" && !rentReceipt) {
       return false;
     }
-    if (statusFilter === "email_sent" && String(rentReceipt?.emailStatus || "") !== "sent") {
+    if (
+      statusFilter === "email_sent" &&
+      String(rentReceipt?.emailStatus || "") !== "sent"
+    ) {
       return false;
     }
-    if (statusFilter === "email_error" && String(rentReceipt?.emailStatus || "") !== "failed") {
+    if (
+      statusFilter === "email_error" &&
+      String(rentReceipt?.emailStatus || "") !== "failed"
+    ) {
       return false;
     }
 
@@ -6891,17 +8281,38 @@ function renderAdminPaymentReview() {
   elements.adminPaymentReview.innerHTML = filteredPayments.length
     ? filteredPayments
         .map((payment) => {
-          const tenant = scopedTenants.find((item) => item.id === payment.tenantId);
-          const charge = scopedCharges.find((item) => item.id === payment.chargeId);
-          const property = scopedProperties.find((item) => item.id === charge?.propertyId);
-          const paymentReceipts = scopedReceipts.filter((receipt) => receipt.paymentId === payment.id);
-          const rentReceipt = scopedRentReceipts.find((receipt) => receipt.paymentId === payment.id);
-          const canReview = payment.method === "transfer" && ["in_review", "reported"].includes(String(payment.status || ""));
-          const canIssueReceipt = ["approved", "provider_confirmed"].includes(String(payment.status || ""));
-          const ownerLabel = normalizeOwnerLabel(resolvePropertyOwnerScope(property));
+          const tenant = scopedTenants.find(
+            (item) => item.id === payment.tenantId,
+          );
+          const charge = scopedCharges.find(
+            (item) => item.id === payment.chargeId,
+          );
+          const property = scopedProperties.find(
+            (item) => item.id === charge?.propertyId,
+          );
+          const paymentReceipts = scopedReceipts.filter(
+            (receipt) => receipt.paymentId === payment.id,
+          );
+          const rentReceipt = scopedRentReceipts.find(
+            (receipt) => receipt.paymentId === payment.id,
+          );
+          const canReview =
+            payment.method === "transfer" &&
+            ["in_review", "reported"].includes(String(payment.status || ""));
+          const canIssueReceipt = ["approved", "provider_confirmed"].includes(
+            String(payment.status || ""),
+          );
+          const ownerLabel = normalizeOwnerLabel(
+            resolvePropertyOwnerScope(property),
+          );
           const paymentTone = paymentStatusTone(payment.status);
-          const financialSyncTone = paymentFinancialSyncTone(payment.financialSyncStatus);
-          const receiptTone = rentReceiptStatusTone(rentReceipt?.status, rentReceipt?.emailStatus);
+          const financialSyncTone = paymentFinancialSyncTone(
+            payment.financialSyncStatus,
+          );
+          const receiptTone = rentReceiptStatusTone(
+            rentReceipt?.status,
+            rentReceipt?.emailStatus,
+          );
           return `
             <article class="entity-card comprobante-card">
               <div>
@@ -6948,7 +8359,8 @@ function renderAdminPaymentReview() {
                   paymentReceipts.length
                     ? `<div class="receipt-review-list">
                         ${paymentReceipts
-                          .map((receipt, index) => `
+                          .map(
+                            (receipt, index) => `
                             <article class="receipt-review-item">
                               <div>
                                 <strong>Comprobante ${index + 1}</strong>
@@ -6964,7 +8376,8 @@ function renderAdminPaymentReview() {
                                 <button class="ghost-action small-button" type="button" data-analyze-receipt="${receipt.id}">Analizar</button>
                               </div>
                             </article>
-                          `)
+                          `,
+                          )
                           .join("")}
                       </div>`
                     : `<p class="comprobante-empty-copy">No hay archivos adjuntos para este pago.</p>`
@@ -7039,9 +8452,15 @@ function isMercadoPagoCheckoutPlaceholder(payment) {
   const status = String(payment?.status || "");
   const mercadoPagoStatus = String(payment?.mercadoPagoStatus || "");
   const hasProviderPayment = Boolean(payment?.mercadoPagoPaymentId);
-  const isResolved = ["approved", "provider_confirmed", "rejected"].includes(status);
+  const isResolved = ["approved", "provider_confirmed", "rejected"].includes(
+    status,
+  );
 
-  return !isResolved && !hasProviderPayment && mercadoPagoStatus === "preference_created";
+  return (
+    !isResolved &&
+    !hasProviderPayment &&
+    mercadoPagoStatus === "preference_created"
+  );
 }
 
 function renderAuditLogs() {
@@ -7063,10 +8482,12 @@ function renderAuditLogs() {
                 <p>${humanizeAuditEntity(log.entityType)} ${log.entityId || ""}</p>
               </div>
             </article>
-          `
+          `,
         )
         .join("")
-    : buildEmptyState("Todavía no hay movimientos de auditoría para este alcance.");
+    : buildEmptyState(
+        "Todavía no hay movimientos de auditoría para este alcance.",
+      );
 }
 
 function renderMessageTenantOptions() {
@@ -7075,12 +8496,20 @@ function renderMessageTenantOptions() {
   }
 
   const activeTenants = getScopedTenants()
-    .filter((tenant) => !["inactive", "deleted"].includes(String(tenant.status || "active")))
-    .sort((left, right) => String(left.fullName || "").localeCompare(String(right.fullName || "")));
+    .filter(
+      (tenant) =>
+        !["inactive", "deleted"].includes(String(tenant.status || "active")),
+    )
+    .sort((left, right) =>
+      String(left.fullName || "").localeCompare(String(right.fullName || "")),
+    );
 
   elements.messageTenantSelect.innerHTML = activeTenants.length
     ? activeTenants
-        .map((tenant) => `<option value="${tenant.id}">${tenant.fullName} - ${tenant.phone || "sin teléfono"}</option>`)
+        .map(
+          (tenant) =>
+            `<option value="${tenant.id}">${tenant.fullName} - ${tenant.phone || "sin teléfono"}</option>`,
+        )
         .join("")
     : `<option value="">No hay inquilinos disponibles</option>`;
 
@@ -7098,7 +8527,9 @@ function renderMessages() {
     ? scopedMessages
         .slice(0, 60)
         .map((message) => {
-          const tenant = scopedTenants.find((item) => item.id === message.tenantId);
+          const tenant = scopedTenants.find(
+            (item) => item.id === message.tenantId,
+          );
           const statusTone =
             message.status === "sent"
               ? "success"
@@ -7131,13 +8562,20 @@ function renderUserAccessList() {
   }
 
   if (elements.adminUserCreateForm) {
-    elements.adminUserCreateForm.classList.toggle("hidden", !isSuperadminRole());
+    elements.adminUserCreateForm.classList.toggle(
+      "hidden",
+      !isSuperadminRole(),
+    );
   }
 
   const sortedUsers = [...state.users]
-    .filter((user) => isSuperadminRole() || String(user.role || "") !== "superadmin")
+    .filter(
+      (user) => isSuperadminRole() || String(user.role || "") !== "superadmin",
+    )
     .sort((left, right) =>
-      String(left.displayName || left.email || "").localeCompare(String(right.displayName || right.email || ""))
+      String(left.displayName || left.email || "").localeCompare(
+        String(right.displayName || right.email || ""),
+      ),
     );
 
   elements.userAccessList.innerHTML = sortedUsers.length
@@ -7174,8 +8612,9 @@ function renderUserAccessList() {
                   </select>
                 </label>
                 ${
-                  String(user.role || "") !== "tenant"
-                    ? `<label>
+                  String(user.role || "") === "tenant"
+                    ? ""
+                    : `<label>
                         Alcance
                         <select data-user-owner-scope ${isCurrentUser || user.role === "superadmin" ? "disabled" : ""}>
                           <option value="all" ${normalizeOwnerScope(user.ownerScope) === "all" ? "selected" : ""}>Toda La Casona</option>
@@ -7183,7 +8622,6 @@ function renderUserAccessList() {
                           <option value="ivo" ${normalizeOwnerScope(user.ownerScope) === "ivo" ? "selected" : ""}>Ivo</option>
                         </select>
                       </label>`
-                    : ""
                 }
                 <button class="primary-action small-button" type="button" data-save-user-access="${user.id}" ${isCurrentUser ? "disabled" : ""}>
                   Guardar permisos
@@ -7210,11 +8648,11 @@ async function writeAuditLog(input) {
 
 function renderTenantPortal() {
   if (
-    !elements.tenantCurrentCharge
-    || !elements.tenantTransferAccount
-    || !elements.tenantPaymentHistory
-    || !elements.tenantReceiptHistory
-    || !elements.tenantBillList
+    !elements.tenantCurrentCharge ||
+    !elements.tenantTransferAccount ||
+    !elements.tenantPaymentHistory ||
+    !elements.tenantReceiptHistory ||
+    !elements.tenantBillList
   ) {
     return;
   }
@@ -7225,19 +8663,25 @@ function renderTenantPortal() {
     elements.tenantFacturasNav.classList.remove("hidden");
   }
 
-  const facturasSection = document.querySelector('.view-section[data-section="facturas"][data-tenant-only="true"]');
+  const facturasSection = document.querySelector(
+    '.view-section[data-section="facturas"][data-tenant-only="true"]',
+  );
   if (facturasSection) {
     facturasSection.classList.remove("hidden");
   }
 
   const tenantActionableCharges = state.charges.filter((charge) =>
-    canTenantSubmitReceiptForCharge(charge)
+    canTenantSubmitReceiptForCharge(charge),
   );
-  const currentCharge = [...state.charges]
-    .sort((a, b) => String(b.period).localeCompare(String(a.period)))
-    .find((charge) => canTenantSubmitReceiptForCharge(charge)) || state.charges[0];
+  const currentCharge =
+    [...state.charges]
+      .sort((a, b) => String(b.period).localeCompare(String(a.period)))
+      .find((charge) => canTenantSubmitReceiptForCharge(charge)) ||
+    state.charges[0];
   const transferAccount = resolveTransferAccount(state.currentProperty);
-  const currentChargeVisualStatus = currentCharge ? getChargeVisualStatus(currentCharge) : null;
+  const currentChargeVisualStatus = currentCharge
+    ? getChargeVisualStatus(currentCharge)
+    : null;
   const canSubmitReceipt = canTenantSubmitReceiptForCharge(currentCharge);
   const overdueTag = currentCharge?.overdueDays
     ? `<span class="status ${currentCharge.overdueDays >= resolveGeneralSettings().morosoAfterDays ? "danger" : "warning"}">${currentCharge.overdueDays} dias de atraso</span>`
@@ -7287,8 +8731,8 @@ function renderTenantPortal() {
                       </div>
                       <button class="ghost-action small-button instructions-action" type="button" data-payment-instructions-toggle="true">Instrucciones para pagar</button>
                       </div>`
-                  : ""
-              }
+                    : ""
+                }
               ${
                 currentCharge.status === "in_review"
                   ? `<p class="status-copy">Tu comprobante ya fue enviado y esta en revisión administrativa.</p>`
@@ -7303,23 +8747,27 @@ function renderTenantPortal() {
           </article>
         `
     : buildEmptyState("Todavía no hay cobros asignados a tu cuenta.");
-  elements.tenantTransferAccount.innerHTML = !currentCharge
-    ? ""
-    : currentCharge.status === "paid"
-      ? buildEmptyState("Ya confirmamos tu ultimo pago. Si necesitas el respaldo, puedes verlo en Mis pagos.")
+  elements.tenantTransferAccount.innerHTML = currentCharge
+    ? currentCharge.status === "paid"
+      ? buildEmptyState(
+          "Ya confirmamos tu ultimo pago. Si necesitas el respaldo, puedes verlo en Mis pagos.",
+        )
       : currentCharge.status === "in_review"
-        ? buildEmptyState("Tu comprobante ya fue enviado y esta esperando revisión administrativa.")
-        : "";
+        ? buildEmptyState(
+            "Tu comprobante ya fue enviado y esta esperando revisión administrativa.",
+          )
+        : ""
+    : "";
 
   elements.tenantPaymentHistory.innerHTML = state.payments.length
     ? [...state.payments]
         .sort((a, b) => sortByCreatedAtDesc(a, b))
         .map((payment) => {
-          const rentReceipt = state.rentReceipts.find((receipt) => receipt.paymentId === payment.id);
+          const rentReceipt = state.rentReceipts.find(
+            (receipt) => receipt.paymentId === payment.id,
+          );
           const approvalDate = resolveDisplayDate(
-            payment.approvedAt
-            ?? payment.providerConfirmedAt
-            ?? payment.paidAt
+            payment.approvedAt ?? payment.providerConfirmedAt ?? payment.paidAt,
           );
           return `
             <article class="entity-card">
@@ -7327,7 +8775,10 @@ function renderTenantPortal() {
                 <h4>${formatCurrency(payment.amountReported ?? payment.amountConfirmed ?? 0)}</h4>
                 <p>${humanizePaymentMethod(payment.method)} - ${humanizePaymentStatus(payment.status)}</p>
                 ${
-                  approvalDate && ["approved", "provider_confirmed"].includes(String(payment.status || ""))
+                  approvalDate &&
+                  ["approved", "provider_confirmed"].includes(
+                    String(payment.status || ""),
+                  )
                     ? `<p>Pago aprobado el ${formatDateTime(approvalDate)}</p>`
                     : ""
                 }
@@ -7354,7 +8805,7 @@ function renderTenantPortal() {
     ? tenantActionableCharges
         .map(
           (charge) =>
-            `<option value="${charge.id}">${charge.period} - ${formatCurrency(charge.total ?? 0)}</option>`
+            `<option value="${charge.id}">${charge.period} - ${formatCurrency(charge.total ?? 0)}</option>`,
         )
         .join("")
     : `<option value="">No hay cobros disponibles</option>`;
@@ -7367,11 +8818,15 @@ function renderTenantPortal() {
   }
 
   if (elements.tenantPaymentForm) {
-    elements.tenantPaymentForm.classList.toggle("hidden", !tenantActionableCharges.length);
+    elements.tenantPaymentForm.classList.toggle(
+      "hidden",
+      !tenantActionableCharges.length,
+    );
   }
 
   if (elements.tenantSettingsEmail) {
-    elements.tenantSettingsEmail.value = state.authUser?.email || state.currentTenant?.email || "";
+    elements.tenantSettingsEmail.value =
+      state.authUser?.email || state.currentTenant?.email || "";
   }
 
   if (elements.tenantSettingsPhone) {
@@ -7399,7 +8854,7 @@ function renderTenantPortal() {
                 <a class="entity-link" href="${receipt.downloadURL}" target="_blank" rel="noreferrer">Abrir archivo</a>
               </div>
             </article>
-          `
+          `,
         )
         .join("")
     : buildEmptyState("Todavía no subiste comprobantes.");
@@ -7407,13 +8862,18 @@ function renderTenantPortal() {
   const tenantBills = shouldShowTenantBills
     ? state.utilityBills
         .filter((bill) => billAppliesToProperty(bill, state.currentProperty))
-        .sort((a, b) => String(b.period || "").localeCompare(String(a.period || "")))
+        .sort((a, b) =>
+          String(b.period || "").localeCompare(String(a.period || "")),
+        )
     : [];
-  const tenantRentReceipts = [...state.rentReceipts].sort((a, b) => sortByCreatedAtDesc(a, b));
+  const tenantRentReceipts = [...state.rentReceipts].sort((a, b) =>
+    sortByCreatedAtDesc(a, b),
+  );
   const activeDocTab = state.tenantDocumentTab || "receipts";
   const receiptCards = tenantRentReceipts.length
     ? tenantRentReceipts
-        .map((receipt) => `
+        .map(
+          (receipt) => `
           <article class="entity-card tenant-doc-card">
             <div>
               <div class="comprobante-status-row">
@@ -7429,9 +8889,12 @@ function renderTenantPortal() {
               ${receipt.pdfUrl ? `<button class="ghost-action small-button" type="button" data-view-rent-receipt="${receipt.pdfUrl}">Ver recibo</button>` : ""}
             </div>
           </article>
-        `)
+        `,
+        )
         .join("")
-    : buildEmptyState("Todavía no hay recibos de alquiler emitidos para tu cuenta.");
+    : buildEmptyState(
+        "Todavía no hay recibos de alquiler emitidos para tu cuenta.",
+      );
   const serviceCards = tenantBills.length
     ? tenantBills
         .map(
@@ -7446,19 +8909,29 @@ function renderTenantPortal() {
                 <a class="entity-link" href="${bill.downloadURL}" target="_blank" rel="noreferrer">Ver factura</a>
               </div>
             </article>
-          `
+          `,
         )
         .join("")
-    : buildEmptyState("Por el momento no hay facturas de servicios cargadas en el sistema. Si corresponde, recibirás las facturas de luz, agua u otros servicios por los canales habituales.");
+    : buildEmptyState(
+        "Por el momento no hay facturas de servicios cargadas en el sistema. Si corresponde, recibirás las facturas de luz, agua u otros servicios por los canales habituales.",
+      );
 
-  const tenantDocTabs = facturasSection?.querySelector("[data-tenant-doc-tabs]");
+  const tenantDocTabs = facturasSection?.querySelector(
+    "[data-tenant-doc-tabs]",
+  );
   if (tenantDocTabs) {
-    tenantDocTabs.querySelectorAll("[data-tenant-doc-tab]").forEach((button) => {
-      button.classList.toggle("active", button.dataset.tenantDocTab === activeDocTab);
-    });
+    tenantDocTabs
+      .querySelectorAll("[data-tenant-doc-tab]")
+      .forEach((button) => {
+        button.classList.toggle(
+          "active",
+          button.dataset.tenantDocTab === activeDocTab,
+        );
+      });
   }
 
-  elements.tenantBillList.innerHTML = activeDocTab === "services" ? serviceCards : receiptCards;
+  elements.tenantBillList.innerHTML =
+    activeDocTab === "services" ? serviceCards : receiptCards;
 }
 
 function canTenantSeeBills() {
@@ -7475,7 +8948,9 @@ function canTenantSeeBills() {
 }
 
 function getActiveSectionName() {
-  const activeSection = Array.from(elements.sections).find((section) => section.classList.contains("active"));
+  const activeSection = Array.from(elements.sections).find((section) =>
+    section.classList.contains("active"),
+  );
   return activeSection?.dataset.section || "";
 }
 
@@ -7485,7 +8960,9 @@ function setActiveSection(sectionName, options = {}) {
   }
 
   const { replaceHistory = false, skipHistory = false } = options;
-  const targetSection = elements.sections.find((section) => section.dataset.section === sectionName);
+  const targetSection = elements.sections.find(
+    (section) => section.dataset.section === sectionName,
+  );
   if (!targetSection) {
     return;
   }
@@ -7499,7 +8976,10 @@ function setActiveSection(sectionName, options = {}) {
         state.sectionHistory.push(currentSection);
       }
     }
-    if (currentSection !== sectionName && state.sectionHistory[state.sectionHistory.length - 1] !== sectionName) {
+    if (
+      currentSection !== sectionName &&
+      state.sectionHistory[state.sectionHistory.length - 1] !== sectionName
+    ) {
       state.sectionHistory.push(sectionName);
     }
     if (!state.sectionHistory.length) {
@@ -7576,7 +9056,10 @@ function isSessionIdleExpired(now = Date.now()) {
 
 function stampSessionActivity(force = false) {
   const now = Date.now();
-  if (!force && now - state.lastActivityWriteAt < SESSION_IDLE_WRITE_THROTTLE_MS) {
+  if (
+    !force &&
+    now - state.lastActivityWriteAt < SESSION_IDLE_WRITE_THROTTLE_MS
+  ) {
     return;
   }
 
@@ -7601,7 +9084,9 @@ function startSessionIdleMonitor() {
   if (!state.sessionIdleMonitorBound) {
     const events = ["pointerdown", "keydown", "touchstart"];
     events.forEach((eventName) => {
-      window.addEventListener(eventName, handleSessionActivity, { passive: true });
+      window.addEventListener(eventName, handleSessionActivity, {
+        passive: true,
+      });
     });
 
     document.addEventListener("visibilitychange", handleSessionActivity);
@@ -7650,7 +9135,9 @@ function isSuperadminRole() {
 }
 
 function normalizeOwnerScope(value) {
-  const scope = String(value || "").trim().toLowerCase();
+  const scope = String(value || "")
+    .trim()
+    .toLowerCase();
   if (scope === "enzo" || scope === "ivo") {
     return scope;
   }
@@ -7666,7 +9153,7 @@ function normalizeOwnerLabel(scope) {
   const labels = {
     all: "Toda La Casona",
     enzo: "Enzo",
-    ivo: "Ivo"
+    ivo: "Ivo",
   };
 
   return labels[normalizeOwnerScope(scope)] || "La Casona";
@@ -7694,7 +9181,9 @@ function resolvePropertyOwnerScope(property) {
     return explicitScope;
   }
 
-  const ownerId = String(property.ownerId || "").trim().toLowerCase();
+  const ownerId = String(property.ownerId || "")
+    .trim()
+    .toLowerCase();
   if (ownerId === "owner_block_1" || ownerId === "enzo") {
     return "enzo";
   }
@@ -7702,7 +9191,9 @@ function resolvePropertyOwnerScope(property) {
     return "ivo";
   }
 
-  return transferBlockToOwnerScope(property.transferBlock || inferTransferBlockFromUnitCode(property.unitCode));
+  return transferBlockToOwnerScope(
+    property.transferBlock || inferTransferBlockFromUnitCode(property.unitCode),
+  );
 }
 
 function canCurrentAdminSeeOwner(scope) {
@@ -7715,90 +9206,122 @@ function canCurrentAdminSeeOwner(scope) {
 }
 
 function getScopedProperties() {
-    const visibleProperties = isAdminRole()
-      ? state.properties.filter((property) => canCurrentAdminSeeOwner(resolvePropertyOwnerScope(property)))
-      : state.properties;
+  const visibleProperties = isAdminRole()
+    ? state.properties.filter((property) =>
+        canCurrentAdminSeeOwner(resolvePropertyOwnerScope(property)),
+      )
+    : state.properties;
 
-    return [...visibleProperties].sort(comparePropertiesByDisplayOrder);
+  return [...visibleProperties].sort(comparePropertiesByDisplayOrder);
+}
+
+function comparePropertiesByDisplayOrder(left, right) {
+  const leftOrder = resolvePropertyDisplayOrder(left);
+  const rightOrder = resolvePropertyDisplayOrder(right);
+
+  if (leftOrder !== rightOrder) {
+    return leftOrder - rightOrder;
   }
 
-  function comparePropertiesByDisplayOrder(left, right) {
-    const leftOrder = resolvePropertyDisplayOrder(left);
-    const rightOrder = resolvePropertyDisplayOrder(right);
+  return String(left?.name || "").localeCompare(
+    String(right?.name || ""),
+    "es",
+    { numeric: true, sensitivity: "base" },
+  );
+}
 
-    if (leftOrder !== rightOrder) {
-      return leftOrder - rightOrder;
-    }
-
-    return String(left?.name || "").localeCompare(String(right?.name || ""), "es", { numeric: true, sensitivity: "base" });
+function resolvePropertyDisplayOrder(property) {
+  const explicitSortOrder = Number(property?.sortOrder);
+  if (Number.isFinite(explicitSortOrder) && explicitSortOrder > 0) {
+    return explicitSortOrder;
   }
 
-  function resolvePropertyDisplayOrder(property) {
-    const explicitSortOrder = Number(property?.sortOrder);
-    if (Number.isFinite(explicitSortOrder) && explicitSortOrder > 0) {
-      return explicitSortOrder;
-    }
-
-    const unitCodeMatch = String(property?.unitCode || "").match(/\d+/);
-    if (unitCodeMatch) {
-      return Number(unitCodeMatch[0]);
-    }
-
-    const nameMatch = String(property?.name || "").match(/\d+/);
-    if (nameMatch) {
-      return Number(nameMatch[0]);
-    }
-
-    return Number.MAX_SAFE_INTEGER;
+  const unitCodeMatch = String(property?.unitCode || "").match(/\d+/);
+  if (unitCodeMatch) {
+    return Number(unitCodeMatch[0]);
   }
+
+  const nameMatch = String(property?.name || "").match(/\d+/);
+  if (nameMatch) {
+    return Number(nameMatch[0]);
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+}
 
 function getScopedTenants() {
-  const scopedPropertyIds = new Set(getScopedProperties().map((property) => property.id));
+  const scopedPropertyIds = new Set(
+    getScopedProperties().map((property) => property.id),
+  );
   return isAdminRole()
     ? state.tenants.filter((tenant) => scopedPropertyIds.has(tenant.propertyId))
     : state.tenants;
 }
 
 function getScopedCharges() {
-  const scopedPropertyIds = new Set(getScopedProperties().map((property) => property.id));
+  const scopedPropertyIds = new Set(
+    getScopedProperties().map((property) => property.id),
+  );
   return isAdminRole()
     ? state.charges.filter((charge) => scopedPropertyIds.has(charge.propertyId))
     : state.charges;
 }
 
 function getScopedPayments() {
-  const scopedChargeIds = new Set(getScopedCharges().map((charge) => charge.id));
-  const scopedTenantIds = new Set(getScopedTenants().map((tenant) => tenant.id));
+  const scopedChargeIds = new Set(
+    getScopedCharges().map((charge) => charge.id),
+  );
+  const scopedTenantIds = new Set(
+    getScopedTenants().map((tenant) => tenant.id),
+  );
   return isAdminRole()
-    ? state.payments.filter((payment) => scopedChargeIds.has(payment.chargeId) || scopedTenantIds.has(payment.tenantId))
+    ? state.payments.filter(
+        (payment) =>
+          scopedChargeIds.has(payment.chargeId) ||
+          scopedTenantIds.has(payment.tenantId),
+      )
     : state.payments;
 }
 
 function getScopedReceipts() {
-  const scopedTenantIds = new Set(getScopedTenants().map((tenant) => tenant.id));
+  const scopedTenantIds = new Set(
+    getScopedTenants().map((tenant) => tenant.id),
+  );
   return isAdminRole()
     ? state.receipts.filter((receipt) => scopedTenantIds.has(receipt.tenantId))
     : state.receipts;
 }
 
 function getScopedRentReceipts() {
-  const scopedTenantIds = new Set(getScopedTenants().map((tenant) => tenant.id));
+  const scopedTenantIds = new Set(
+    getScopedTenants().map((tenant) => tenant.id),
+  );
   return isAdminRole()
-    ? state.rentReceipts.filter((receipt) => scopedTenantIds.has(receipt.tenantId))
+    ? state.rentReceipts.filter((receipt) =>
+        scopedTenantIds.has(receipt.tenantId),
+      )
     : state.rentReceipts;
 }
 
 function getScopedMessages() {
-  const scopedTenantIds = new Set(getScopedTenants().map((tenant) => tenant.id));
+  const scopedTenantIds = new Set(
+    getScopedTenants().map((tenant) => tenant.id),
+  );
   return isAdminRole()
     ? state.messages.filter((message) => scopedTenantIds.has(message.tenantId))
     : state.messages;
 }
 
 function getScopedAuditLogs() {
-  const scopedTenantIds = new Set(getScopedTenants().map((tenant) => tenant.id));
-  const scopedChargeIds = new Set(getScopedCharges().map((charge) => charge.id));
-  const scopedPaymentIds = new Set(getScopedPayments().map((payment) => payment.id));
+  const scopedTenantIds = new Set(
+    getScopedTenants().map((tenant) => tenant.id),
+  );
+  const scopedChargeIds = new Set(
+    getScopedCharges().map((charge) => charge.id),
+  );
+  const scopedPaymentIds = new Set(
+    getScopedPayments().map((payment) => payment.id),
+  );
 
   if (!isAdminRole()) {
     return state.auditLogs;
@@ -7816,9 +9339,11 @@ function getScopedAuditLogs() {
       return scopedChargeIds.has(log.entityId);
     }
     if (log.entityType === "payment" || log.entityType === "receipt") {
-      return scopedPaymentIds.has(log.entityId)
-        || scopedTenantIds.has(log.metadata?.tenantId)
-        || scopedChargeIds.has(log.metadata?.chargeId);
+      return (
+        scopedPaymentIds.has(log.entityId) ||
+        scopedTenantIds.has(log.metadata?.tenantId) ||
+        scopedChargeIds.has(log.metadata?.chargeId)
+      );
     }
     if (log.entityType === "settings" || log.entityType === "user") {
       return false;
@@ -7843,13 +9368,19 @@ function getScopedUtilityBills() {
     if (billingGroup === "water_house") {
       return currentScope === "enzo";
     }
-    if (billingGroup.startsWith("electricity_local_") || billingGroup === "water_locals_2_3") {
+    if (
+      billingGroup.startsWith("electricity_local_") ||
+      billingGroup === "water_locals_2_3"
+    ) {
       return currentScope === "ivo";
     }
     if (billingGroup === "electricity_house") {
       return currentScope === "enzo";
     }
-    if (billingGroup === "electricity_departments" || billingGroup === "water_departments_local_1") {
+    if (
+      billingGroup === "electricity_departments" ||
+      billingGroup === "water_departments_local_1"
+    ) {
       return currentScope === "enzo" || currentScope === "ivo";
     }
 
@@ -7865,30 +9396,49 @@ function renderAdminSettings() {
   ensureAdminDefaultRentFields();
   const bankAccounts = resolveBankAccounts();
   const generalSettings = resolveGeneralSettings();
-  const defaultRentDepartamentoField = document.querySelector("#admin-default-rent-departamento");
-  const defaultRentCasaField = document.querySelector("#admin-default-rent-casa");
-  const defaultRentLocalField = document.querySelector("#admin-default-rent-local");
+  const defaultRentDepartamentoField = document.querySelector(
+    "#admin-default-rent-departamento",
+  );
+  const defaultRentCasaField = document.querySelector(
+    "#admin-default-rent-casa",
+  );
+  const defaultRentLocalField = document.querySelector(
+    "#admin-default-rent-local",
+  );
 
-  elements.adminSettingsName.value = state.profile?.displayName || state.authUser?.email?.split("@")[0] || "";
-  elements.adminSettingsEmail.value = state.authUser?.email || state.profile?.email || "";
+  elements.adminSettingsName.value =
+    state.profile?.displayName || state.authUser?.email?.split("@")[0] || "";
+  elements.adminSettingsEmail.value =
+    state.authUser?.email || state.profile?.email || "";
   elements.adminSettingsPhone.value = state.profile?.phone || "";
   elements.adminGeneralDueDay.value = String(generalSettings.dueDayOfMonth);
-  elements.adminGeneralLateFeeRate.value = String(roundToTwo(generalSettings.lateFeeDailyRate * 100));
-  elements.adminGeneralMorosoDays.value = String(generalSettings.morosoAfterDays);
-  elements.adminDefaultNotificationChannel.value = generalSettings.defaultNotificationChannel;
-  elements.adminAutoNotifyNewCharge.checked = generalSettings.autoNotifyNewCharge;
+  elements.adminGeneralLateFeeRate.value = String(
+    roundToTwo(generalSettings.lateFeeDailyRate * 100),
+  );
+  elements.adminGeneralMorosoDays.value = String(
+    generalSettings.morosoAfterDays,
+  );
+  elements.adminDefaultNotificationChannel.value =
+    generalSettings.defaultNotificationChannel;
+  elements.adminAutoNotifyNewCharge.checked =
+    generalSettings.autoNotifyNewCharge;
   elements.adminAutoNotifyOverdue.checked = generalSettings.autoNotifyOverdue;
-  elements.adminRentAdjustmentPercent.value = generalSettings.lastRentAdjustmentPercent
-    ? String(generalSettings.lastRentAdjustmentPercent)
-    : "";
+  elements.adminRentAdjustmentPercent.value =
+    generalSettings.lastRentAdjustmentPercent
+      ? String(generalSettings.lastRentAdjustmentPercent)
+      : "";
   if (defaultRentDepartamentoField) {
-    defaultRentDepartamentoField.value = String(generalSettings.defaultRents.Departamento || 0);
+    defaultRentDepartamentoField.value = String(
+      generalSettings.defaultRents.Departamento || 0,
+    );
   }
   if (defaultRentCasaField) {
     defaultRentCasaField.value = String(generalSettings.defaultRents.Casa || 0);
   }
   if (defaultRentLocalField) {
-    defaultRentLocalField.value = String(generalSettings.defaultRents.Local || 0);
+    defaultRentLocalField.value = String(
+      generalSettings.defaultRents.Local || 0,
+    );
   }
   elements.adminBankBlock1Holder.value = bankAccounts.block_1.holderName;
   elements.adminBankBlock1Alias.value = bankAccounts.block_1.alias;
@@ -7903,7 +9453,8 @@ function renderAdminSettings() {
   elements.adminBankBlock2Email.value = bankAccounts.block_2.email;
   elements.adminBankBlock2Phone.value = bankAccounts.block_2.phone;
   if (elements.messageChannelSelect) {
-    elements.messageChannelSelect.value = generalSettings.defaultNotificationChannel;
+    elements.messageChannelSelect.value =
+      generalSettings.defaultNotificationChannel;
   }
   applyAdminScopeToSettingsForm();
 }
@@ -7960,9 +9511,12 @@ function applyAdminScopeToSettingsForm() {
       : "Desde esta pantalla podés administrar parámetros globales y cuentas bancarias de ambos bloques.";
   }
 
-  const generalPanel = elements.adminGeneralDueDay?.closest(".collapsible-panel");
-  const block1Panel = elements.adminBankBlock1Holder?.closest(".settings-subpanel");
-  const block2Panel = elements.adminBankBlock2Holder?.closest(".settings-subpanel");
+  const generalPanel =
+    elements.adminGeneralDueDay?.closest(".collapsible-panel");
+  const block1Panel =
+    elements.adminBankBlock1Holder?.closest(".settings-subpanel");
+  const block2Panel =
+    elements.adminBankBlock2Holder?.closest(".settings-subpanel");
   const block1Heading = block1Panel?.querySelector("h4");
   const block2Heading = block2Panel?.querySelector("h4");
   const togglePanel = (panel, shouldHide) => {
@@ -8005,7 +9559,9 @@ function setMessage(message, tone = "info") {
 
 function setAuthPending(pending) {
   state.authPending = pending;
-  const submitButton = elements.authForm?.querySelector('button[type="submit"]');
+  const submitButton = elements.authForm?.querySelector(
+    'button[type="submit"]',
+  );
   if (submitButton) {
     submitButton.textContent = pending ? "Ingresando..." : "Ingresar";
     submitButton.dataset.loading = pending ? "true" : "false";
@@ -8017,7 +9573,7 @@ function setAuthPending(pending) {
     elements.tenantProfileButton,
     elements.resetPasswordButton,
     elements.bootstrapButton,
-    ...elements.authForm.querySelectorAll("button, input")
+    ...elements.authForm.querySelectorAll("button, input"),
   ].forEach((element) => {
     if (element) {
       element.disabled = pending;
@@ -8029,7 +9585,7 @@ function setTenantOnboardingPending(pending) {
   state.tenantOnboardingPending = pending;
   [
     ...elements.tenantOnboardingForm.querySelectorAll("button, input, select"),
-    elements.tenantOnboardingBack
+    elements.tenantOnboardingBack,
   ].forEach((element) => {
     if (element) {
       element.disabled = pending;
@@ -8040,7 +9596,10 @@ function setTenantOnboardingPending(pending) {
 function setMobileNavOpen(isOpen) {
   document.body.classList.toggle("mobile-nav-open", isOpen);
   if (elements.mobileNavToggle) {
-    elements.mobileNavToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    elements.mobileNavToggle.setAttribute(
+      "aria-expanded",
+      isOpen ? "true" : "false",
+    );
   }
   if (elements.mobileNavBackdrop) {
     elements.mobileNavBackdrop.classList.toggle("hidden", !isOpen);
@@ -8094,7 +9653,7 @@ function installMobileFocusAssist() {
       target.scrollIntoView({
         behavior: "smooth",
         block: "center",
-        inline: "nearest"
+        inline: "nearest",
       });
     }, 220);
   });
@@ -8108,7 +9667,7 @@ function formatCurrency(value) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 0
+    maximumFractionDigits: 0,
   }).format(Number(value ?? 0));
 }
 
@@ -8127,7 +9686,7 @@ function formatDateTime(value) {
 
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "short",
-    timeStyle: "short"
+    timeStyle: "short",
   }).format(new Date(value));
 }
 
@@ -8157,7 +9716,7 @@ function humanizeChargeStatus(status) {
     overdue: "Vencido",
     in_review: "En revisión",
     paid: "Pagado",
-    cancelled: "Cancelado"
+    cancelled: "Cancelado",
   };
 
   return labels[status] || "Sin estado";
@@ -8170,7 +9729,7 @@ function humanizePaymentStatus(status) {
     approved: "Aprobado",
     rejected: "Rechazado",
     provider_confirmed: "Confirmado",
-    pending: "Pendiente"
+    pending: "Pendiente",
   };
 
   return labels[status] || "Sin estado";
@@ -8179,7 +9738,7 @@ function humanizePaymentStatus(status) {
 function humanizePaymentFinancialSyncStatus(status) {
   const labels = {
     synced: "Finanzas sincronizado",
-    error: "Error al sincronizar finanzas"
+    error: "Error al sincronizar finanzas",
   };
 
   return labels[status] || "Finanzas pendiente";
@@ -8188,7 +9747,7 @@ function humanizePaymentFinancialSyncStatus(status) {
 function humanizePaymentMethod(method) {
   const labels = {
     transfer: "Transferencia",
-    mercado_pago: "Mercado Pago"
+    mercado_pago: "Mercado Pago",
   };
 
   return labels[method] || "Metodo";
@@ -8201,7 +9760,7 @@ function paymentStatusTone(status) {
     approved: "success",
     provider_confirmed: "success",
     rejected: "danger",
-    pending: "neutral"
+    pending: "neutral",
   };
 
   return tones[status] || "neutral";
@@ -8210,7 +9769,7 @@ function paymentStatusTone(status) {
 function paymentFinancialSyncTone(status) {
   const tones = {
     synced: "success",
-    error: "danger"
+    error: "danger",
   };
 
   return tones[status] || "warning";
@@ -8221,7 +9780,7 @@ function humanizeRentReceiptStatus(status) {
     generated: "Generado",
     sent: "Enviado",
     resent: "Reenviado",
-    send_error: "Error de envio"
+    send_error: "Error de envio",
   };
 
   return labels[status] || "Generado";
@@ -8239,11 +9798,11 @@ function rentReceiptStatusTone(status, emailStatus) {
 
 function humanizeMessageChannel(channel) {
   const labels = {
-      auto: "Automatico",
-      whatsapp: "WhatsApp",
-      sms: "SMS",
-      email: "Correo"
-    };
+    auto: "Automatico",
+    whatsapp: "WhatsApp",
+    sms: "SMS",
+    email: "Correo",
+  };
 
   return labels[channel] || "Canal";
 }
@@ -8253,7 +9812,7 @@ function humanizeMessageStatus(status) {
     queued: "En cola",
     sent: "Enviado",
     failed: "Fallido",
-    blocked: "Bloqueado"
+    blocked: "Bloqueado",
   };
 
   return labels[status] || "Sin estado";
@@ -8261,17 +9820,17 @@ function humanizeMessageStatus(status) {
 
 function humanizeMessageType(type) {
   const labels = {
-      general: "Mensaje manual",
-      period_available: "Nuevo período disponible",
-      due_reminder: "Recordatorio",
-      late_fee_notice: "Aviso por mora",
-      profile_created: "Perfil creado",
-      payment_in_review: "Pago en revisión",
-      payment_approved: "Pago aprobado",
-      payment_rejected: "Pago rechazado",
-      contract_renewed: "Contrato renovado",
-      contract_finalized: "Contrato finalizado"
-    };
+    general: "Mensaje manual",
+    period_available: "Nuevo período disponible",
+    due_reminder: "Recordatorio",
+    late_fee_notice: "Aviso por mora",
+    profile_created: "Perfil creado",
+    payment_in_review: "Pago en revisión",
+    payment_approved: "Pago aprobado",
+    payment_rejected: "Pago rechazado",
+    contract_renewed: "Contrato renovado",
+    contract_finalized: "Contrato finalizado",
+  };
 
   return labels[type] || "Mensaje";
 }
@@ -8280,50 +9839,65 @@ function buildMessageTemplate(template, tenant) {
   const tenantName = tenant?.fullName || "inquilino";
   const tenantCharge = state.charges
     .filter((charge) => charge.tenantId === tenant?.id)
-    .sort((left, right) => String(right.period || "").localeCompare(String(left.period || "")))[0];
-  const total = tenantCharge ? formatCurrency(tenantCharge.total ?? 0) : "el total informado";
-  const dueDate = tenantCharge?.dueDate ? formatDate(tenantCharge.dueDate) : "la fecha informada";
-  const contractDate = tenant?.contractEndDate ? formatDate(tenant.contractEndDate) : "la fecha informada";
+    .sort((left, right) =>
+      String(right.period || "").localeCompare(String(left.period || "")),
+    )[0];
+  const total = tenantCharge
+    ? formatCurrency(tenantCharge.total ?? 0)
+    : "el total informado";
+  const dueDate = tenantCharge?.dueDate
+    ? formatDate(tenantCharge.dueDate)
+    : "la fecha informada";
+  const contractDate = tenant?.contractEndDate
+    ? formatDate(tenant.contractEndDate)
+    : "la fecha informada";
 
   const templates = {
-      period_available: {
-        body: `Hola ${tenantName}, ya tenés disponible un nuevo período de pago en La Casona. Puedes ingresar a tu portal para revisar el detalle y elegir cómo abonarlo.`,
-        helper: "Ideal para avisar que el cobro mensual ya fue generado y esta disponible."
-      },
-      due_reminder: {
-        body: `Hola ${tenantName}, te recordamos que tu cobro actual vence el ${dueDate} por un total de ${total}. Si ya realizaste el pago, podes informarlo desde tu portal.`,
-        helper: "Usa el total y vencimiento del cobro mas reciente del inquilino."
-      },
-      late_fee_notice: {
-        body: `Hola ${tenantName}, tu cobro actual registra mora y su total actualizado es de ${total}. Te recomendamos revisarlo cuanto antes desde tu portal para evitar que siga acumulando interes.`,
-        helper: "Sirve para avisar que el cobro ya paso a vencido o moroso."
-      },
-      payment_in_review: {
-        body: `Hola ${tenantName}, recibimos tu comprobante de pago y ya quedó en revisión administrativa. Te avisaremos apenas se confirme.`,
-        helper: "Sirve para avisar que el comprobante fue recibido correctamente."
+    period_available: {
+      body: `Hola ${tenantName}, ya tenés disponible un nuevo período de pago en La Casona. Puedes ingresar a tu portal para revisar el detalle y elegir cómo abonarlo.`,
+      helper:
+        "Ideal para avisar que el cobro mensual ya fue generado y esta disponible.",
+    },
+    due_reminder: {
+      body: `Hola ${tenantName}, te recordamos que tu cobro actual vence el ${dueDate} por un total de ${total}. Si ya realizaste el pago, podes informarlo desde tu portal.`,
+      helper:
+        "Usa el total y vencimiento del cobro mas reciente del inquilino.",
+    },
+    late_fee_notice: {
+      body: `Hola ${tenantName}, tu cobro actual registra mora y su total actualizado es de ${total}. Te recomendamos revisarlo cuanto antes desde tu portal para evitar que siga acumulando interes.`,
+      helper: "Sirve para avisar que el cobro ya paso a vencido o moroso.",
+    },
+    payment_in_review: {
+      body: `Hola ${tenantName}, recibimos tu comprobante de pago y ya quedó en revisión administrativa. Te avisaremos apenas se confirme.`,
+      helper:
+        "Sirve para avisar que el comprobante fue recibido correctamente.",
     },
     payment_approved: {
       body: `Hola ${tenantName}, confirmamos tu pago correctamente. Tu cobro actual ya figura como pagado. Muchas gracias.`,
-      helper: "Confirma al inquilino que el pago ya fue aprobado."
+      helper: "Confirma al inquilino que el pago ya fue aprobado.",
     },
     payment_rejected: {
       body: `Hola ${tenantName}, revisamos el comprobante enviado pero no pudimos validarlo correctamente. Por favor revisa monto, fecha y destino de la transferencia o comunicate con administración.`,
-      helper: "Aclara que el comprobante no pudo ser validado y pide una nueva accion."
+      helper:
+        "Aclara que el comprobante no pudo ser validado y pide una nueva accion.",
     },
     contract_renewed: {
       body: `Hola ${tenantName}, te confirmamos que tu contrato fue renovado hasta ${contractDate}. Si necesitas una copia o detalle adicional, podes responder este mensaje.`,
-      helper: "Toma la fecha de contrato actualmente guardada para el inquilino."
+      helper:
+        "Toma la fecha de contrato actualmente guardada para el inquilino.",
     },
     contract_finalized: {
       body: `Hola ${tenantName}, te informamos que tu contrato quedó configurado para finalizar el ${contractDate}. Si necesitas coordinar los pasos siguientes, comunicate con administración.`,
-      helper: "Sirve para informar una finalización ya cargada en el sistema."
-    }
+      helper: "Sirve para informar una finalización ya cargada en el sistema.",
+    },
   };
 
-  return templates[template] || {
-    body: "",
-    helper: "Elegí una plantilla para autocompletar el mensaje."
-  };
+  return (
+    templates[template] || {
+      body: "",
+      helper: "Elegí una plantilla para autocompletar el mensaje.",
+    }
+  );
 }
 
 function humanizeAuditAction(action) {
@@ -8341,7 +9915,7 @@ function humanizeAuditAction(action) {
     payment_rejected: "Pago rechazado",
     receipt_generated: "Comprobante emitido",
     receipt_regenerated: "Comprobante regenerado",
-    receipt_resent: "Comprobante reenviado"
+    receipt_resent: "Comprobante reenviado",
   };
 
   return labels[action] || "Movimiento";
@@ -8354,7 +9928,7 @@ function humanizeAuditEntity(entityType) {
     charge: "Cobro",
     settings: "Configuración",
     receipt: "Comprobante",
-    user: "Usuario"
+    user: "Usuario",
   };
 
   return labels[entityType] || "Entidad";
@@ -8364,7 +9938,7 @@ function humanizeUserRole(role) {
   const labels = {
     superadmin: "Superadmin",
     admin: "Admin",
-    tenant: "Inquilino"
+    tenant: "Inquilino",
   };
 
   return labels[role] || "Usuario";
@@ -8374,7 +9948,8 @@ function humanizeReceiptStatus(status) {
   const labels = {
     pending: "Pendiente de lectura",
     processed: "Procesado",
-    failed: "No se pudo leer"
+    failed: "No se pudo leer",
+    manual_review_required: "Validación automática no disponible",
   };
 
   return labels[status] || "Pendiente de revisión";
@@ -8384,7 +9959,7 @@ function humanizeReceiptSuggestion(status) {
   const labels = {
     pending_manual_review: "Revisión manual pendiente",
     likely_match: "Coincidencia probable con el cobro",
-    amount_mismatch: "Monto detectado distinto al cobro"
+    amount_mismatch: "Monto detectado distinto al cobro",
   };
 
   return labels[status] || "Sin sugerencia todavía";
@@ -8395,7 +9970,7 @@ function humanizeReceiptDocumentType(type) {
     transfer_receipt: "Transferencia bancaria",
     cash_deposit_ticket: "Ticket de depósito bancario",
     bank_receipt: "Comprobante bancario",
-    unknown: "Documento no identificado"
+    unknown: "Documento no identificado",
   };
 
   return labels[type] || "Documento no identificado";
@@ -8413,7 +9988,7 @@ function humanizeInvitationStatus(status) {
   const labels = {
     pending: "Pendiente",
     claimed: "Aceptada",
-    not_sent: "Sin enviar"
+    not_sent: "Sin enviar",
   };
 
   return labels[status] || "Sin estado";
@@ -8422,10 +9997,12 @@ function humanizeInvitationStatus(status) {
 function humanizeTransferBlock(value, unitCode) {
   const labels = {
     block_1: "Bloque 1 - cobra Enzo",
-    block_2: "Bloque 2 - cobra Ivo"
+    block_2: "Bloque 2 - cobra Ivo",
   };
 
-  return labels[value] || `Bloque inferido desde unidad ${unitCode || "sin código"}`;
+  return (
+    labels[value] || `Bloque inferido desde unidad ${unitCode || "sin código"}`
+  );
 }
 
 function humanizeAuthError(error) {
@@ -8517,7 +10094,9 @@ function formatConfidence(value) {
 }
 
 function truncateText(value, maxLength = 160) {
-  const text = String(value || "").replace(/\s+/g, " ").trim();
+  const text = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (text.length <= maxLength) {
     return text;
   }
@@ -8527,20 +10106,28 @@ function truncateText(value, maxLength = 160) {
 
 function resolveGeneralSettings() {
   return {
-      lateFeeDailyRate: Number(state.generalSettings?.lateFeeDailyRate ?? 0.001),
-      reminderDaysBeforeDue: Number(state.generalSettings?.reminderDaysBeforeDue ?? 3),
-      dueDayOfMonth: Number(state.generalSettings?.dueDayOfMonth ?? 10),
-      morosoAfterDays: Number(state.generalSettings?.morosoAfterDays ?? 15),
-      defaultNotificationChannel: String(state.generalSettings?.defaultNotificationChannel ?? "email"),
-      autoNotifyNewCharge: state.generalSettings?.autoNotifyNewCharge !== false,
-      autoNotifyOverdue: state.generalSettings?.autoNotifyOverdue !== false,
-      lastRentAdjustmentPercent: Number(state.generalSettings?.lastRentAdjustmentPercent ?? 0),
-      defaultRents: {
-        Departamento: Number(state.generalSettings?.defaultRents?.Departamento ?? 0),
-        Casa: Number(state.generalSettings?.defaultRents?.Casa ?? 0),
-        Local: Number(state.generalSettings?.defaultRents?.Local ?? 0)
-      }
-    };
+    lateFeeDailyRate: Number(state.generalSettings?.lateFeeDailyRate ?? 0.001),
+    reminderDaysBeforeDue: Number(
+      state.generalSettings?.reminderDaysBeforeDue ?? 3,
+    ),
+    dueDayOfMonth: Number(state.generalSettings?.dueDayOfMonth ?? 10),
+    morosoAfterDays: Number(state.generalSettings?.morosoAfterDays ?? 15),
+    defaultNotificationChannel: String(
+      state.generalSettings?.defaultNotificationChannel ?? "email",
+    ),
+    autoNotifyNewCharge: state.generalSettings?.autoNotifyNewCharge !== false,
+    autoNotifyOverdue: state.generalSettings?.autoNotifyOverdue !== false,
+    lastRentAdjustmentPercent: Number(
+      state.generalSettings?.lastRentAdjustmentPercent ?? 0,
+    ),
+    defaultRents: {
+      Departamento: Number(
+        state.generalSettings?.defaultRents?.Departamento ?? 0,
+      ),
+      Casa: Number(state.generalSettings?.defaultRents?.Casa ?? 0),
+      Local: Number(state.generalSettings?.defaultRents?.Local ?? 0),
+    },
+  };
 }
 
 function getDefaultRentForUnitType(unitType) {
@@ -8558,28 +10145,37 @@ function resolveDisplayedBaseRent(tenant, property, currentCharge = null) {
   }
 
   const currentPeriod = resolveCurrentPeriodValue();
-  const configuredCurrentBaseRent = Number(tenant?.rentUpdateConfig?.currentBaseRent ?? 0);
-  const pendingBaseRent = Number(tenant?.rentUpdateConfig?.pendingBaseRent ?? tenant?.rentUpdateConfig?.nextBaseRent ?? 0);
+  const configuredCurrentBaseRent = Number(
+    tenant?.rentUpdateConfig?.currentBaseRent ?? 0,
+  );
+  const pendingBaseRent = Number(
+    tenant?.rentUpdateConfig?.pendingBaseRent ??
+      tenant?.rentUpdateConfig?.nextBaseRent ??
+      0,
+  );
   const billingEffectivePeriod = String(
-    tenant?.rentUpdateConfig?.billingEffectivePeriod
-      || addMonthsToPeriod(String(tenant?.rentUpdateConfig?.effectivePeriod ?? "").trim(), 1)
+    tenant?.rentUpdateConfig?.billingEffectivePeriod ||
+      addMonthsToPeriod(
+        String(tenant?.rentUpdateConfig?.effectivePeriod ?? "").trim(),
+        1,
+      ),
   ).trim();
   const explicitBaseRent = Number(tenant?.baseRent ?? 0);
 
   if (
-    billingEffectivePeriod
-    && billingEffectivePeriod > currentPeriod
-    && Number.isFinite(configuredCurrentBaseRent)
-    && configuredCurrentBaseRent > 0
+    billingEffectivePeriod &&
+    billingEffectivePeriod > currentPeriod &&
+    Number.isFinite(configuredCurrentBaseRent) &&
+    configuredCurrentBaseRent > 0
   ) {
     return configuredCurrentBaseRent;
   }
 
   if (
-    billingEffectivePeriod
-    && billingEffectivePeriod <= currentPeriod
-    && Number.isFinite(pendingBaseRent)
-    && pendingBaseRent > 0
+    billingEffectivePeriod &&
+    billingEffectivePeriod <= currentPeriod &&
+    Number.isFinite(pendingBaseRent) &&
+    pendingBaseRent > 0
   ) {
     return pendingBaseRent;
   }
@@ -8596,7 +10192,9 @@ function resolveChargeRentAmount(charge) {
     return 0;
   }
 
-  const rentItem = charge.items.find((item) => String(item?.key || "") === "rent");
+  const rentItem = charge.items.find(
+    (item) => String(item?.key || "") === "rent",
+  );
   const rentAmount = Number(rentItem?.amount ?? 0);
   return Number.isFinite(rentAmount) && rentAmount > 0 ? rentAmount : 0;
 }
@@ -8606,9 +10204,13 @@ function resolveChargeExpenseAmount(charge) {
     return 0;
   }
 
-  const expenseItem = charge.items.find((item) => String(item?.key || "") === "expenses");
+  const expenseItem = charge.items.find(
+    (item) => String(item?.key || "") === "expenses",
+  );
   const expenseAmount = Number(expenseItem?.amount ?? 0);
-  return Number.isFinite(expenseAmount) && expenseAmount > 0 ? expenseAmount : 0;
+  return Number.isFinite(expenseAmount) && expenseAmount > 0
+    ? expenseAmount
+    : 0;
 }
 
 function buildChargeBreakdownRows(charge) {
@@ -8619,7 +10221,9 @@ function buildChargeBreakdownRows(charge) {
   const rentAmount = resolveChargeRentAmount(charge);
   const expenseAmount = resolveChargeExpenseAmount(charge);
   const utilityItems = Array.isArray(charge.items)
-    ? charge.items.filter((item) => !["rent", "expenses"].includes(String(item?.key || "")))
+    ? charge.items.filter(
+        (item) => !["rent", "expenses"].includes(String(item?.key || "")),
+      )
     : [];
 
   const rows = [];
@@ -8658,11 +10262,13 @@ function resolveCurrentPeriodValue() {
 
 function resolveSummaryPeriod(charges = []) {
   const currentPeriod = resolveCurrentPeriodValue();
-  const availablePeriods = [...new Set(
-    charges
-      .map((charge) => String(charge?.period || "").trim())
-      .filter(Boolean)
-  )].sort((left, right) => right.localeCompare(left));
+  const availablePeriods = [
+    ...new Set(
+      charges
+        .map((charge) => String(charge?.period || "").trim())
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => right.localeCompare(left));
 
   if (!availablePeriods.length) {
     return currentPeriod;
@@ -8696,7 +10302,8 @@ function resolveTransferAccount(property) {
     return null;
   }
 
-  const transferBlock = property.transferBlock || inferTransferBlockFromUnitCode(property.unitCode);
+  const transferBlock =
+    property.transferBlock || inferTransferBlockFromUnitCode(property.unitCode);
   const bankAccounts = resolveBankAccounts();
 
   if (transferBlock === "block_2") {
@@ -8705,7 +10312,7 @@ function resolveTransferAccount(property) {
       holderName: bankAccounts.block_2.holderName,
       alias: bankAccounts.block_2.alias,
       cbu: bankAccounts.block_2.cbu,
-      helpText: "Las unidades 7 al 12 transfieren a la cuenta de Ivo."
+      helpText: "Las unidades 7 al 12 transfieren a la cuenta de Ivo.",
     };
   }
 
@@ -8714,7 +10321,7 @@ function resolveTransferAccount(property) {
     holderName: bankAccounts.block_1.holderName,
     alias: bankAccounts.block_1.alias,
     cbu: bankAccounts.block_1.cbu,
-    helpText: "Las unidades 1 al 6 transfieren a la cuenta de Enzo."
+    helpText: "Las unidades 1 al 6 transfieren a la cuenta de Enzo.",
   };
 }
 
@@ -8726,7 +10333,7 @@ function resolveBankAccounts() {
       cbu: state.bankAccounts?.block_1?.cbu || "3110001211000017138077",
       dni: state.bankAccounts?.block_1?.dni || "44086381",
       email: state.bankAccounts?.block_1?.email || "",
-      phone: state.bankAccounts?.block_1?.phone || ""
+      phone: state.bankAccounts?.block_1?.phone || "",
     },
     block_2: {
       holderName: state.bankAccounts?.block_2?.holderName || "Ivo",
@@ -8734,8 +10341,8 @@ function resolveBankAccounts() {
       cbu: state.bankAccounts?.block_2?.cbu || "3110001211001029834072",
       dni: state.bankAccounts?.block_2?.dni || "46147628",
       email: state.bankAccounts?.block_2?.email || "",
-      phone: state.bankAccounts?.block_2?.phone || ""
-    }
+      phone: state.bankAccounts?.block_2?.phone || "",
+    },
   };
 }
 
@@ -8748,19 +10355,25 @@ function inferTransferBlockFromUnitCode(unitCode) {
 function getBillingGroups(serviceType) {
   if (serviceType === "water") {
     return [
-      { value: "water_departments_local_1", label: "Agua - Departamentos + Local 1" },
+      {
+        value: "water_departments_local_1",
+        label: "Agua - Departamentos + Local 1",
+      },
       { value: "water_locals_2_3", label: "Agua - Locales 2 y 3" },
-      { value: "water_house", label: "Agua - Casa" }
+      { value: "water_house", label: "Agua - Casa" },
     ];
   }
 
   return [
-    { value: "electricity_departments", label: "Luz - Departamentos (unificado)" },
+    {
+      value: "electricity_departments",
+      label: "Luz - Departamentos (unificado)",
+    },
     { value: "electricity_house", label: "Luz - Casa" },
     { value: "electricity_local_1", label: "Luz - Local 1" },
     { value: "electricity_local_2", label: "Luz - Local 2" },
     { value: "electricity_local_3", label: "Luz - Local 3" },
-    { value: "electricity_local_4", label: "Luz - Local 4" }
+    { value: "electricity_local_4", label: "Luz - Local 4" },
   ];
 }
 
@@ -8828,6 +10441,11 @@ function getTenantRentalStatus(tenantId) {
   return { label: "Pendiente", className: "warning" };
 }
 
+function getChargeRecencyScore(charge) {
+  const dueDate = resolveDateSortValue(charge?.dueDate);
+  return Number.isFinite(dueDate) ? dueDate : Number.MAX_SAFE_INTEGER;
+}
+
 function getPropertyOccupancyStatus(property, tenant) {
   if (tenant) {
     return { label: "Ocupada", className: "success" };
@@ -8845,30 +10463,69 @@ function getPropertyOccupancyStatus(property, tenant) {
 }
 
 function getPropertyCurrentCharge(tenantId) {
-  const relevantCharges = state.charges
-    .filter((charge) => charge.tenantId === tenantId && charge.status !== "cancelled")
-    .sort((a, b) => {
-      const priorityDifference = getPropertyChargePriority(b) - getPropertyChargePriority(a);
-      if (priorityDifference !== 0) {
-        return priorityDifference;
+  const relevantCharges = state.charges.filter(
+    (charge) =>
+      charge.tenantId === tenantId &&
+      !["paid", "cancelled"].includes(String(charge.status || "")),
+  );
+
+  if (!relevantCharges.length) {
+    const latestPaidCharge = state.charges
+      .filter(
+        (charge) =>
+          charge.tenantId === tenantId &&
+          String(charge.status || "") === "paid",
+      )
+      .sort(
+        (left, right) =>
+          getChargeRecencyScore(right) - getChargeRecencyScore(left),
+      )[0];
+    return latestPaidCharge || null;
+  }
+
+  const activeReviewCharge = relevantCharges
+    .filter((charge) =>
+      ["in_review", "reported"].includes(String(charge.status || "")),
+    )
+    .sort(
+      (left, right) =>
+        getChargeRecencyScore(right) - getChargeRecencyScore(left),
+    )[0];
+
+  if (activeReviewCharge) {
+    return activeReviewCharge;
+  }
+
+  return (
+    relevantCharges.sort((left, right) => {
+      const recencyDifference =
+        getChargeRecencyScore(right) - getChargeRecencyScore(left);
+      if (recencyDifference !== 0) {
+        return recencyDifference;
       }
 
-      return resolveDateSortValue(a.dueDate) - resolveDateSortValue(b.dueDate);
-    });
-
-  return relevantCharges[0] || null;
+      return getPropertyChargePriority(right) - getPropertyChargePriority(left);
+    })[0] || null
+  );
 }
 
 function getOpenChargesForTenant(tenantId) {
   return state.charges
-    .filter((charge) => charge.tenantId === tenantId && !["paid", "cancelled"].includes(String(charge.status || "")))
+    .filter(
+      (charge) =>
+        charge.tenantId === tenantId &&
+        !["paid", "cancelled"].includes(String(charge.status || "")),
+    )
     .sort((left, right) => {
-      const priorityDifference = getPropertyChargePriority(right) - getPropertyChargePriority(left);
+      const priorityDifference =
+        getPropertyChargePriority(right) - getPropertyChargePriority(left);
       if (priorityDifference !== 0) {
         return priorityDifference;
       }
 
-      return String(right.period || "").localeCompare(String(left.period || ""));
+      return String(right.period || "").localeCompare(
+        String(left.period || ""),
+      );
     });
 }
 
@@ -8877,22 +10534,37 @@ function getPendingReviewPaymentForCharge(chargeId) {
     return null;
   }
 
-  return state.payments.find(
-    (payment) => payment.chargeId === chargeId && ["reported", "in_review"].includes(String(payment.status || ""))
-  ) || null;
+  return (
+    state.payments.find(
+      (payment) =>
+        payment.chargeId === chargeId &&
+        ["reported", "in_review"].includes(String(payment.status || "")),
+    ) || null
+  );
 }
 
 function getTenantReceiptableCharges(tenantId) {
   const actionable = state.charges
-    .filter((charge) => charge.tenantId === tenantId && ["pending", "overdue", "reported"].includes(String(charge.status || "")))
-    .sort((left, right) => String(right.period || "").localeCompare(String(left.period || "")));
+    .filter(
+      (charge) =>
+        charge.tenantId === tenantId &&
+        ["pending", "overdue", "reported"].includes(
+          String(charge.status || ""),
+        ),
+    )
+    .sort((left, right) =>
+      String(right.period || "").localeCompare(String(left.period || "")),
+    );
 
   if (actionable.length) {
     return actionable;
   }
 
   const currentCharge = getPropertyCurrentCharge(tenantId);
-  if (currentCharge && !["paid", "cancelled"].includes(String(currentCharge.status || ""))) {
+  if (
+    currentCharge &&
+    !["paid", "cancelled"].includes(String(currentCharge.status || ""))
+  ) {
     return [currentCharge];
   }
 
@@ -8943,7 +10615,7 @@ function getChargeVisualStatus(charge) {
     return {
       label: "Pagado",
       className: "success",
-      helpText: "El cobro ya fue confirmado."
+      helpText: "El cobro ya fue confirmado.",
     };
   }
 
@@ -8951,7 +10623,7 @@ function getChargeVisualStatus(charge) {
     return {
       label: "En revisión",
       className: "neutral",
-      helpText: "Hay un pago informado esperando revisión administrativa."
+      helpText: "Hay un pago informado esperando revisión administrativa.",
     };
   }
 
@@ -8959,7 +10631,7 @@ function getChargeVisualStatus(charge) {
     return {
       label: "Moroso",
       className: "danger",
-      helpText: `Supero el umbral de ${generalSettings.morosoAfterDays} dias configurado para morosidad.`
+      helpText: `Supero el umbral de ${generalSettings.morosoAfterDays} dias configurado para morosidad.`,
     };
   }
 
@@ -8967,14 +10639,14 @@ function getChargeVisualStatus(charge) {
     return {
       label: "Vencido",
       className: "warning",
-      helpText: "El cobro vencio y ya esta acumulando mora."
+      helpText: "El cobro vencio y ya esta acumulando mora.",
     };
   }
 
   return {
     label: "Pendiente",
     className: "neutral",
-    helpText: "Todavía esta dentro de fecha o sin atraso acumulado."
+    helpText: "Todavía esta dentro de fecha o sin atraso acumulado.",
   };
 }
 
@@ -9019,7 +10691,7 @@ function describeTenantContract(tenant) {
 
 function getTenantPunctuality(tenantId) {
   const paidCharges = state.charges.filter(
-    (charge) => charge.tenantId === tenantId && charge.status === "paid"
+    (charge) => charge.tenantId === tenantId && charge.status === "paid",
   );
 
   if (!paidCharges.length) {
@@ -9054,11 +10726,16 @@ function billAppliesToProperty(bill, property) {
   }
 
   if (billGroup.startsWith("electricity_local_")) {
-    return unitType === "Local" && unitCode === billGroup.replace("electricity_local_", "");
+    return (
+      unitType === "Local" &&
+      unitCode === billGroup.replace("electricity_local_", "")
+    );
   }
 
   if (billGroup === "water_departments_local_1") {
-    return unitType === "Departamento" || (unitType === "Local" && unitCode === "1");
+    return (
+      unitType === "Departamento" || (unitType === "Local" && unitCode === "1")
+    );
   }
 
   if (billGroup === "water_locals_2_3") {
@@ -9081,7 +10758,7 @@ function canAutoApplyBillToProperty(bill) {
     "electricity_local_2",
     "electricity_local_3",
     "electricity_local_4",
-    "water_house"
+    "water_house",
   ].includes(billGroup);
 }
 

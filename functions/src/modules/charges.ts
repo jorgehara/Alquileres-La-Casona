@@ -2,8 +2,17 @@ import { onCall } from "firebase-functions/https";
 import { onSchedule } from "firebase-functions/scheduler";
 import { db } from "../firebase.js";
 import { requireRole } from "../lib/auth.js";
-import { collectionPeriod, nowIso, rentalPeriod, sumAmounts } from "../lib/utils.js";
+import {
+  collectionPeriod,
+  nowIso,
+  rentalPeriod,
+  sumAmounts,
+} from "../lib/utils.js";
 import { DEPARTMENT_COMMON_EXPENSES } from "../lib/constants.js";
+import {
+  canGenerateChargeForPeriod,
+  resolvePersistedOpenChargeStatus,
+} from "../lib/chargeState.js";
 import { ChargeItem, ChargeRecord } from "../types.js";
 import { sendTenantNotification } from "./notifications.js";
 
@@ -39,7 +48,7 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   morosoAfterDays: 15,
   defaultNotificationChannel: "email",
   autoNotifyNewCharge: true,
-  autoNotifyOverdue: true
+  autoNotifyOverdue: true,
 };
 
 export const generateMonthlyCharges = onCall(async (request) => {
@@ -47,9 +56,12 @@ export const generateMonthlyCharges = onCall(async (request) => {
   return createMonthlyCharges(request.auth?.uid ?? "system");
 });
 
-export const scheduledGenerateMonthlyCharges = onSchedule("0 8 1 * *", async () => {
-  await createMonthlyCharges("system-scheduler");
-});
+export const scheduledGenerateMonthlyCharges = onSchedule(
+  "0 8 1 * *",
+  async () => {
+    await createMonthlyCharges("system-scheduler");
+  },
+);
 
 export const syncChargeStatuses = onCall(async (request) => {
   await requireRole(request, ["admin", "superadmin"]);
@@ -60,7 +72,10 @@ export const scheduledSyncChargeStatuses = onSchedule("0 7 * * *", async () => {
   await reconcileOpenCharges("system-scheduler");
 });
 
-export async function ensureCurrentChargeForTenant(tenantId: string, actorUserId: string) {
+export async function ensureCurrentChargeForTenant(
+  tenantId: string,
+  actorUserId: string,
+) {
   const period = rentalPeriod();
   const duePeriod = collectionPeriod();
   const generationDate = new Date();
@@ -87,30 +102,53 @@ export async function ensureCurrentChargeForTenant(tenantId: string, actorUserId
     return { ok: true, created: false, period };
   }
 
-  const propertyId = String(data.propertyId ?? "");
-  const propertyDoc = propertyId ? await db.collection("properties").doc(propertyId).get() : null;
-  const property = propertyDoc?.exists ? ({ id: propertyDoc.id, ...propertyDoc.data() } as PropertyLike) : undefined;
+  if (!canGenerateChargeForPeriod(data.contractStartDate, period)) {
+    return {
+      ok: true,
+      created: false,
+      period,
+      skippedReason: "pre_contract_period",
+    };
+  }
 
-  const billsSnapshot = await db.collection("utilityBills").where("period", "==", period).get();
-  const bills = billsSnapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as UtilityBillLike[];
+  const propertyId = String(data.propertyId ?? "");
+  const propertyDoc = propertyId
+    ? await db.collection("properties").doc(propertyId).get()
+    : null;
+  const property = propertyDoc?.exists
+    ? ({ id: propertyDoc.id, ...propertyDoc.data() } as PropertyLike)
+    : undefined;
+
+  const billsSnapshot = await db
+    .collection("utilityBills")
+    .where("period", "==", period)
+    .get();
+  const bills = billsSnapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data(),
+  })) as UtilityBillLike[];
 
   const serviceItems = bills
     .filter((bill) => {
       const amount = Number(bill.amount ?? NaN);
       return (
-        bill.period === period
-        && bill.appliedToCharges === true
-        && !Number.isNaN(amount)
-        && canAutoApplyBillToProperty(bill.billingGroup, property)
+        bill.period === period &&
+        bill.appliedToCharges === true &&
+        !Number.isNaN(amount) &&
+        canAutoApplyBillToProperty(bill.billingGroup, property)
       );
     })
     .map((bill) => ({
       key: bill.serviceType === "electricity" ? "electricity" : "water",
       label: bill.serviceType === "electricity" ? "Luz" : "Agua",
-      amount: Number(bill.amount ?? 0)
+      amount: Number(bill.amount ?? 0),
     })) as ChargeItem[];
 
-  const items: ChargeItem[] = buildBaseChargeItemsForTenant(data, property, period).concat(serviceItems);
+  const items: ChargeItem[] = buildBaseChargeItemsForTenant(
+    data,
+    property,
+    period,
+  ).concat(serviceItems);
   const subtotal = sumAmounts(items.map((item) => item.amount));
   const dueDayOfMonth = resolveTenantDueDayOfMonth(data, settings);
   const nominalDueDate = `${duePeriod}-${String(dueDayOfMonth).padStart(2, "0")}`;
@@ -131,7 +169,7 @@ export async function ensureCurrentChargeForTenant(tenantId: string, actorUserId
     status: initialState.status,
     paymentPolicy: "full_only",
     generatedAt,
-    generatedBy: actorUserId
+    generatedBy: actorUserId,
   };
 
   await db.collection("charges").doc().set(charge);
@@ -144,11 +182,23 @@ async function createMonthlyCharges(actorUserId: string) {
   const generationDate = new Date();
   const generatedAt = generationDate.toISOString();
   const settings = await getGeneralSettings();
-  const tenantsSnapshot = await db.collection("tenants").where("status", "==", "active").get();
-  const billsSnapshot = await db.collection("utilityBills").where("period", "==", period).get();
+  const tenantsSnapshot = await db
+    .collection("tenants")
+    .where("status", "==", "active")
+    .get();
+  const billsSnapshot = await db
+    .collection("utilityBills")
+    .where("period", "==", period)
+    .get();
   const propertiesSnapshot = await db.collection("properties").get();
-  const properties = propertiesSnapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as PropertyLike[];
-  const bills = billsSnapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as UtilityBillLike[];
+  const properties = propertiesSnapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data(),
+  })) as PropertyLike[];
+  const bills = billsSnapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data(),
+  })) as UtilityBillLike[];
   let created = 0;
 
   for (const tenantDoc of tenantsSnapshot.docs) {
@@ -164,6 +214,10 @@ async function createMonthlyCharges(actorUserId: string) {
     }
 
     const data = tenantDoc.data();
+    if (!canGenerateChargeForPeriod(data.contractStartDate, period)) {
+      continue;
+    }
+
     const propertyId = String(data.propertyId ?? "");
     const property = properties.find((item) => item.id === propertyId);
 
@@ -171,19 +225,23 @@ async function createMonthlyCharges(actorUserId: string) {
       .filter((bill) => {
         const amount = Number(bill.amount ?? NaN);
         return (
-          bill.period === period
-          && bill.appliedToCharges === true
-          && !Number.isNaN(amount)
-          && canAutoApplyBillToProperty(bill.billingGroup, property)
+          bill.period === period &&
+          bill.appliedToCharges === true &&
+          !Number.isNaN(amount) &&
+          canAutoApplyBillToProperty(bill.billingGroup, property)
         );
       })
       .map((bill) => ({
         key: bill.serviceType === "electricity" ? "electricity" : "water",
         label: bill.serviceType === "electricity" ? "Luz" : "Agua",
-        amount: Number(bill.amount ?? 0)
+        amount: Number(bill.amount ?? 0),
       })) as ChargeItem[];
 
-    const items: ChargeItem[] = buildBaseChargeItemsForTenant(data, property, period).concat(serviceItems);
+    const items: ChargeItem[] = buildBaseChargeItemsForTenant(
+      data,
+      property,
+      period,
+    ).concat(serviceItems);
 
     const subtotal = sumAmounts(items.map((item) => item.amount));
     const dueDayOfMonth = resolveTenantDueDayOfMonth(data, settings);
@@ -204,7 +262,7 @@ async function createMonthlyCharges(actorUserId: string) {
       status: initialState.status,
       paymentPolicy: "full_only",
       generatedAt,
-      generatedBy: actorUserId
+      generatedBy: actorUserId,
     };
 
     const chargeRef = db.collection("charges").doc();
@@ -216,15 +274,15 @@ async function createMonthlyCharges(actorUserId: string) {
         type: "period_available",
         body: `Hola ${String(data.fullName ?? "inquilino")}, ya esta disponible tu nuevo periodo de pago ${period}.`,
         channel: settings.defaultNotificationChannel,
-        createdBy: actorUserId
+        createdBy: actorUserId,
       });
 
       if (notification.ok) {
         await chargeRef.set(
           {
-            periodNotificationSentAt: nowIso()
+            periodNotificationSentAt: nowIso(),
           },
-          { merge: true }
+          { merge: true },
         );
       }
     }
@@ -239,14 +297,14 @@ async function createMonthlyCharges(actorUserId: string) {
 function buildBaseChargeItemsForTenant(
   tenantData: Record<string, unknown>,
   property: PropertyLike | undefined,
-  period: string
+  period: string,
 ) {
   const items: ChargeItem[] = [
     {
       key: "rent",
       label: "Alquiler",
-      amount: resolveTenantBaseRentForPeriod(tenantData, period)
-    }
+      amount: resolveTenantBaseRentForPeriod(tenantData, period),
+    },
   ];
 
   const expensesAmount = resolveDepartmentExpenseAmount(property);
@@ -254,7 +312,7 @@ function buildBaseChargeItemsForTenant(
     items.push({
       key: "expenses",
       label: "Expensas",
-      amount: expensesAmount
+      amount: expensesAmount,
     });
   }
 
@@ -267,34 +325,50 @@ function resolveDepartmentExpenseAmount(property: PropertyLike | undefined) {
     : 0;
 }
 
-function resolveTenantBaseRentForPeriod(tenantData: Record<string, unknown>, period: string) {
+function resolveTenantBaseRentForPeriod(
+  tenantData: Record<string, unknown>,
+  period: string,
+) {
   const currentBaseRent = Number(tenantData.baseRent ?? 0);
-  const rentUpdateConfig = (tenantData.rentUpdateConfig ?? {}) as Record<string, unknown>;
+  const rentUpdateConfig = (tenantData.rentUpdateConfig ?? {}) as Record<
+    string,
+    unknown
+  >;
   const billingEffectivePeriod = String(
-    rentUpdateConfig.billingEffectivePeriod
-      ?? addMonthsToPeriod(String(rentUpdateConfig.effectivePeriod ?? "").trim(), 1)
+    rentUpdateConfig.billingEffectivePeriod ??
+      addMonthsToPeriod(
+        String(rentUpdateConfig.effectivePeriod ?? "").trim(),
+        1,
+      ),
   ).trim();
   const pendingBaseRent = Number(
-    rentUpdateConfig.pendingBaseRent
-      ?? rentUpdateConfig.nextBaseRent
-      ?? 0
+    rentUpdateConfig.pendingBaseRent ?? rentUpdateConfig.nextBaseRent ?? 0,
   );
 
   if (
-    billingEffectivePeriod
-    && period >= billingEffectivePeriod
-    && Number.isFinite(pendingBaseRent)
-    && pendingBaseRent > 0
+    billingEffectivePeriod &&
+    period >= billingEffectivePeriod &&
+    Number.isFinite(pendingBaseRent) &&
+    pendingBaseRent > 0
   ) {
     return pendingBaseRent;
   }
 
-  return Number.isFinite(currentBaseRent) && currentBaseRent > 0 ? currentBaseRent : 0;
+  return Number.isFinite(currentBaseRent) && currentBaseRent > 0
+    ? currentBaseRent
+    : 0;
 }
 
-function resolveTenantDueDayOfMonth(tenantData: Record<string, unknown>, settings: GeneralSettings) {
+function resolveTenantDueDayOfMonth(
+  tenantData: Record<string, unknown>,
+  settings: GeneralSettings,
+) {
   const tenantDueDay = Number(tenantData.dueDayOfMonth ?? 0);
-  if (Number.isFinite(tenantDueDay) && tenantDueDay >= 1 && tenantDueDay <= 28) {
+  if (
+    Number.isFinite(tenantDueDay) &&
+    tenantDueDay >= 1 &&
+    tenantDueDay <= 28
+  ) {
     return Math.trunc(tenantDueDay);
   }
 
@@ -313,22 +387,31 @@ function addMonthsToPeriod(period: string, months: number) {
   return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function buildInitialChargeState(dueDate: string, subtotal: number, settings: GeneralSettings) {
+function buildInitialChargeState(
+  dueDate: string,
+  subtotal: number,
+  settings: GeneralSettings,
+) {
   const today = startOfDay(new Date());
   const chargeDay = startOfDay(new Date(`${dueDate}T00:00:00`));
-  const overdueDays = chargeDay < today
-    ? Math.max(0, Math.floor((today.getTime() - chargeDay.getTime()) / 86400000))
-    : 0;
-  const lateFeeAmount = overdueDays > 0
-    ? roundCurrency(subtotal * settings.lateFeeDailyRate * overdueDays)
-    : 0;
+  const overdueDays =
+    chargeDay < today
+      ? Math.max(
+          0,
+          Math.floor((today.getTime() - chargeDay.getTime()) / 86400000),
+        )
+      : 0;
+  const lateFeeAmount =
+    overdueDays > 0
+      ? roundCurrency(subtotal * settings.lateFeeDailyRate * overdueDays)
+      : 0;
   const total = roundCurrency(subtotal + lateFeeAmount);
 
   return {
     overdueDays,
     lateFeeAmount,
     total,
-    status: overdueDays > 0 ? "overdue" : "pending"
+    status: overdueDays > 0 ? "overdue" : "pending",
   } as const;
 }
 
@@ -347,7 +430,16 @@ function resolveInitialDueDate(nominalDueDate: string, generationDate: Date) {
 
 async function reconcileOpenCharges(actorUserId: string) {
   const settings = await getGeneralSettings();
-  const snapshot = await db.collection("charges").get();
+  const [snapshot, tenantsSnapshot] = await Promise.all([
+    db.collection("charges").get(),
+    db.collection("tenants").get(),
+  ]);
+  const tenantsById = new Map(
+    tenantsSnapshot.docs.map((tenantDoc) => [
+      tenantDoc.id,
+      tenantDoc.data() ?? {},
+    ]),
+  );
   const today = startOfDay(new Date());
   let updated = 0;
 
@@ -358,7 +450,10 @@ async function reconcileOpenCharges(actorUserId: string) {
       overdueNotificationSentAt?: string;
     };
 
-    if (!charge || ["paid", "cancelled"].includes(String(charge.status ?? ""))) {
+    if (
+      !charge ||
+      ["paid", "cancelled"].includes(String(charge.status ?? ""))
+    ) {
       continue;
     }
 
@@ -370,86 +465,142 @@ async function reconcileOpenCharges(actorUserId: string) {
     }
 
     const chargeDay = startOfDay(new Date(`${dueDate}T00:00:00`));
-    const overdueDays = chargeDay < today
-      ? Math.max(0, Math.floor((today.getTime() - chargeDay.getTime()) / 86400000))
-      : 0;
+    const overdueDays =
+      chargeDay < today
+        ? Math.max(
+            0,
+            Math.floor((today.getTime() - chargeDay.getTime()) / 86400000),
+          )
+        : 0;
 
-    const effectiveRate = Number(charge.lateFeeDailyRate ?? settings.lateFeeDailyRate ?? DEFAULT_GENERAL_SETTINGS.lateFeeDailyRate);
-    const lateFeeAmount = overdueDays > 0
-      ? roundCurrency(subtotal * effectiveRate * overdueDays)
-      : 0;
+    const tenantData = tenantsById.get(String(charge.tenantId ?? "")) ?? {};
+    const isPreContractPeriod = !canGenerateChargeForPeriod(
+      tenantData.contractStartDate,
+      String(charge.period ?? ""),
+    );
+    const effectiveRate = Number(
+      charge.lateFeeDailyRate ??
+        settings.lateFeeDailyRate ??
+        DEFAULT_GENERAL_SETTINGS.lateFeeDailyRate,
+    );
+    const normalizedOverdueDays = isPreContractPeriod ? 0 : overdueDays;
+    const lateFeeAmount =
+      normalizedOverdueDays > 0
+        ? roundCurrency(subtotal * effectiveRate * normalizedOverdueDays)
+        : 0;
     const total = roundCurrency(subtotal + lateFeeAmount);
     const currentStatus = String(charge.status ?? "pending");
-    const nextStatus = resolveChargeStatus(currentStatus, overdueDays);
+    const nextStatus = resolvePersistedOpenChargeStatus({
+      currentStatus,
+      dueDate,
+      overdueDays: normalizedOverdueDays,
+      morosoAfterDays: settings.morosoAfterDays,
+      contractStartDate: tenantData.contractStartDate,
+      period: charge.period,
+      today,
+    });
     const currentLateFee = Number(charge.lateFeeAmount ?? 0);
     const currentOverdueDays = Number(charge.overdueDays ?? 0);
     const currentTotal = Number(charge.total ?? subtotal);
 
     if (
-      nextStatus === currentStatus
-      && currentLateFee === lateFeeAmount
-      && currentOverdueDays === overdueDays
-      && currentTotal === total
+      nextStatus === currentStatus &&
+      currentLateFee === lateFeeAmount &&
+      currentOverdueDays === normalizedOverdueDays &&
+      currentTotal === total
     ) {
       continue;
     }
 
-      await chargeDoc.ref.set(
-        {
-          status: nextStatus,
-        overdueDays,
+    await chargeDoc.ref.set(
+      {
+        status: nextStatus,
+        overdueDays: normalizedOverdueDays,
         lateFeeAmount,
         lateFeeDailyRate: effectiveRate,
         total,
         updatedAt: nowIso(),
-        updatedBy: actorUserId
+        updatedBy: actorUserId,
       },
-        { merge: true }
-      );
+      { merge: true },
+    );
 
-      if (settings.autoNotifyOverdue && overdueDays > 0 && !charge.overdueNotificationSentAt) {
-        const notification = await sendTenantNotification({
-          tenantId: String(charge.tenantId ?? ""),
-          type: "late_fee_notice",
-          body: "Tu alquiler ya registra mora o vencimiento. Te recomendamos revisarlo cuanto antes.",
-          channel: settings.defaultNotificationChannel,
-          createdBy: actorUserId
-        });
+    if (
+      !isPreContractPeriod &&
+      settings.autoNotifyOverdue &&
+      normalizedOverdueDays > 0 &&
+      !charge.overdueNotificationSentAt
+    ) {
+      const notification = await sendTenantNotification({
+        tenantId: String(charge.tenantId ?? ""),
+        type: "late_fee_notice",
+        body: "Tu alquiler ya registra mora o vencimiento. Te recomendamos revisarlo cuanto antes.",
+        channel: settings.defaultNotificationChannel,
+        createdBy: actorUserId,
+      });
 
-        if (notification.ok) {
-          await chargeDoc.ref.set(
-            {
-              overdueNotificationSentAt: nowIso()
-            },
-            { merge: true }
-          );
-        }
+      if (notification.ok) {
+        await chargeDoc.ref.set(
+          {
+            overdueNotificationSentAt: nowIso(),
+          },
+          { merge: true },
+        );
       }
-
-      updated += 1;
     }
+
+    updated += 1;
+  }
 
   return { ok: true, updated };
 }
 
 async function getGeneralSettings(): Promise<GeneralSettings> {
   const snap = await db.collection("settings").doc("general").get();
-  const data = snap.exists ? snap.data() ?? {} : {};
+  const data = snap.exists ? (snap.data() ?? {}) : {};
 
   return {
-    lateFeeDailyRate: normalizeRate(data.lateFeeDailyRate, DEFAULT_GENERAL_SETTINGS.lateFeeDailyRate),
-    reminderDaysBeforeDue: normalizeInteger(data.reminderDaysBeforeDue, DEFAULT_GENERAL_SETTINGS.reminderDaysBeforeDue),
-    dueDayOfMonth: clamp(normalizeInteger(data.dueDayOfMonth, DEFAULT_GENERAL_SETTINGS.dueDayOfMonth), 1, 28),
-    morosoAfterDays: clamp(normalizeInteger(data.morosoAfterDays, DEFAULT_GENERAL_SETTINGS.morosoAfterDays), 1, 120),
-    defaultNotificationChannel: normalizeChannel(data.defaultNotificationChannel),
-    autoNotifyNewCharge: normalizeBoolean(data.autoNotifyNewCharge, DEFAULT_GENERAL_SETTINGS.autoNotifyNewCharge),
-    autoNotifyOverdue: normalizeBoolean(data.autoNotifyOverdue, DEFAULT_GENERAL_SETTINGS.autoNotifyOverdue)
+    lateFeeDailyRate: normalizeRate(
+      data.lateFeeDailyRate,
+      DEFAULT_GENERAL_SETTINGS.lateFeeDailyRate,
+    ),
+    reminderDaysBeforeDue: normalizeInteger(
+      data.reminderDaysBeforeDue,
+      DEFAULT_GENERAL_SETTINGS.reminderDaysBeforeDue,
+    ),
+    dueDayOfMonth: clamp(
+      normalizeInteger(
+        data.dueDayOfMonth,
+        DEFAULT_GENERAL_SETTINGS.dueDayOfMonth,
+      ),
+      1,
+      28,
+    ),
+    morosoAfterDays: clamp(
+      normalizeInteger(
+        data.morosoAfterDays,
+        DEFAULT_GENERAL_SETTINGS.morosoAfterDays,
+      ),
+      1,
+      120,
+    ),
+    defaultNotificationChannel: normalizeChannel(
+      data.defaultNotificationChannel,
+    ),
+    autoNotifyNewCharge: normalizeBoolean(
+      data.autoNotifyNewCharge,
+      DEFAULT_GENERAL_SETTINGS.autoNotifyNewCharge,
+    ),
+    autoNotifyOverdue: normalizeBoolean(
+      data.autoNotifyOverdue,
+      DEFAULT_GENERAL_SETTINGS.autoNotifyOverdue,
+    ),
   };
 }
 
 function canAutoApplyBillToProperty(
   billingGroup: unknown,
-  property: PropertyLike | undefined
+  property: PropertyLike | undefined,
 ) {
   if (!billingGroup || !property) {
     return false;
@@ -468,11 +619,16 @@ function canAutoApplyBillToProperty(
   }
 
   if (group.startsWith("electricity_local_")) {
-    return unitType === "Local" && unitCode === group.replace("electricity_local_", "");
+    return (
+      unitType === "Local" &&
+      unitCode === group.replace("electricity_local_", "")
+    );
   }
 
   if (group === "water_departments_local_1") {
-    return unitType === "Departamento" || (unitType === "Local" && unitCode === "1");
+    return (
+      unitType === "Departamento" || (unitType === "Local" && unitCode === "1")
+    );
   }
 
   if (group === "water_locals_2_3") {
@@ -484,14 +640,6 @@ function canAutoApplyBillToProperty(
   }
 
   return false;
-}
-
-function resolveChargeStatus(currentStatus: string, overdueDays: number) {
-  if (currentStatus === "in_review") {
-    return "in_review";
-  }
-
-  return overdueDays > 0 ? "overdue" : "pending";
 }
 
 function roundCurrency(value: number) {
@@ -522,9 +670,16 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeChannel(value: unknown): GeneralSettings["defaultNotificationChannel"] {
+function normalizeChannel(
+  value: unknown,
+): GeneralSettings["defaultNotificationChannel"] {
   const channel = String(value ?? "").trim();
-  if (channel === "auto" || channel === "whatsapp" || channel === "sms" || channel === "email") {
+  if (
+    channel === "auto" ||
+    channel === "whatsapp" ||
+    channel === "sms" ||
+    channel === "email"
+  ) {
     return channel;
   }
   return DEFAULT_GENERAL_SETTINGS.defaultNotificationChannel;

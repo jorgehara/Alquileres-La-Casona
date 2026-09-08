@@ -21,3 +21,5 @@ functions/.runtimeconfig.json
 CREDENCIALES.md
 backups/
 docs/architecture-for-migration.md
+# Local Pi runtime state
+.atl/

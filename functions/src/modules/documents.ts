@@ -19,13 +19,16 @@ export const extractUtilityBillData = onCall(async (request) => {
 
   const bill = billDoc.data() ?? {};
   if (!bill.storagePath) {
-    throw new HttpsError("failed-precondition", "La factura no tiene archivo asociado.");
+    throw new HttpsError(
+      "failed-precondition",
+      "La factura no tiene archivo asociado.",
+    );
   }
 
   const result = await analyzeFileWithClaude({
     storagePath: String(bill.storagePath),
     mediaType: String(bill.fileType ?? "application/pdf"),
-    task: "utility_bill"
+    task: "utility_bill",
   });
 
   await billDoc.ref.set(
@@ -35,9 +38,9 @@ export const extractUtilityBillData = onCall(async (request) => {
       dueDate: result.date ?? bill.dueDate ?? null,
       extractionSummary: result.summary,
       extractionConfidence: result.confidence,
-      updatedAt: nowIso()
+      updatedAt: nowIso(),
     },
-    { merge: true }
+    { merge: true },
   );
 
   return { ok: true, providerConfigured: true, result };
@@ -51,87 +54,146 @@ export const extractPaymentReceiptData = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "receiptId es obligatorio.");
   }
 
-  const receiptDoc = await db.collection("paymentReceipts").doc(data.receiptId).get();
+  const receiptDoc = await db
+    .collection("paymentReceipts")
+    .doc(data.receiptId)
+    .get();
   if (!receiptDoc.exists) {
     throw new HttpsError("not-found", "No existe el comprobante solicitado.");
   }
 
   const receipt = receiptDoc.data() ?? {};
   if (!receipt.storagePath) {
-    throw new HttpsError("failed-precondition", "El comprobante no tiene archivo asociado.");
+    throw new HttpsError(
+      "failed-precondition",
+      "El comprobante no tiene archivo asociado.",
+    );
   }
 
-  const receiptEvaluation = await analyzeStoredReceipt(String(receiptDoc.id), receipt);
+  const receiptEvaluation = await analyzeStoredReceipt(
+    String(receiptDoc.id),
+    receipt,
+  );
 
   await receiptDoc.ref.set(
     {
       ...receiptEvaluation.updates,
-      updatedAt: nowIso()
+      updatedAt: nowIso(),
     },
-    { merge: true }
+    { merge: true },
   );
 
   return {
     ok: true,
     providerConfigured: true,
-    result: receiptEvaluation.result
+    result: receiptEvaluation.result,
   };
 });
 
-export async function analyzeStoredReceipt(receiptId: string, receipt?: Record<string, unknown>) {
-  const resolvedReceipt = receipt
-    ?? (await db.collection("paymentReceipts").doc(receiptId).get()).data()
-    ?? {};
+export async function analyzeStoredReceipt(
+  receiptId: string,
+  receipt?: Record<string, unknown>,
+) {
+  const resolvedReceipt =
+    receipt ??
+    (await db.collection("paymentReceipts").doc(receiptId).get()).data() ??
+    {};
 
   if (!resolvedReceipt.storagePath) {
-    throw new HttpsError("failed-precondition", "El comprobante no tiene archivo asociado.");
+    throw new HttpsError(
+      "failed-precondition",
+      "El comprobante no tiene archivo asociado.",
+    );
   }
 
-  const extraction = await analyzeFileWithClaude({
-    storagePath: String(resolvedReceipt.storagePath),
-    mediaType: String(resolvedReceipt.fileType ?? "image/jpeg"),
-    task: "payment_receipt"
-  });
+  try {
+    const extraction = await analyzeFileWithClaude({
+      storagePath: String(resolvedReceipt.storagePath),
+      mediaType: String(resolvedReceipt.fileType ?? "image/jpeg"),
+      task: "payment_receipt",
+    });
 
-  let chargeAmount: number | null = null;
-  let reviewSuggestion = "pending_manual_review";
-  const amountTolerance = resolveReceiptAmountTolerance(extraction);
+    let chargeAmount: number | null = null;
+    let reviewSuggestion = "pending_manual_review";
+    const amountTolerance = resolveReceiptAmountTolerance(extraction);
 
-  if (resolvedReceipt.paymentId) {
-    const paymentDoc = await db.collection("payments").doc(String(resolvedReceipt.paymentId)).get();
-    const payment = paymentDoc.data() ?? {};
-    if (payment.chargeId) {
-      const chargeDoc = await db.collection("charges").doc(String(payment.chargeId)).get();
-      const charge = chargeDoc.data() ?? {};
-      chargeAmount = Number(charge.total ?? 0);
+    if (resolvedReceipt.paymentId) {
+      const paymentDoc = await db
+        .collection("payments")
+        .doc(String(resolvedReceipt.paymentId))
+        .get();
+      const payment = paymentDoc.data() ?? {};
+      if (payment.chargeId) {
+        const chargeDoc = await db
+          .collection("charges")
+          .doc(String(payment.chargeId))
+          .get();
+        const charge = chargeDoc.data() ?? {};
+        chargeAmount = Number(charge.total ?? 0);
+      }
     }
-  }
 
-  if (chargeAmount && extraction.amount) {
-    const difference = Math.abs(chargeAmount - extraction.amount);
-    reviewSuggestion = difference <= amountTolerance ? "likely_match" : "amount_mismatch";
-  }
-
-  return {
-    updates: {
-      claudeExtractionStatus: "processed",
-      detectedAmount: extraction.amount,
-      detectedDate: extraction.date,
-      detectedTime: extraction.time,
-      detectedPaidAt: extraction.paidAt,
-      detectedDestination: extraction.destinationText,
-      detectedDocumentType: extraction.documentType,
-      extractionSummary: extraction.summary,
-      extractionConfidence: extraction.confidence,
-      reviewSuggestion
-    },
-    result: {
-      ...extraction,
-      reviewSuggestion,
-      chargeAmount,
-      amountTolerance
+    if (chargeAmount && extraction.amount) {
+      const difference = Math.abs(chargeAmount - extraction.amount);
+      reviewSuggestion =
+        difference <= amountTolerance ? "likely_match" : "amount_mismatch";
     }
-  };
+
+    return {
+      updates: {
+        claudeExtractionStatus: "processed",
+        detectedAmount: extraction.amount,
+        detectedDate: extraction.date,
+        detectedTime: extraction.time,
+        detectedPaidAt: extraction.paidAt,
+        detectedDestination: extraction.destinationText,
+        detectedDocumentType: extraction.documentType,
+        extractionSummary: extraction.summary,
+        extractionConfidence: extraction.confidence,
+        extractionProvider: "claude",
+        reviewSuggestion,
+      },
+      result: {
+        ...extraction,
+        reviewSuggestion,
+        chargeAmount,
+        amountTolerance,
+        validationAvailable: true,
+        validationStatus: "claude_processed",
+        validationMessage: "Comprobante analizado automáticamente.",
+      },
+    };
+  } catch (error) {
+    const fallback = buildReceiptManualReviewFallback(error);
+
+    return {
+      updates: {
+        claudeExtractionStatus: fallback.status,
+        extractionSummary: fallback.summary,
+        extractionConfidence: 0,
+        extractionProvider: fallback.provider,
+        reviewSuggestion: "pending_manual_review",
+        validationStatus: fallback.validationStatus,
+        validationMessage: fallback.message,
+      },
+      result: {
+        amount: null,
+        date: null,
+        time: null,
+        paidAt: null,
+        destinationText: null,
+        documentType: "unknown",
+        confidence: 0,
+        summary: fallback.summary,
+        reviewSuggestion: "pending_manual_review",
+        chargeAmount: null,
+        amountTolerance: null,
+        validationAvailable: false,
+        validationStatus: fallback.validationStatus,
+        validationMessage: fallback.message,
+      },
+    };
+  }
 }
 
 async function analyzeFileWithClaude(input: {
@@ -141,10 +203,16 @@ async function analyzeFileWithClaude(input: {
 }) {
   const apiKey = claudeApiKey.value();
   if (!apiKey) {
-    throw new HttpsError("failed-precondition", "Falta configurar CLAUDE_API_KEY.");
+    throw new HttpsError(
+      "failed-precondition",
+      "Falta configurar CLAUDE_API_KEY.",
+    );
   }
 
-  const [fileBuffer] = await storage.bucket().file(input.storagePath).download();
+  const [fileBuffer] = await storage
+    .bucket()
+    .file(input.storagePath)
+    .download();
   const base64Data = fileBuffer.toString("base64");
 
   const source =
@@ -154,16 +222,16 @@ async function analyzeFileWithClaude(input: {
           source: {
             type: "base64",
             media_type: "application/pdf",
-            data: base64Data
-          }
+            data: base64Data,
+          },
         }
       : {
           type: "image",
           source: {
             type: "base64",
             media_type: normalizeImageMediaType(input.mediaType),
-            data: base64Data
-          }
+            data: base64Data,
+          },
         };
 
   const prompt =
@@ -176,7 +244,7 @@ async function analyzeFileWithClaude(input: {
     headers: {
       "content-type": "application/json",
       "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
+      "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
@@ -188,24 +256,28 @@ async function analyzeFileWithClaude(input: {
             source,
             {
               type: "text",
-              text: prompt
-            }
-          ]
-        }
-      ]
-    })
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    }),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new HttpsError("internal", `Claude no pudo analizar el archivo: ${errorBody}`);
+    throw new HttpsError(
+      "internal",
+      `Claude no pudo analizar el archivo: ${errorBody}`,
+    );
   }
 
   const payload = (await response.json()) as {
     content?: Array<{ type?: string; text?: string }>;
   };
 
-  const textBlock = payload.content?.find((item) => item.type === "text")?.text ?? "";
+  const textBlock =
+    payload.content?.find((item) => item.type === "text")?.text ?? "";
   const parsed = safeJsonParse(textBlock);
 
   return {
@@ -214,12 +286,19 @@ async function analyzeFileWithClaude(input: {
     time: typeof parsed.time === "string" ? parsed.time : null,
     paidAt: buildDetectedPaidAtValue(
       typeof parsed.date === "string" ? parsed.date : null,
-      typeof parsed.time === "string" ? parsed.time : null
+      typeof parsed.time === "string" ? parsed.time : null,
     ),
-    destinationText: typeof parsed.destinationText === "string" ? parsed.destinationText : null,
-    documentType: typeof parsed.documentType === "string" ? parsed.documentType : "unknown",
+    destinationText:
+      typeof parsed.destinationText === "string"
+        ? parsed.destinationText
+        : null,
+    documentType:
+      typeof parsed.documentType === "string" ? parsed.documentType : "unknown",
     confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0,
-    summary: typeof parsed.summary === "string" ? parsed.summary : "Sin resumen generado."
+    summary:
+      typeof parsed.summary === "string"
+        ? parsed.summary
+        : "Sin resumen generado.",
   };
 }
 
@@ -232,9 +311,7 @@ function buildDetectedPaidAtValue(date: string | null, time: string | null) {
     return `${date}T12:00:00`;
   }
 
-  const normalizedTime = /^\d{2}:\d{2}$/.test(time)
-    ? `${time}:00`
-    : time;
+  const normalizedTime = /^\d{2}:\d{2}$/.test(time) ? `${time}:00` : time;
 
   return `${date}T${normalizedTime}`;
 }
@@ -274,4 +351,35 @@ function safeJsonParse(text: string): Record<string, unknown> {
 function normalizeImageMediaType(mediaType: string): string {
   const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
   return allowed.includes(mediaType) ? mediaType : "image/jpeg";
+}
+
+function buildReceiptManualReviewFallback(error: unknown) {
+  if (isMissingClaudeConfiguration(error)) {
+    return {
+      status: "manual_review_required",
+      provider: "manual",
+      validationStatus: "manual_review_required",
+      message:
+        "No pudimos validar el comprobante automáticamente. Quedó pendiente de revisión manual.",
+      summary:
+        "Validación automática no disponible. Revisión manual pendiente.",
+    };
+  }
+
+  return {
+    status: "failed",
+    provider: "manual",
+    validationStatus: "manual_review_required",
+    message:
+      "No pudimos validar el comprobante automáticamente en este momento. Quedó pendiente de revisión manual.",
+    summary: "Falló la validación automática. Revisión manual pendiente.",
+  };
+}
+
+function isMissingClaudeConfiguration(error: unknown) {
+  return (
+    error instanceof HttpsError &&
+    error.code === "failed-precondition" &&
+    error.message.includes("CLAUDE_API_KEY")
+  );
 }

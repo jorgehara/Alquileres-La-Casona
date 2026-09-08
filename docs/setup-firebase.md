@@ -37,8 +37,18 @@ Copiar `functions/.env.example` y completar:
 - `MERCADO_PAGO_WEBHOOK_SECRET`
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
-- `TWILIO_WHATSAPP_FROM`
+- `TWILIO_SMS_FROM`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `EMAIL_FROM`
 - `CLAUDE_API_KEY`
+- `WHATSAPP_CLOUD_API_TOKEN` (opcional)
+- `WHATSAPP_PHONE_NUMBER_ID` (opcional)
+- `WHATSAPP_BUSINESS_ACCOUNT_ID` (opcional)
+- `FINANCIAL_BOT_API_URL` (opcional)
+- `FINANCIAL_BOT_API_SECRET` (opcional)
 
 ## Primer acceso
 
@@ -122,7 +132,7 @@ Todavia sigue pendiente la conexion real de:
 Mercado Pago ya quedo preparado a nivel codigo, pero para funcionar necesita:
 
 1. `MERCADO_PAGO_ACCESS_TOKEN`
-2. `BACKEND_BASE_URL`
+2. `BACKEND_BASE_URL` apuntando a la URL publica del backend que expone `handleMercadoPagoWebhook` (no sirve una URL local para produccion)
 3. deploy de `Cloud Functions`
 
 Claude ya puede analizar comprobantes y facturas desde `Cloud Functions`, pero para que responda de verdad necesita:

@@ -14,10 +14,11 @@ import {
   smtpPort,
   smtpUser,
   smtpPass,
-  emailFrom
+  emailFrom,
 } from "../config.js";
 import { nowIso, randomToken, rentalPeriod } from "../lib/utils.js";
 import { DEPARTMENT_COMMON_EXPENSES } from "../lib/constants.js";
+import { deriveChargeState } from "../lib/chargeState.js";
 
 type MessageChannel = "auto" | "whatsapp" | "sms" | "email";
 type DeliveryChannel = "whatsapp" | "sms" | "email";
@@ -31,6 +32,8 @@ type ChargeContext = {
   total: number;
   dueDate: string;
   status: string;
+  derivedStatus: string;
+  overdueDays: number;
   paymentLink: string;
 };
 
@@ -60,7 +63,10 @@ export const sendGeneralMessage = onCall(async (request) => {
   };
 
   if (data.tenantId) {
-    const tenantDoc = await db.collection("tenants").doc(String(data.tenantId)).get();
+    const tenantDoc = await db
+      .collection("tenants")
+      .doc(String(data.tenantId))
+      .get();
     const propertyId = String(tenantDoc.data()?.propertyId ?? "").trim();
     if (!propertyId) {
       throw new Error("No se pudo determinar la unidad del inquilino.");
@@ -73,7 +79,7 @@ export const sendGeneralMessage = onCall(async (request) => {
     type: data.type ?? "general",
     body: data.body ?? "",
     channel: data.channel ?? "auto",
-    createdBy: request.auth?.uid ?? "system"
+    createdBy: request.auth?.uid ?? "system",
   });
 
   return {
@@ -82,7 +88,7 @@ export const sendGeneralMessage = onCall(async (request) => {
     channel: result.channel,
     requestedChannel: result.requestedChannel,
     providerConfigured: result.providerConfigured,
-    messageId: result.messageId
+    messageId: result.messageId,
   };
 });
 
@@ -103,25 +109,33 @@ export const resendProfileCreatedEmail = onCall(async (request) => {
   await assertOwnerScopeAccess(request, propertyId);
 
   const tenantName = String(tenantDoc.get("fullName") ?? "inquilino");
-  const tenantEmail = String(tenantDoc.get("email") ?? "").trim().toLowerCase();
+  const tenantEmail = String(tenantDoc.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const result = await sendTenantNotification({
     tenantId,
     type: "profile_created",
     body: `Hola ${tenantName}, tu perfil de inquilino en La Casona ya quedo configurado.`,
     channel: "email",
-    createdBy: request.auth?.uid ?? "system"
+    createdBy: request.auth?.uid ?? "system",
   });
 
   if (tenantEmail) {
     const invitationRef = db.collection("tenantInvitations").doc(tenantEmail);
     const invitationDoc = await invitationRef.get();
-    if (invitationDoc.exists && String(invitationDoc.get("tenantId") ?? "") === tenantId) {
-      await invitationRef.set({
-        lastResentAt: nowIso(),
-        lastResentBy: request.auth?.uid ?? "system",
-        resendCount: Number(invitationDoc.get("resendCount") ?? 0) + 1,
-        updatedAt: nowIso()
-      }, { merge: true });
+    if (
+      invitationDoc.exists &&
+      String(invitationDoc.get("tenantId") ?? "") === tenantId
+    ) {
+      await invitationRef.set(
+        {
+          lastResentAt: nowIso(),
+          lastResentBy: request.auth?.uid ?? "system",
+          resendCount: Number(invitationDoc.get("resendCount") ?? 0) + 1,
+          updatedAt: nowIso(),
+        },
+        { merge: true },
+      );
     }
   }
 
@@ -131,7 +145,7 @@ export const resendProfileCreatedEmail = onCall(async (request) => {
     channel: result.channel,
     requestedChannel: result.requestedChannel,
     providerConfigured: result.providerConfigured,
-    messageId: result.messageId
+    messageId: result.messageId,
   };
 });
 
@@ -160,7 +174,7 @@ export const sendTenantOperationalEmail = onCall(async (request) => {
   const tenantName = String(tenantDoc.get("fullName") ?? "inquilino");
   const bodies: Record<string, string> = {
     period_available: `Hola ${tenantName}, tu nuevo periodo de alquiler ya esta disponible en el portal. Revisa el importe actualizado y utiliza el link de pago si deseas abonarlo con tarjeta o ver los datos para transferencia.`,
-    due_reminder: `Hola ${tenantName}, este es un recordatorio de vencimiento. Te recomendamos ingresar al portal y revisar el estado actual de tu alquiler para evitar recargos por mora.`
+    due_reminder: `Hola ${tenantName}, este es un recordatorio de vencimiento. Te recomendamos ingresar al portal y revisar el estado actual de tu alquiler para evitar recargos por mora.`,
   };
 
   const result = await sendTenantNotification({
@@ -168,7 +182,7 @@ export const sendTenantOperationalEmail = onCall(async (request) => {
     type: templateType,
     body: bodies[templateType],
     channel: "email",
-    createdBy: request.auth?.uid ?? "system"
+    createdBy: request.auth?.uid ?? "system",
   });
 
   return {
@@ -177,14 +191,16 @@ export const sendTenantOperationalEmail = onCall(async (request) => {
     channel: result.channel,
     requestedChannel: result.requestedChannel,
     providerConfigured: result.providerConfigured,
-    messageId: result.messageId
+    messageId: result.messageId,
   };
 });
 
 export const sendAccountCompletionEmail = onCall(async (request) => {
   await requireRole(request, ["admin", "superadmin"]);
 
-  const email = String(request.data?.email ?? "").trim().toLowerCase();
+  const email = String(request.data?.email ?? "")
+    .trim()
+    .toLowerCase();
   if (!email) {
     throw new Error("email es obligatorio.");
   }
@@ -193,26 +209,26 @@ export const sendAccountCompletionEmail = onCall(async (request) => {
     to: email,
     subject: "La Casona - Completa tu acceso",
     text: buildAccountCompletionEmailText(email),
-    html: buildAccountCompletionEmailHtml(email)
+    html: buildAccountCompletionEmailHtml(email),
   });
 
   return {
     ok: true,
-    messageId: sent.messageId
+    messageId: sent.messageId,
   };
 });
 
 export const sendDueReminders = onSchedule(
   {
     schedule: "30 11 * * *",
-    timeZone: BUENOS_AIRES_TIME_ZONE
+    timeZone: BUENOS_AIRES_TIME_ZONE,
   },
   async () => {
     await processPaymentWarnings({
       force: false,
-      createdBy: "system-scheduler"
+      createdBy: "system-scheduler",
     });
-  }
+  },
 );
 
 export const sendPaymentWarningsNow = onCall(async (request) => {
@@ -220,7 +236,7 @@ export const sendPaymentWarningsNow = onCall(async (request) => {
 
   return processPaymentWarnings({
     force: true,
-    createdBy: request.auth?.uid ?? "system"
+    createdBy: request.auth?.uid ?? "system",
   });
 });
 
@@ -231,11 +247,24 @@ async function processPaymentWarnings(input: {
   const settingsDoc = await db.collection("settings").doc("general").get();
   const settings = settingsDoc.data() ?? {};
   const autoNotifyOverdue = settings.autoNotifyOverdue !== false;
-  const reminderDaysBeforeDue = Math.max(0, Number(settings.reminderDaysBeforeDue ?? 3));
+  const reminderDaysBeforeDue = Math.max(
+    0,
+    Number(settings.reminderDaysBeforeDue ?? 3),
+  );
+  const morosoAfterDays = Math.max(1, Number(settings.morosoAfterDays ?? 15));
   const defaultChannel = await resolveDefaultNotificationChannel();
   const today = new Date();
   const { isoDate } = resolveBuenosAiresCalendarParts(today);
-  const chargesSnapshot = await db.collection("charges").get();
+  const [chargesSnapshot, tenantsSnapshot] = await Promise.all([
+    db.collection("charges").get(),
+    db.collection("tenants").get(),
+  ]);
+  const tenantsById = new Map(
+    tenantsSnapshot.docs.map((tenantDoc) => [
+      tenantDoc.id,
+      tenantDoc.data() ?? {},
+    ]),
+  );
   let eligible = 0;
   let sent = 0;
   let failed = 0;
@@ -246,26 +275,47 @@ async function processPaymentWarnings(input: {
 
   for (const chargeDoc of chargesSnapshot.docs) {
     const charge = chargeDoc.data() as Record<string, unknown>;
+    const tenant = tenantsById.get(String(charge.tenantId ?? "")) ?? {};
+    const derivedState = deriveChargeState({
+      status: charge.status,
+      dueDate: charge.dueDate,
+      overdueDays: charge.overdueDays,
+      morosoAfterDays,
+      contractStartDate: tenant.contractStartDate,
+      period: charge.period,
+      today,
+    });
     const chargeStatus = String(charge.status ?? "").trim();
-    if (!["pending", "overdue"].includes(chargeStatus)) {
+    if (
+      !derivedState.isOpen ||
+      derivedState.isPreContract ||
+      !["pending", "overdue"].includes(chargeStatus)
+    ) {
       continue;
     }
 
     const warning = resolvePaymentWarning({
       dueDate: String(charge.dueDate ?? ""),
       status: chargeStatus,
+      isDelinquent: derivedState.isDelinquent,
       todayIsoDate: isoDate,
       reminderDaysBeforeDue,
-      force: input.force
+      force: input.force,
     });
     if (!warning) {
       continue;
     }
 
-    const paymentWarning = (charge.paymentWarning ?? charge.portalReminder ?? {}) as Record<string, unknown>;
+    const paymentWarning = (charge.paymentWarning ??
+      charge.portalReminder ??
+      {}) as Record<string, unknown>;
     const alreadySentDate = String(paymentWarning.lastSentDate ?? "").trim();
     const alreadySentStage = String(paymentWarning.lastStage ?? "").trim();
-    if (!input.force && alreadySentDate === isoDate && alreadySentStage === warning.stage) {
+    if (
+      !input.force &&
+      alreadySentDate === isoDate &&
+      alreadySentStage === warning.stage
+    ) {
       continue;
     }
 
@@ -275,7 +325,7 @@ async function processPaymentWarnings(input: {
       type: warning.templateType,
       body: buildPortalReminderBody(warning.variant),
       channel: defaultChannel,
-      createdBy: input.createdBy
+      createdBy: input.createdBy,
     });
 
     await chargeDoc.ref.set(
@@ -284,10 +334,10 @@ async function processPaymentWarnings(input: {
           lastAttemptAt: nowIso(),
           lastAttemptStatus: result.status,
           lastStage: warning.stage,
-          ...(result.ok ? { lastSentDate: isoDate, lastSentAt: nowIso() } : {})
-        }
+          ...(result.ok ? { lastSentDate: isoDate, lastSentAt: nowIso() } : {}),
+        },
       },
-      { merge: true }
+      { merge: true },
     );
 
     if (result.ok) {
@@ -303,35 +353,59 @@ async function processPaymentWarnings(input: {
 function resolvePaymentWarning(input: {
   dueDate: string;
   status: string;
+  isDelinquent: boolean;
   todayIsoDate: string;
   reminderDaysBeforeDue: number;
   force: boolean;
 }) {
-  const daysUntilDue = differenceInCalendarDays(input.dueDate, input.todayIsoDate);
+  const daysUntilDue = differenceInCalendarDays(
+    input.dueDate,
+    input.todayIsoDate,
+  );
   if (daysUntilDue === null) {
     return null;
   }
 
   if (input.force) {
     return input.status === "overdue" || daysUntilDue < 0
-      ? { stage: "overdue_manual", variant: "followup" as const, templateType: "late_fee_notice" }
-      : { stage: "pending_manual", variant: "initial" as const, templateType: "due_reminder" };
+      ? {
+          stage: input.isDelinquent ? "delinquent_manual" : "overdue_manual",
+          variant: "followup" as const,
+          templateType: "late_fee_notice",
+        }
+      : {
+          stage: "pending_manual",
+          variant: "initial" as const,
+          templateType: "due_reminder",
+        };
   }
 
   if (daysUntilDue === input.reminderDaysBeforeDue) {
-    return { stage: "before_due", variant: "initial" as const, templateType: "due_reminder" };
+    return {
+      stage: "before_due",
+      variant: "initial" as const,
+      templateType: "due_reminder",
+    };
   }
 
   if (daysUntilDue === 0) {
-    return { stage: "due_today", variant: "alert" as const, templateType: "payment_registration_alert" };
+    return {
+      stage: "due_today",
+      variant: "alert" as const,
+      templateType: "payment_registration_alert",
+    };
   }
 
   const overdueDays = Math.abs(daysUntilDue);
   if (daysUntilDue < 0 && (overdueDays === 1 || overdueDays % 3 === 0)) {
     return {
-      stage: overdueDays === 1 ? "overdue_initial" : `overdue_followup_${overdueDays}`,
+      stage:
+        overdueDays === 1
+          ? "overdue_initial"
+          : `overdue_followup_${overdueDays}`,
       variant: "followup" as const,
-      templateType: overdueDays === 1 ? "late_fee_notice" : "payment_registration_followup"
+      templateType:
+        overdueDays === 1 ? "late_fee_notice" : "payment_registration_followup",
     };
   }
 
@@ -365,7 +439,7 @@ export async function sendTenantWhatsappNotification(input: {
 }) {
   return sendTenantNotification({
     ...input,
-    channel: "whatsapp"
+    channel: "whatsapp",
   });
 }
 
@@ -387,16 +461,23 @@ export async function sendTenantNotification(input: {
     status: "queued",
     sentAt: null,
     createdAt: nowIso(),
-    createdBy: input.createdBy
+    createdBy: input.createdBy,
   };
 
   if (!input.tenantId) {
     await messageRef.set({
       ...basePayload,
       status: "blocked",
-      providerResponse: "missing_tenant"
+      providerResponse: "missing_tenant",
     });
-    return buildNotificationResult(false, "blocked", null, requestedChannel, false, messageRef.id);
+    return buildNotificationResult(
+      false,
+      "blocked",
+      null,
+      requestedChannel,
+      false,
+      messageRef.id,
+    );
   }
 
   const tenantDoc = await db.collection("tenants").doc(input.tenantId).get();
@@ -404,9 +485,13 @@ export async function sendTenantNotification(input: {
   const phone = String(tenant.phone ?? "").trim();
   const email = String(tenant.email ?? "").trim();
   const chargeContext = await resolveChargeContext(String(input.tenantId));
-  const profileCreatedContext = await resolveProfileCreatedContext(String(input.tenantId));
+  const profileCreatedContext = await resolveProfileCreatedContext(
+    String(input.tenantId),
+  );
 
-  const whatsappConfigured = Boolean(whatsappCloudApiToken.value() && whatsappPhoneNumberId.value());
+  const whatsappConfigured = Boolean(
+    whatsappCloudApiToken.value() && whatsappPhoneNumberId.value(),
+  );
   const configuredEmailFrom = emailFrom.value();
   const configuredSmtpHost = smtpHost.value();
   const configuredSmtpPort = Number(smtpPort.value() || 465);
@@ -414,8 +499,11 @@ export async function sendTenantNotification(input: {
   const configuredSmtpPass = smtpPass.value();
 
   const providerConfigured = Boolean(
-    whatsappConfigured
-    || (configuredSmtpHost && configuredSmtpUser && configuredSmtpPass && configuredEmailFrom)
+    whatsappConfigured ||
+      (configuredSmtpHost &&
+        configuredSmtpUser &&
+        configuredSmtpPass &&
+        configuredEmailFrom),
   );
 
   const attempts = buildChannelAttempts({
@@ -423,16 +511,28 @@ export async function sendTenantNotification(input: {
     phone,
     email,
     whatsappConfigured,
-    smtpConfigured: Boolean(configuredSmtpHost && configuredSmtpUser && configuredSmtpPass && configuredEmailFrom)
+    smtpConfigured: Boolean(
+      configuredSmtpHost &&
+        configuredSmtpUser &&
+        configuredSmtpPass &&
+        configuredEmailFrom,
+    ),
   });
 
   if (!attempts.length) {
     await messageRef.set({
       ...basePayload,
       status: "blocked",
-      providerResponse: resolveBlockedReason(requestedChannel, phone, email)
+      providerResponse: resolveBlockedReason(requestedChannel, phone, email),
     });
-    return buildNotificationResult(false, "blocked", null, requestedChannel, providerConfigured, messageRef.id);
+    return buildNotificationResult(
+      false,
+      "blocked",
+      null,
+      requestedChannel,
+      providerConfigured,
+      messageRef.id,
+    );
   }
 
   let lastResponseText = "";
@@ -449,8 +549,8 @@ export async function sendTenantNotification(input: {
           secure: configuredSmtpPort === 465,
           auth: {
             user: configuredSmtpUser,
-            pass: configuredSmtpPass
-          }
+            pass: configuredSmtpPass,
+          },
         });
 
         const info = await transporter.sendMail({
@@ -462,20 +562,20 @@ export async function sendTenantNotification(input: {
             tenantName: String(tenant.fullName ?? "Inquilino"),
             body: input.body,
             chargeContext,
-            profileCreatedContext
+            profileCreatedContext,
           }),
           html: buildEmailHtml({
             type: input.type,
             tenantName: String(tenant.fullName ?? "Inquilino"),
             body: input.body,
             chargeContext,
-            profileCreatedContext
-          })
+            profileCreatedContext,
+          }),
         });
 
         lastResponseText = JSON.stringify({
           messageId: info.messageId,
-          accepted: info.accepted
+          accepted: info.accepted,
         });
 
         await messageRef.set({
@@ -483,12 +583,20 @@ export async function sendTenantNotification(input: {
           channel: "email",
           status: "sent",
           sentAt: nowIso(),
-          providerResponse: lastResponseText
+          providerResponse: lastResponseText,
         });
 
-        return buildNotificationResult(true, "sent", "email", requestedChannel, providerConfigured, messageRef.id);
+        return buildNotificationResult(
+          true,
+          "sent",
+          "email",
+          requestedChannel,
+          providerConfigured,
+          messageRef.id,
+        );
       } catch (error) {
-        lastResponseText = error instanceof Error ? error.message : "email_send_failed";
+        lastResponseText =
+          error instanceof Error ? error.message : "email_send_failed";
         continue;
       }
     }
@@ -503,9 +611,16 @@ export async function sendTenantNotification(input: {
           channel: "whatsapp",
           status: "sent",
           sentAt: nowIso(),
-          providerResponse: lastResponseText
+          providerResponse: lastResponseText,
         });
-        return buildNotificationResult(true, "sent", "whatsapp", requestedChannel, providerConfigured, messageRef.id);
+        return buildNotificationResult(
+          true,
+          "sent",
+          "whatsapp",
+          requestedChannel,
+          providerConfigured,
+          messageRef.id,
+        );
       }
       continue;
     }
@@ -521,18 +636,21 @@ export async function sendTenantNotification(input: {
         continue;
       }
 
-      const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-          "Content-Type": "application/x-www-form-urlencoded"
+      const response = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            To: normalizeSmsPhone(phone),
+            From: smsFrom,
+            Body: input.body,
+          }).toString(),
         },
-        body: new URLSearchParams({
-          To: normalizeSmsPhone(phone),
-          From: smsFrom,
-          Body: input.body
-        }).toString()
-      });
+      );
 
       lastResponseText = await response.text();
 
@@ -542,9 +660,16 @@ export async function sendTenantNotification(input: {
           channel: "sms",
           status: "sent",
           sentAt: nowIso(),
-          providerResponse: lastResponseText
+          providerResponse: lastResponseText,
         });
-        return buildNotificationResult(true, "sent", "sms", requestedChannel, providerConfigured, messageRef.id);
+        return buildNotificationResult(
+          true,
+          "sent",
+          "sms",
+          requestedChannel,
+          providerConfigured,
+          messageRef.id,
+        );
       }
     }
   }
@@ -553,10 +678,17 @@ export async function sendTenantNotification(input: {
     ...basePayload,
     channel: lastChannel,
     status: "failed",
-    providerResponse: lastResponseText
+    providerResponse: lastResponseText,
   });
 
-  return buildNotificationResult(false, "failed", lastChannel, requestedChannel, providerConfigured, messageRef.id);
+  return buildNotificationResult(
+    false,
+    "failed",
+    lastChannel,
+    requestedChannel,
+    providerConfigured,
+    messageRef.id,
+  );
 }
 
 function buildChannelAttempts(input: {
@@ -581,7 +713,9 @@ function buildChannelAttempts(input: {
   }
 
   if (input.requestedChannel === "email") {
-    return hasEmail && input.smtpConfigured ? [{ channel: "email", from: "" }] : [];
+    return hasEmail && input.smtpConfigured
+      ? [{ channel: "email", from: "" }]
+      : [];
   }
 
   // "auto" fallback: whatsapp → email
@@ -598,7 +732,11 @@ function buildChannelAttempts(input: {
   return attempts;
 }
 
-function resolveBlockedReason(requestedChannel: MessageChannel, phone: string, email: string) {
+function resolveBlockedReason(
+  requestedChannel: MessageChannel,
+  phone: string,
+  email: string,
+) {
   if (requestedChannel === "email") {
     return email ? "missing_email_config" : "missing_email";
   }
@@ -618,33 +756,69 @@ function resolveBlockedReason(requestedChannel: MessageChannel, phone: string, e
   return "missing_delivery_config";
 }
 
-async function resolveChargeContext(tenantId: string, options?: { generatePaymentLink?: boolean }) {
-  const openCharges = await db
-    .collection("charges")
-    .where("tenantId", "==", tenantId)
-    .get();
+async function resolveChargeContext(
+  tenantId: string,
+  options?: { generatePaymentLink?: boolean },
+) {
+  const [openCharges, settingsDoc, tenantDoc] = await Promise.all([
+    db.collection("charges").where("tenantId", "==", tenantId).get(),
+    db.collection("settings").doc("general").get(),
+    db.collection("tenants").doc(tenantId).get(),
+  ]);
 
   const currentPeriod = rentalPeriod();
   const generatePaymentLink = options?.generatePaymentLink !== false;
-  const charges = (openCharges.docs
-    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Array<Record<string, unknown>>)
-    .sort((left, right) => String(right.period ?? "").localeCompare(String(left.period ?? "")));
-
-  const activeCharges = charges.filter((charge) => charge.status !== "paid" && charge.status !== "cancelled");
-  const currentCharge = (
-    activeCharges.find((charge) => String(charge.period ?? "") === currentPeriod)
-    || activeCharges.find((charge) => String(charge.period ?? "") <= currentPeriod)
-    || activeCharges[0]
-    || charges[0]
-  ) as Record<string, unknown> | undefined;
+  const morosoAfterDays = Math.max(
+    1,
+    Number(settingsDoc.get("morosoAfterDays") ?? 15),
+  );
+  const charges = (
+    openCharges.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    })) as Array<Record<string, unknown>>
+  ).sort((left, right) =>
+    String(right.period ?? "").localeCompare(String(left.period ?? "")),
+  );
+  const activeCharges = charges.filter((charge) => {
+    const derivedState = deriveChargeState({
+      status: charge.status,
+      dueDate: charge.dueDate,
+      overdueDays: charge.overdueDays,
+      morosoAfterDays,
+      contractStartDate: tenantDoc.get("contractStartDate"),
+      period: charge.period,
+    });
+    return derivedState.isOpen && !derivedState.isPreContract;
+  });
+  const currentCharge = (activeCharges.find(
+    (charge) => String(charge.period ?? "") === currentPeriod,
+  ) ||
+    activeCharges.find(
+      (charge) => String(charge.period ?? "") <= currentPeriod,
+    ) ||
+    activeCharges[0] ||
+    charges[0]) as Record<string, unknown> | undefined;
 
   if (!currentCharge) {
     return null;
   }
 
+  const derivedChargeState = deriveChargeState({
+    status: currentCharge.status,
+    dueDate: currentCharge.dueDate,
+    overdueDays: currentCharge.overdueDays,
+    morosoAfterDays,
+    contractStartDate: tenantDoc.get("contractStartDate"),
+    period: currentCharge.period,
+  });
   let paymentLink = webAppUrl.value();
 
-  if (generatePaymentLink && currentCharge.status !== "paid" && currentCharge.status !== "cancelled") {
+  if (
+    generatePaymentLink &&
+    currentCharge.status !== "paid" &&
+    currentCharge.status !== "cancelled"
+  ) {
     const token = randomToken(48);
     const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
 
@@ -654,7 +828,7 @@ async function resolveChargeContext(tenantId: string, options?: { generatePaymen
       status: "active",
       createdAt: nowIso(),
       expiresAt,
-      createdBy: "notification-email"
+      createdBy: "notification-email",
     });
 
     paymentLink = `${webAppUrl.value()}/?token=${token}`;
@@ -670,7 +844,9 @@ async function resolveChargeContext(tenantId: string, options?: { generatePaymen
     total: Number(currentCharge.total ?? 0),
     dueDate: String(currentCharge.dueDate ?? ""),
     status: String(currentCharge.status ?? "pending"),
-    paymentLink
+    derivedStatus: derivedChargeState.statusLabel,
+    overdueDays: derivedChargeState.overdueDays,
+    paymentLink,
   } satisfies ChargeContext;
 }
 
@@ -685,20 +861,22 @@ function buildEmailSubject(type: string, chargeContext?: ChargeContext | null) {
 
 function buildBaseEmailSubject(type: string) {
   const subjects: Record<string, string> = {
-      general: "La Casona - Mensaje de administracion",
-      period_available: "La Casona - Nuevo periodo disponible",
-      due_reminder: "La Casona - Recordatorio de vencimiento",
-      payment_registration_reminder: "La Casona - Recordatorio para registrar tu pago",
-      payment_registration_alert: "La Casona - Regulariza tu pago del mes",
-      payment_registration_followup: "La Casona - Regularizacion pendiente de tu alquiler",
-      late_fee_notice: "La Casona - Aviso por mora",
-      profile_created: "La Casona - Perfil creado",
-      payment_in_review: "La Casona - Pago en revision",
-      payment_approved: "La Casona - Pago aprobado",
-      payment_rejected: "La Casona - Pago rechazado",
-      contract_renewed: "La Casona - Contrato renovado",
-      contract_finalized: "La Casona - Fin de contrato"
-    };
+    general: "La Casona - Mensaje de administracion",
+    period_available: "La Casona - Nuevo periodo disponible",
+    due_reminder: "La Casona - Recordatorio de vencimiento",
+    payment_registration_reminder:
+      "La Casona - Recordatorio para registrar tu pago",
+    payment_registration_alert: "La Casona - Regulariza tu pago del mes",
+    payment_registration_followup:
+      "La Casona - Regularizacion pendiente de tu alquiler",
+    late_fee_notice: "La Casona - Aviso por mora",
+    profile_created: "La Casona - Perfil creado",
+    payment_in_review: "La Casona - Pago en revision",
+    payment_approved: "La Casona - Pago aprobado",
+    payment_rejected: "La Casona - Pago rechazado",
+    contract_renewed: "La Casona - Contrato renovado",
+    contract_finalized: "La Casona - Fin de contrato",
+  };
 
   return subjects[type] || "La Casona - Notificacion";
 }
@@ -714,7 +892,7 @@ function buildEmailText(input: {
     return buildProfileCreatedEmailText({
       tenantName: input.tenantName,
       body: input.body,
-      profileCreatedContext: input.profileCreatedContext
+      profileCreatedContext: input.profileCreatedContext,
     });
   }
 
@@ -722,35 +900,33 @@ function buildEmailText(input: {
     return buildPortalReminderEmailText({
       tenantName: input.tenantName,
       chargeContext: input.chargeContext,
-      variant: resolvePortalReminderVariantFromType(input.type)
+      variant: resolvePortalReminderVariantFromType(input.type),
     });
   }
 
-  const lines = [
-    `Hola ${input.tenantName},`,
-    "",
-    input.body
-  ];
+  const lines = [`Hola ${input.tenantName},`, "", input.body];
 
   if (input.chargeContext) {
     lines.push(
       "",
       `Periodo: ${input.chargeContext.period}`,
       `Alquiler: ${formatCurrency(input.chargeContext.rentAmount)}`,
-      ...(input.chargeContext.expenseAmount > 0 ? [`Expensas: ${formatCurrency(input.chargeContext.expenseAmount)}`] : []),
+      ...(input.chargeContext.expenseAmount > 0
+        ? [`Expensas: ${formatCurrency(input.chargeContext.expenseAmount)}`]
+        : []),
       `Subtotal: ${formatCurrency(input.chargeContext.subtotal)}`,
       `Mora acumulada: ${formatCurrency(input.chargeContext.lateFeeAmount)}`,
       `Total actual: ${formatCurrency(input.chargeContext.total)}`,
       `Vencimiento: ${formatDate(input.chargeContext.dueDate)}`,
-      `Estado: ${humanizeChargeStatus(input.chargeContext.status)}`,
-      `Link de pago: ${input.chargeContext.paymentLink}`
+      `Estado: ${humanizeChargeStatus(input.chargeContext.derivedStatus)}`,
+      `Link de pago: ${input.chargeContext.paymentLink}`,
     );
   }
 
   lines.push(
     "",
     "Si necesitas ayuda, responde este correo o comunicate con administracion.",
-    "La Casona"
+    "La Casona",
   );
 
   return lines.join("\n");
@@ -767,7 +943,7 @@ function buildEmailHtml(input: {
     return buildProfileCreatedEmailHtml({
       tenantName: input.tenantName,
       body: input.body,
-      profileCreatedContext: input.profileCreatedContext
+      profileCreatedContext: input.profileCreatedContext,
     });
   }
 
@@ -775,11 +951,15 @@ function buildEmailHtml(input: {
     return buildPortalReminderEmailHtml({
       tenantName: input.tenantName,
       chargeContext: input.chargeContext,
-      variant: resolvePortalReminderVariantFromType(input.type)
+      variant: resolvePortalReminderVariantFromType(input.type),
     });
   }
 
-  const accent = resolveEmailAccent(input.chargeContext?.status ?? "pending");
+  const accent = resolveEmailAccent(
+    input.chargeContext?.derivedStatus ??
+      input.chargeContext?.status ??
+      "pending",
+  );
   const chargeCard = input.chargeContext
     ? `
       <div style="margin-top:28px;padding:24px;border-radius:20px;background:#ffffff;border:1px solid ${accent.border};">
@@ -795,7 +975,7 @@ function buildEmailHtml(input: {
         </div>
         <div style="margin-top:18px;">
           <span style="display:inline-block;padding:8px 12px;border-radius:999px;background:${accent.badgeBg};color:${accent.badgeText};font-size:12px;font-weight:800;">
-            ${escapeHtml(humanizeChargeStatus(input.chargeContext.status))}
+            ${escapeHtml(humanizeChargeStatus(input.chargeContext.derivedStatus))}
           </span>
         </div>
         <a href="${escapeAttribute(input.chargeContext.paymentLink)}" style="display:block;margin-top:22px;text-align:center;text-decoration:none;background:#17352a;color:#ffffff;padding:16px 18px;border-radius:999px;font-weight:800;">
@@ -836,15 +1016,16 @@ function buildProfileCreatedEmailText(input: {
   const context = input.profileCreatedContext;
   const expenseAmount = resolveProfileCreatedExpenseAmount(context);
   const referenceTotal = context.currentBaseRent + expenseAmount;
-  const transferLines = context.transferAlias || context.transferCbu || context.transferHolder
-    ? [
-        "",
-        "Datos para transferencia:",
-        context.transferHolder ? `Titular: ${context.transferHolder}` : "",
-        context.transferAlias ? `Alias: ${context.transferAlias}` : "",
-        context.transferCbu ? `CBU: ${context.transferCbu}` : ""
-      ].filter(Boolean)
-    : [];
+  const transferLines =
+    context.transferAlias || context.transferCbu || context.transferHolder
+      ? [
+          "",
+          "Datos para transferencia:",
+          context.transferHolder ? `Titular: ${context.transferHolder}` : "",
+          context.transferAlias ? `Alias: ${context.transferAlias}` : "",
+          context.transferCbu ? `CBU: ${context.transferCbu}` : "",
+        ].filter(Boolean)
+      : [];
 
   const lines = [
     `Hola ${input.tenantName},`,
@@ -856,7 +1037,7 @@ function buildProfileCreatedEmailText(input: {
     ...(expenseAmount > 0
       ? [
           `Expensas fijas: ${formatCurrency(expenseAmount)}`,
-          `Total de referencia del período: ${formatCurrency(referenceTotal)}`
+          `Total de referencia del período: ${formatCurrency(referenceTotal)}`,
         ]
       : []),
     "",
@@ -890,7 +1071,7 @@ function buildProfileCreatedEmailText(input: {
     `- El vencimiento ordinario se calcula con día ${context.paymentDueDay} de cada mes, salvo que administración indique otra cosa.`,
     "- El estado del cobro puede figurar como pendiente, en revisión o pagado según la instancia del proceso.",
     "- Si el comprobante enviado requiere validación, el pago no se considera aprobado hasta la confirmación administrativa.",
-    "- Si se usa tarjeta, el enlace de Mercado Pago es exclusivo para débito/crédito."
+    "- Si se usa tarjeta, el enlace de Mercado Pago es exclusivo para débito/crédito.",
   ];
 
   lines.push(...transferLines);
@@ -904,7 +1085,7 @@ function buildProfileCreatedEmailText(input: {
     "- El importe actualizado con mora se reflejará en el portal según la configuración vigente.",
     "",
     "Si necesitás ayuda, comunicate con administración por los canales habituales.",
-    "La Casona Alquileres"
+    "La Casona Alquileres",
   );
 
   return lines.join("\n");
@@ -916,7 +1097,9 @@ function buildProfileCreatedEmailHtml(input: {
   profileCreatedContext: ProfileCreatedContext;
 }) {
   const context = input.profileCreatedContext;
-  const hasTransferData = Boolean(context.transferAlias || context.transferCbu || context.transferHolder);
+  const hasTransferData = Boolean(
+    context.transferAlias || context.transferCbu || context.transferHolder,
+  );
   const expenseAmount = resolveProfileCreatedExpenseAmount(context);
   const referenceTotal = context.currentBaseRent + expenseAmount;
 
@@ -981,7 +1164,9 @@ function buildProfileCreatedEmailHtml(input: {
             </ul>
           </div>
 
-          ${hasTransferData ? `
+          ${
+            hasTransferData
+              ? `
             <div style="margin-top:24px;padding:22px 24px;border-radius:20px;background:#ffffff;border:1px solid rgba(23,63,44,.08);">
               <p style="margin:0 0 10px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#6b7f73;font-weight:700;">Datos para transferencia</p>
               <div style="display:grid;gap:10px;">
@@ -990,7 +1175,9 @@ function buildProfileCreatedEmailHtml(input: {
                 ${context.transferCbu ? buildStatRow("CBU", context.transferCbu) : ""}
               </div>
             </div>
-          ` : ""}
+          `
+              : ""
+          }
 
           <div style="margin-top:24px;padding:22px 24px;border-radius:20px;background:#fff8f2;border:1px solid rgba(183,121,31,.18);">
             <p style="margin:0 0 10px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#8e6d1b;font-weight:700;">Mora y recargos</p>
@@ -1011,7 +1198,12 @@ function buildProfileCreatedEmailHtml(input: {
   `;
 }
 
-function buildStatRow(label: string, value: string, color = "#17352a", strong = false) {
+function buildStatRow(
+  label: string,
+  value: string,
+  color = "#17352a",
+  strong = false,
+) {
   return `
     <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;">
       <span style="color:#5b7266;font-size:14px;">${escapeHtml(label)}</span>
@@ -1025,22 +1217,22 @@ function resolveEmailAccent(status: string) {
     return {
       border: "rgba(32,98,72,.18)",
       badgeBg: "#d9efe5",
-      badgeText: "#206248"
+      badgeText: "#206248",
     };
   }
 
-  if (status === "overdue") {
+  if (status === "delinquent" || status === "overdue") {
     return {
       border: "rgba(138,58,48,.22)",
       badgeBg: "#f8dedd",
-      badgeText: "#8a3a30"
+      badgeText: "#8a3a30",
     };
   }
 
   return {
     border: "rgba(142,109,27,.18)",
     badgeBg: "#f5ebc7",
-    badgeText: "#8e6d1b"
+    badgeText: "#8e6d1b",
   };
 }
 
@@ -1048,7 +1240,7 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 0
+    maximumFractionDigits: 0,
   }).format(Number(value ?? 0));
 }
 
@@ -1064,9 +1256,10 @@ function humanizeChargeStatus(status: string) {
   const labels: Record<string, string> = {
     pending: "Pendiente",
     overdue: "Vencido",
+    delinquent: "Moroso",
     in_review: "En revision",
     paid: "Pagado",
-    cancelled: "Cancelado"
+    cancelled: "Cancelado",
   };
 
   return labels[status] || "Pendiente";
@@ -1074,14 +1267,23 @@ function humanizeChargeStatus(status: string) {
 
 async function resolveDefaultNotificationChannel(): Promise<MessageChannel> {
   const settingsDoc = await db.collection("settings").doc("general").get();
-  const configured = String(settingsDoc.get("defaultNotificationChannel") ?? "email");
-  if (configured === "auto" || configured === "whatsapp" || configured === "sms" || configured === "email") {
+  const configured = String(
+    settingsDoc.get("defaultNotificationChannel") ?? "email",
+  );
+  if (
+    configured === "auto" ||
+    configured === "whatsapp" ||
+    configured === "sms" ||
+    configured === "email"
+  ) {
     return configured;
   }
   return "email";
 }
 
-async function resolveProfileCreatedContext(tenantId: string): Promise<ProfileCreatedContext | null> {
+async function resolveProfileCreatedContext(
+  tenantId: string,
+): Promise<ProfileCreatedContext | null> {
   const tenantDoc = await db.collection("tenants").doc(tenantId).get();
   if (!tenantDoc.exists) {
     return null;
@@ -1089,19 +1291,33 @@ async function resolveProfileCreatedContext(tenantId: string): Promise<ProfileCr
 
   const tenant = tenantDoc.data() ?? {};
   const propertyId = String(tenant.propertyId ?? "");
-  const propertyDoc = propertyId ? await db.collection("properties").doc(propertyId).get() : null;
+  const propertyDoc = propertyId
+    ? await db.collection("properties").doc(propertyId).get()
+    : null;
   const property = propertyDoc?.data() ?? {};
   const settingsDoc = await db.collection("settings").doc("general").get();
   const settings = settingsDoc.data() ?? {};
-  const bankAccountsDoc = await db.collection("settings").doc("bankAccounts").get();
+  const bankAccountsDoc = await db
+    .collection("settings")
+    .doc("bankAccounts")
+    .get();
   const bankAccounts = bankAccountsDoc.data() ?? {};
-  const chargeContext = await resolveChargeContext(tenantId, { generatePaymentLink: false });
+  const chargeContext = await resolveChargeContext(tenantId, {
+    generatePaymentLink: false,
+  });
   const transferBlock = String(property.transferBlock ?? "block_1");
-  const account = (bankAccounts[transferBlock] ?? {}) as Record<string, unknown>;
-  const rentUpdateConfig = (tenant.rentUpdateConfig ?? {}) as Record<string, unknown>;
+  const account = (bankAccounts[transferBlock] ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const rentUpdateConfig = (tenant.rentUpdateConfig ?? {}) as Record<
+    string,
+    unknown
+  >;
   const currentPeriod = rentalPeriod();
-  const currentBaseRent = chargeContext?.rentAmount
-    || resolveCurrentTenantBaseRent(tenant, rentUpdateConfig, currentPeriod);
+  const currentBaseRent =
+    chargeContext?.rentAmount ||
+    resolveCurrentTenantBaseRent(tenant, rentUpdateConfig, currentPeriod);
 
   return {
     propertyName: String(property.name ?? "Unidad asignada"),
@@ -1113,56 +1329,72 @@ async function resolveProfileCreatedContext(tenantId: string): Promise<ProfileCr
     lateFeeDailyRate: Number(settings.lateFeeDailyRate ?? 0),
     transferAlias: String(account.alias ?? ""),
     transferCbu: String(account.cbu ?? ""),
-    transferHolder: String(account.holderName ?? "")
+    transferHolder: String(account.holderName ?? ""),
   };
 }
 
 function resolveChargeRentAmount(charge: Record<string, unknown>) {
   const items = Array.isArray(charge.items) ? charge.items : [];
-  const rentItem = items.find((item) => String((item as Record<string, unknown>).key ?? "") === "rent") as Record<string, unknown> | undefined;
+  const rentItem = items.find(
+    (item) => String((item as Record<string, unknown>).key ?? "") === "rent",
+  ) as Record<string, unknown> | undefined;
   const rentAmount = Number(rentItem?.amount ?? 0);
-  return Number.isFinite(rentAmount) && rentAmount > 0 ? rentAmount : Number(charge.subtotal ?? 0);
+  return Number.isFinite(rentAmount) && rentAmount > 0
+    ? rentAmount
+    : Number(charge.subtotal ?? 0);
 }
 
 function resolveChargeExpenseAmount(charge: Record<string, unknown>) {
   const items = Array.isArray(charge.items) ? charge.items : [];
-  const expenseItem = items.find((item) => String((item as Record<string, unknown>).key ?? "") === "expenses") as Record<string, unknown> | undefined;
+  const expenseItem = items.find(
+    (item) =>
+      String((item as Record<string, unknown>).key ?? "") === "expenses",
+  ) as Record<string, unknown> | undefined;
   const expenseAmount = Number(expenseItem?.amount ?? 0);
-  return Number.isFinite(expenseAmount) && expenseAmount > 0 ? expenseAmount : 0;
+  return Number.isFinite(expenseAmount) && expenseAmount > 0
+    ? expenseAmount
+    : 0;
 }
 
 function resolveCurrentTenantBaseRent(
   tenant: Record<string, unknown>,
   rentUpdateConfig: Record<string, unknown>,
-  currentPeriod: string
+  currentPeriod: string,
 ) {
   const billingEffectivePeriod = String(
-    rentUpdateConfig.billingEffectivePeriod
-      ?? addMonthsToPeriod(String(rentUpdateConfig.effectivePeriod ?? "").trim(), 1)
+    rentUpdateConfig.billingEffectivePeriod ??
+      addMonthsToPeriod(
+        String(rentUpdateConfig.effectivePeriod ?? "").trim(),
+        1,
+      ),
   ).trim();
   const storedCurrentBaseRent = Number(rentUpdateConfig.currentBaseRent ?? 0);
-  const pendingBaseRent = Number(rentUpdateConfig.pendingBaseRent ?? rentUpdateConfig.nextBaseRent ?? 0);
+  const pendingBaseRent = Number(
+    rentUpdateConfig.pendingBaseRent ?? rentUpdateConfig.nextBaseRent ?? 0,
+  );
   const currentBaseRent = Number(tenant.baseRent ?? 0);
 
   if (
-    billingEffectivePeriod
-    && billingEffectivePeriod > currentPeriod
-    && Number.isFinite(storedCurrentBaseRent)
-    && storedCurrentBaseRent > 0
+    billingEffectivePeriod &&
+    billingEffectivePeriod > currentPeriod &&
+    Number.isFinite(storedCurrentBaseRent) &&
+    storedCurrentBaseRent > 0
   ) {
     return storedCurrentBaseRent;
   }
 
   if (
-    billingEffectivePeriod
-    && billingEffectivePeriod <= currentPeriod
-    && Number.isFinite(pendingBaseRent)
-    && pendingBaseRent > 0
+    billingEffectivePeriod &&
+    billingEffectivePeriod <= currentPeriod &&
+    Number.isFinite(pendingBaseRent) &&
+    pendingBaseRent > 0
   ) {
     return pendingBaseRent;
   }
 
-  return Number.isFinite(currentBaseRent) && currentBaseRent > 0 ? currentBaseRent : 0;
+  return Number.isFinite(currentBaseRent) && currentBaseRent > 0
+    ? currentBaseRent
+    : 0;
 }
 
 function addMonthsToPeriod(period: string, months: number) {
@@ -1189,7 +1421,12 @@ async function sendDirectEmail(input: {
   const configuredSmtpUser = smtpUser.value();
   const configuredSmtpPass = smtpPass.value();
 
-  if (!configuredSmtpHost || !configuredSmtpUser || !configuredSmtpPass || !configuredEmailFrom) {
+  if (
+    !configuredSmtpHost ||
+    !configuredSmtpUser ||
+    !configuredSmtpPass ||
+    !configuredEmailFrom
+  ) {
     throw new Error("La configuración de correo no está completa.");
   }
 
@@ -1199,8 +1436,8 @@ async function sendDirectEmail(input: {
     secure: configuredSmtpPort === 465,
     auth: {
       user: configuredSmtpUser,
-      pass: configuredSmtpPass
-    }
+      pass: configuredSmtpPass,
+    },
   });
 
   return transporter.sendMail({
@@ -1208,7 +1445,7 @@ async function sendDirectEmail(input: {
     to: input.to,
     subject: input.subject,
     text: input.text,
-    html: input.html
+    html: input.html,
   });
 }
 
@@ -1232,7 +1469,7 @@ function buildAccountCompletionEmailText(email: string) {
     "- Si no recuerdas la contraseña, utiliza la opción de recuperación en el acceso.",
     "",
     "Si necesitas ayuda, comunícate con administración.",
-    "La Casona Alquileres"
+    "La Casona Alquileres",
   ].join("\n");
 }
 
@@ -1284,7 +1521,7 @@ function isPortalPaymentReminderType(type: string) {
   return [
     "payment_registration_reminder",
     "payment_registration_alert",
-    "payment_registration_followup"
+    "payment_registration_followup",
   ].includes(String(type ?? "").trim());
 }
 
@@ -1308,8 +1545,7 @@ function buildPortalReminderEmailText(input: {
       "Todavía no registramos tu pago del mes en el portal. Para que podamos validarlo correctamente, es importante que cargues tu comprobante en la web cuanto antes.",
     alert:
       "Al día de hoy todavía no registramos tu pago del mes en el portal. Te pedimos que regularices esta situación cuanto antes para evitar intereses y demoras en la validación.",
-    followup:
-      `Tu pago del mes sigue sin registrarse en el portal. Te pedimos que regularices tu situación a la brevedad. Actualmente tu deuda informada en el sistema es de ${formatCurrency(input.chargeContext.total)}.`
+    followup: `Tu pago del mes sigue sin registrarse en el portal. Te pedimos que regularices tu situación a la brevedad. Actualmente tu deuda informada en el sistema es de ${formatCurrency(input.chargeContext.total)}.`,
   }[input.variant];
 
   return [
@@ -1326,14 +1562,16 @@ function buildPortalReminderEmailText(input: {
     "",
     `Período: ${input.chargeContext.period}`,
     `Alquiler: ${formatCurrency(input.chargeContext.rentAmount)}`,
-    ...(input.chargeContext.expenseAmount > 0 ? [`Expensas: ${formatCurrency(input.chargeContext.expenseAmount)}`] : []),
+    ...(input.chargeContext.expenseAmount > 0
+      ? [`Expensas: ${formatCurrency(input.chargeContext.expenseAmount)}`]
+      : []),
     `Total actual: ${formatCurrency(input.chargeContext.total)}`,
     `Vencimiento: ${formatDate(input.chargeContext.dueDate)}`,
-    `Estado: ${humanizeChargeStatus(input.chargeContext.status)}`,
+    `Estado: ${humanizeChargeStatus(input.chargeContext.derivedStatus)}`,
     `Acceso al portal: ${input.chargeContext.paymentLink}`,
     "",
     "Si ya realizaste el pago, completá este paso lo antes posible para evitar demoras en la confirmación.",
-    "La Casona Alquileres"
+    "La Casona Alquileres",
   ].join("\n");
 }
 
@@ -1347,12 +1585,20 @@ function buildPortalReminderEmailHtml(input: {
       "Todavía no registramos tu pago del mes en el portal. Para que podamos validarlo correctamente, es importante que cargues tu comprobante en la web cuanto antes.",
     alert:
       "Al día de hoy todavía no registramos tu pago del mes en el portal. Te pedimos que regularices esta situación cuanto antes para evitar intereses y demoras en la validación.",
-    followup:
-      `Tu pago del mes sigue sin registrarse en el portal. Te pedimos que regularices tu situación a la brevedad. Actualmente tu deuda informada en el sistema es de ${formatCurrency(input.chargeContext.total)}.`
+    followup: `Tu pago del mes sigue sin registrarse en el portal. Te pedimos que regularices tu situación a la brevedad. Actualmente tu deuda informada en el sistema es de ${formatCurrency(input.chargeContext.total)}.`,
   }[input.variant];
-  const accent = input.variant === "initial"
-    ? { border: "rgba(142,109,27,.18)", badgeBg: "#f5ebc7", badgeText: "#8e6d1b" }
-    : { border: "rgba(138,58,48,.22)", badgeBg: "#f8dedd", badgeText: "#8a3a30" };
+  const accent =
+    input.variant === "initial"
+      ? {
+          border: "rgba(142,109,27,.18)",
+          badgeBg: "#f5ebc7",
+          badgeText: "#8e6d1b",
+        }
+      : {
+          border: "rgba(138,58,48,.22)",
+          badgeBg: "#f8dedd",
+          badgeText: "#8a3a30",
+        };
 
   return `
     <div style="margin:0;padding:0;background:#edf2ea;font-family:Arial,sans-serif;color:#17352a;">
@@ -1377,7 +1623,7 @@ function buildPortalReminderEmailHtml(input: {
             </div>
             <div style="margin-top:18px;">
               <span style="display:inline-block;padding:8px 12px;border-radius:999px;background:${accent.badgeBg};color:${accent.badgeText};font-size:12px;font-weight:800;">
-                ${escapeHtml(humanizeChargeStatus(input.chargeContext.status))}
+                ${escapeHtml(humanizeChargeStatus(input.chargeContext.derivedStatus))}
               </span>
             </div>
           </div>
@@ -1417,14 +1663,14 @@ function buildPortalReminderBody(variant: "initial" | "alert" | "followup") {
   return "Todavía no registramos tu pago del mes en el portal. Es importante que subas tu comprobante en la web para que podamos confirmarlo correctamente.";
 }
 
-function resolvePortalReminderCadence(date: Date) {
+function _resolvePortalReminderCadence(date: Date) {
   const { isoDate, dayOfMonth } = resolveBuenosAiresCalendarParts(date);
 
   if (dayOfMonth === 8) {
     return {
       isoDate,
       variant: "initial" as const,
-      templateType: "payment_registration_reminder"
+      templateType: "payment_registration_reminder",
     };
   }
 
@@ -1432,7 +1678,7 @@ function resolvePortalReminderCadence(date: Date) {
     return {
       isoDate,
       variant: "alert" as const,
-      templateType: "payment_registration_alert"
+      templateType: "payment_registration_alert",
     };
   }
 
@@ -1440,14 +1686,14 @@ function resolvePortalReminderCadence(date: Date) {
     return {
       isoDate,
       variant: "followup" as const,
-      templateType: "payment_registration_followup"
+      templateType: "payment_registration_followup",
     };
   }
 
   return null;
 }
 
-function resolveMonthPeriodInBuenosAires(date: Date) {
+function _resolveMonthPeriodInBuenosAires(date: Date) {
   const { year, month } = resolveBuenosAiresCalendarParts(date);
   return `${year}-${month}`;
 }
@@ -1457,7 +1703,7 @@ function resolveBuenosAiresCalendarParts(date: Date) {
     timeZone: BUENOS_AIRES_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
-    day: "2-digit"
+    day: "2-digit",
   });
   const parts = formatter.formatToParts(date);
   const year = parts.find((part) => part.type === "year")?.value ?? "0000";
@@ -1468,7 +1714,7 @@ function resolveBuenosAiresCalendarParts(date: Date) {
     month,
     day,
     dayOfMonth: Number(day),
-    isoDate: `${year}-${month}-${day}`
+    isoDate: `${year}-${month}-${day}`,
   };
 }
 
@@ -1477,7 +1723,7 @@ function escapeHtml(value: string) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
+    .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
 
@@ -1491,7 +1737,7 @@ function buildNotificationResult(
   channel: DeliveryChannel | null,
   requestedChannel: MessageChannel,
   providerConfigured: boolean,
-  messageId: string
+  messageId: string,
 ) {
   return {
     ok,
@@ -1499,7 +1745,7 @@ function buildNotificationResult(
     channel,
     requestedChannel,
     providerConfigured,
-    messageId
+    messageId,
   };
 }
 
@@ -1508,7 +1754,10 @@ function normalizeWhatsappPhone(value: string) {
   return digits.startsWith("+") ? digits.slice(1) : digits;
 }
 
-async function sendWhatsAppCloudMessage(phone: string, body: string): Promise<{ ok: boolean; responseText: string }> {
+async function sendWhatsAppCloudMessage(
+  phone: string,
+  body: string,
+): Promise<{ ok: boolean; responseText: string }> {
   const token = whatsappCloudApiToken.value();
   const phoneNumberId = whatsappPhoneNumberId.value();
 
@@ -1518,20 +1767,23 @@ async function sendWhatsAppCloudMessage(phone: string, body: string): Promise<{ 
 
   const to = normalizeWhatsappPhone(phone);
 
-  const response = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json"
+  const response = await fetch(
+    `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: { body },
+      }),
     },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "text",
-      text: { body }
-    })
-  });
+  );
 
   const responseText = await response.text();
 
