@@ -1,7 +1,7 @@
-import { onCall } from "firebase-functions/https";
+import { onCall, HttpsError } from "firebase-functions/https";
 import { onSchedule } from "firebase-functions/scheduler";
 import { db } from "../firebase.js";
-import { requireRole } from "../lib/auth.js";
+import { assertOwnerScopeAccess, requireRole } from "../lib/auth.js";
 import {
   collectionPeriod,
   nowIso,
@@ -54,6 +54,118 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
 export const generateMonthlyCharges = onCall(async (request) => {
   await requireRole(request, ["admin", "superadmin"]);
   return createMonthlyCharges(request.auth?.uid ?? "system");
+});
+
+export const createManualCharge = onCall(async (request) => {
+  await requireRole(request, ["admin", "superadmin"]);
+
+  const data = request.data as {
+    tenantId?: string;
+    period?: string;
+    dueDate?: string;
+    amount?: number;
+    reason?: string;
+  };
+
+  const tenantId = String(data.tenantId ?? "").trim();
+  const period = String(data.period ?? "").trim();
+  const dueDate = String(data.dueDate ?? "").trim();
+  const amount = Number(data.amount ?? 0);
+  const reason = String(data.reason ?? "").trim();
+
+  if (!tenantId || !/^\d{4}-\d{2}$/.test(period) || !dueDate || !amount || !reason) {
+    throw new HttpsError(
+      "invalid-argument",
+      "tenantId, period, dueDate, amount y reason son obligatorios.",
+    );
+  }
+
+  const dueDateValue = new Date(`${dueDate}T00:00:00`);
+  if (Number.isNaN(dueDateValue.getTime())) {
+    throw new HttpsError("invalid-argument", "La fecha de vencimiento no es válida.");
+  }
+
+  const tenantDoc = await db.collection("tenants").doc(tenantId).get();
+  if (!tenantDoc.exists) {
+    throw new HttpsError("not-found", "No existe el inquilino indicado.");
+  }
+
+  const tenant = tenantDoc.data() ?? {};
+  const propertyId = String(tenant.propertyId ?? "").trim();
+  if (!propertyId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "El inquilino no tiene una unidad asociada.",
+    );
+  }
+
+  await assertOwnerScopeAccess(request, propertyId);
+
+  const existing = await db
+    .collection("charges")
+    .where("tenantId", "==", tenantId)
+    .where("period", "==", period)
+    .limit(1)
+    .get();
+
+  if (!existing.empty) {
+    throw new HttpsError(
+      "already-exists",
+      "Ya existe un cobro para ese inquilino y período.",
+    );
+  }
+
+  const settings = await getGeneralSettings();
+  const generatedAt = nowIso();
+  const charge: ChargeRecord = {
+    tenantId,
+    propertyId,
+    period,
+    items: [
+      {
+        key: "rent",
+        label: "Alquiler",
+        amount,
+      },
+    ],
+    subtotal: amount,
+    lateFeeAmount: 0,
+    lateFeeDailyRate: settings.lateFeeDailyRate,
+    overdueDays: 0,
+    total: amount,
+    dueDate,
+    status: "pending",
+    paymentPolicy: "full_only",
+    generatedAt,
+    generatedBy: request.auth?.uid ?? "system",
+  };
+
+  const chargeRef = await db.collection("charges").add({
+    ...charge,
+    manualCharge: true,
+    manualChargeReason: reason,
+  });
+
+  await db.collection("auditLogs").add({
+    action: "charge.manual_create",
+    entityType: "charge",
+    entityId: chargeRef.id,
+    summary: `Cobro manual creado para ${period} por ${amount}.`,
+    metadata: {
+      tenantId,
+      propertyId,
+      period,
+      dueDate,
+      amount,
+      reason,
+    },
+    actorUid: request.auth?.uid ?? "system",
+    actorEmail: String(request.auth?.token.email ?? ""),
+    actorName: String(request.auth?.token.email ?? "Administrador"),
+    createdAt: generatedAt,
+  });
+
+  return { ok: true, chargeId: chargeRef.id };
 });
 
 export const scheduledGenerateMonthlyCharges = onSchedule(

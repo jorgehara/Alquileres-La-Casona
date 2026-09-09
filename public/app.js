@@ -392,6 +392,8 @@ const elements = {
   adminReceiptUploadCancelButton: null,
   contingencyTenantSelect: null,
   contingencyOpenButton: null,
+  manualChargeTenantSelect: null,
+  manualChargeForm: null,
   paymentInstructionsModal: document.querySelector(
     "#payment-instructions-modal",
   ),
@@ -862,6 +864,7 @@ function bindPrivateEvents() {
     "click",
     handleContingencyOpenUpload,
   );
+  elements.manualChargeForm?.addEventListener("submit", handleManualChargeSubmit);
   elements.paymentInstructionsCloseButton?.addEventListener(
     "click",
     closePaymentInstructionsModal,
@@ -1132,6 +1135,10 @@ function hydratePrivateElements() {
   elements.contingencyOpenButton = root.querySelector(
     "#contingency-open-upload-button",
   );
+  elements.manualChargeTenantSelect = root.querySelector(
+    "#manual-charge-tenant-select",
+  );
+  elements.manualChargeForm = root.querySelector("#manual-charge-form");
   elements.paymentInstructionsModal = root.querySelector(
     "#payment-instructions-modal",
   );
@@ -1288,6 +1295,7 @@ function enhancePrivateShellLayout() {
     renameAdminNavigation();
     ensureAdminComprobantesSection();
     ensureAdminContingencySection();
+    ensureManualChargeSection();
     ensureChargeRentUpdateSuite();
     ensureChargesSectionExperience();
     ensureAdminUserScopeControls();
@@ -1371,6 +1379,7 @@ function renameAdminNavigation() {
     resumen: "Inicio",
     comprobantes: "Comprobantes",
     contingencia: "Modo contingencia",
+    "cargo-manual": "Cargo manual del mes",
     cobros: "Cobros",
     inquilinos: "Inquilinos",
     propiedades: "Unidades",
@@ -1747,6 +1756,99 @@ function ensureAdminContingencySection() {
     handleContingencyOpenUpload,
   );
   renderAdminContingencyOptions();
+}
+
+function ensureManualChargeSection() {
+  if (!elements.appShell) {
+    return;
+  }
+
+  const workspace = elements.appShell.querySelector(".workspace");
+  const contingencySection = document.querySelector(
+    '.view-section[data-section="contingencia"][data-admin-only="true"]',
+  );
+  if (!workspace) {
+    return;
+  }
+
+  let navButton = document.querySelector(
+    '.nav-item[data-nav-target="cargo-manual"]',
+  );
+  if (!navButton) {
+    const contingencyNav = document.querySelector(
+      '.nav-item[data-nav-target="contingencia"]',
+    );
+    navButton = document.createElement("button");
+    navButton.type = "button";
+    navButton.className = "nav-item";
+    navButton.dataset.navTarget = "cargo-manual";
+    navButton.dataset.adminOnly = "true";
+    navButton.textContent = "Cargo manual del mes";
+    navButton.addEventListener("click", () =>
+      setActiveSection(navButton.dataset.navTarget),
+    );
+    contingencyNav?.insertAdjacentElement("afterend", navButton);
+    elements.navItems = Array.from(
+      elements.appShell.querySelectorAll(".nav-item"),
+    );
+  }
+
+  let section = document.querySelector(
+    '.view-section[data-section="cargo-manual"][data-admin-only="true"]',
+  );
+  if (!section) {
+    section = document.createElement("section");
+    section.className = "surface view-section manual-charge-surface";
+    section.dataset.section = "cargo-manual";
+    section.dataset.adminOnly = "true";
+    section.innerHTML = `
+      <div class="section-head">
+        <div>
+          <p class="section-label">Cobro excepcional</p>
+          <h3>Cargo manual del mes</h3>
+          <p class="section-description">Creá un cobro mensual puntual cuando la generación automática no dejó una cuota disponible para operar.</p>
+        </div>
+      </div>
+      <form id="manual-charge-form" class="form-card settings-form">
+        <label>
+          Inquilino / unidad
+          <select id="manual-charge-tenant-select" name="tenantId" required></select>
+        </label>
+        <label>
+          Período
+          <input name="period" type="month" required />
+        </label>
+        <label>
+          Fecha de vencimiento
+          <input name="dueDate" type="date" required />
+        </label>
+        <label>
+          Monto del cargo
+          <input name="amount" type="number" min="0" step="0.01" required />
+        </label>
+        <label>
+          Motivo administrativo
+          <textarea name="reason" rows="3" placeholder="Ej.: generación mensual fallida; cuota requerida para contingencia." required></textarea>
+        </label>
+        <div class="auth-actions">
+          <button class="primary-action" type="submit">Crear cargo manual</button>
+        </div>
+      </form>
+    `;
+
+    if (contingencySection) {
+      contingencySection.insertAdjacentElement("afterend", section);
+    } else {
+      workspace.appendChild(section);
+    }
+  }
+
+  elements.manualChargeTenantSelect = section.querySelector(
+    "#manual-charge-tenant-select",
+  );
+  elements.manualChargeForm = section.querySelector("#manual-charge-form");
+  elements.manualChargeForm?.addEventListener("submit", handleManualChargeSubmit);
+  renderManualChargeOptions();
 }
 
 function ensureChargeRentUpdateSuite() {
@@ -3462,6 +3564,7 @@ async function loadScopedAdminDataset(currentScope) {
     renderTenants();
     renderMessageTenantOptions();
     renderAdminContingencyOptions();
+    renderManualChargeOptions();
     renderSummary();
     renderCharges();
     renderChargeRentUpdateSuite();
@@ -3497,6 +3600,7 @@ async function loadScopedAdminDataset(currentScope) {
     renderTenants();
     renderMessageTenantOptions();
     renderAdminContingencyOptions();
+    renderManualChargeOptions();
     renderSummary();
     renderCharges();
     renderChargeRentUpdateSuite();
@@ -8701,11 +8805,7 @@ function renderAuditLogs() {
       );
 }
 
-function renderAdminContingencyOptions() {
-  if (!elements.contingencyTenantSelect) {
-    return;
-  }
-
+function buildAdminTenantUnitOptions() {
   const activeTenants = getScopedTenants()
     .filter(
       (tenant) =>
@@ -8715,7 +8815,7 @@ function renderAdminContingencyOptions() {
       String(left.fullName || "").localeCompare(String(right.fullName || "")),
     );
 
-  elements.contingencyTenantSelect.innerHTML = activeTenants.length
+  return activeTenants.length
     ? activeTenants
         .map((tenant) => {
           const property = state.properties.find(
@@ -8728,6 +8828,65 @@ function renderAdminContingencyOptions() {
         })
         .join("")
     : `<option value="">No hay inquilinos disponibles</option>`;
+}
+
+function renderAdminContingencyOptions() {
+  if (!elements.contingencyTenantSelect) {
+    return;
+  }
+
+  elements.contingencyTenantSelect.innerHTML = buildAdminTenantUnitOptions();
+}
+
+function renderManualChargeOptions() {
+  if (!elements.manualChargeTenantSelect) {
+    return;
+  }
+
+  elements.manualChargeTenantSelect.innerHTML = buildAdminTenantUnitOptions();
+}
+
+async function handleManualChargeSubmit(event) {
+  event.preventDefault();
+
+  if (!isAdminRole()) {
+    setMessage("Solo administración puede crear cargos manuales.", "error");
+    return;
+  }
+
+  const form = event.currentTarget;
+  const tenantId = form.tenantId?.value;
+  const period = form.period?.value;
+  const dueDate = form.dueDate?.value;
+  const amount = Number(form.amount?.value || 0);
+  const reason = String(form.reason?.value || "").trim();
+
+  if (!tenantId || !period || !dueDate || !amount || !reason) {
+    setMessage("Completá inquilino, período, vencimiento, monto y motivo.", "error");
+    return;
+  }
+
+  try {
+    setMessage("Creando cargo manual...");
+    await callWithClaimsRefreshRetry("createManualCharge", {
+      tenantId,
+      period,
+      dueDate,
+      amount,
+      reason,
+    });
+    form.reset();
+    await reloadScopedAdminOperation();
+    setMessage("Cargo manual creado. Ya podés usarlo en modo contingencia.", "success");
+  } catch (error) {
+    console.error(error);
+    setMessage(
+      error?.code?.includes("already-exists")
+        ? "Ya existe un cobro para ese inquilino y período."
+        : "No se pudo crear el cargo manual.",
+      "error",
+    );
+  }
 }
 
 async function handleContingencyOpenUpload() {

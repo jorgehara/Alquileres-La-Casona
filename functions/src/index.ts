@@ -19,6 +19,7 @@ export {
 } from "./modules/tenants.js";
 export {
   generateMonthlyCharges,
+  createManualCharge,
   scheduledGenerateMonthlyCharges,
   syncChargeStatuses,
   scheduledSyncChargeStatuses
