@@ -25,6 +25,7 @@ export {
 } from "./modules/charges.js";
 export {
   submitTransferPayment,
+  submitContingencyTransferPayment,
   approveTransferPayment,
   createMercadoPagoCheckout,
   handleMercadoPagoWebhook,

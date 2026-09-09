@@ -48,6 +48,192 @@ export const submitTransferPayment = onCall(async (request) => {
   });
 });
 
+export const submitContingencyTransferPayment = onCall(async (request) => {
+  await requireRole(request, ["admin", "superadmin"]);
+
+  const data = request.data as {
+    tenantId?: string;
+    chargeId?: string;
+    amountConfirmed?: number;
+    receiptIds?: string[];
+    contingencyPaidAt?: string;
+    contingencyReason?: string;
+  };
+
+  const amountConfirmed = Number(data.amountConfirmed ?? 0);
+  const contingencyPaidAt = String(data.contingencyPaidAt ?? "").trim();
+  const contingencyReason = String(data.contingencyReason ?? "").trim();
+
+  if (
+    !data.tenantId ||
+    !data.chargeId ||
+    !amountConfirmed ||
+    !data.receiptIds?.length ||
+    !contingencyPaidAt ||
+    !contingencyReason
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "tenantId, chargeId, amountConfirmed, receiptIds, contingencyPaidAt y contingencyReason son obligatorios.",
+    );
+  }
+
+  const chargeDoc = await db.collection("charges").doc(data.chargeId).get();
+  if (!chargeDoc.exists) {
+    throw new HttpsError("not-found", "No existe el cobro indicado.");
+  }
+
+  const chargeData = chargeDoc.data() ?? {};
+  if (String(chargeData.tenantId ?? "") !== data.tenantId) {
+    throw new HttpsError(
+      "permission-denied",
+      "Ese cobro no pertenece al inquilino indicado.",
+    );
+  }
+
+  const propertyId = String(chargeData.propertyId ?? "").trim();
+  if (!propertyId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "El cobro no tiene una unidad asociada.",
+    );
+  }
+
+  await assertOwnerScopeAccess(request, propertyId);
+
+  const receipts = await Promise.all(
+    data.receiptIds.map(async (receiptId) => {
+      const receiptDoc = await db.collection("paymentReceipts").doc(receiptId).get();
+      if (!receiptDoc.exists) {
+        throw new HttpsError("not-found", "Uno de los comprobantes no existe.");
+      }
+
+      const receipt = receiptDoc.data() ?? {};
+      if (String(receipt.tenantId ?? "") !== data.tenantId) {
+        throw new HttpsError(
+          "permission-denied",
+          "Uno de los comprobantes no pertenece al inquilino.",
+        );
+      }
+
+      if (receipt.paymentId) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Uno de los comprobantes ya fue usado en otro pago.",
+        );
+      }
+
+      let analyzed: Awaited<ReturnType<typeof analyzeStoredReceipt>> | null = null;
+      try {
+        analyzed = await analyzeStoredReceipt(receiptId, receipt);
+        await receiptDoc.ref.set(
+          {
+            ...analyzed.updates,
+            updatedAt: nowIso(),
+          },
+          { merge: true },
+        );
+      } catch (error) {
+        console.warn("Contingency receipt analysis skipped", {
+          receiptId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      return { id: receiptId, ref: receiptDoc.ref };
+    }),
+  );
+
+  const paidAtDate = new Date(contingencyPaidAt);
+  if (Number.isNaN(paidAtDate.getTime())) {
+    throw new HttpsError(
+      "invalid-argument",
+      "La fecha del pago en contingencia no es válida.",
+    );
+  }
+
+  const actorUid = request.auth?.uid ?? "system";
+  const actorEmail = String(request.auth?.token.email ?? "");
+  const approvedAt = nowIso();
+  const paidAt = paidAtDate.toISOString();
+
+  const paymentRef = await db.collection("payments").add({
+    tenantId: data.tenantId,
+    chargeId: data.chargeId,
+    method: "transfer",
+    amountReported: amountConfirmed,
+    amountConfirmed,
+    status: "approved",
+    approvedAt,
+    approvedBy: actorUid,
+    createdAt: approvedAt,
+    createdBy: actorUid,
+    reportedPaidAt: paidAt,
+    validationStatus: "admin_contingency_override",
+    validationMessage:
+      "Pago aprobado por administración en modo contingencia.",
+    contingencyMode: true,
+    contingencyReason,
+  });
+
+  await Promise.all(
+    receipts.map((receipt, index) =>
+      receipt.ref.set(
+        {
+          paymentId: paymentRef.id,
+          uploadOrder: index + 1,
+          reviewSuggestion: "admin_contingency_override",
+          validationStatus: "admin_contingency_override",
+          validationMessage:
+            "Comprobante asociado por administración en modo contingencia.",
+          contingencyMode: true,
+          contingencyReason,
+          updatedAt: approvedAt,
+        },
+        { merge: true },
+      ),
+    ),
+  );
+
+  await chargeDoc.ref.set(
+    {
+      status: "paid",
+      paidAt,
+      reportedPaidAt: paidAt,
+      total: amountConfirmed,
+      amountConfirmed,
+      overdueDays: 0,
+      lateFeeAmount: 0,
+      contingencyMode: true,
+      contingencyPaymentId: paymentRef.id,
+      contingencyReason,
+      updatedAt: approvedAt,
+    },
+    { merge: true },
+  );
+
+  await db.collection("auditLogs").add({
+    action: "payment.contingency_override",
+    entityType: "payment",
+    entityId: paymentRef.id,
+    summary: `Pago aprobado en modo contingencia por ${amountConfirmed}.`,
+    metadata: {
+      tenantId: data.tenantId,
+      chargeId: data.chargeId,
+      amountConfirmed,
+      receiptIds: data.receiptIds,
+      contingencyPaidAt: paidAt,
+      contingencyReason,
+    },
+    actorUid,
+    actorEmail,
+    actorName: actorEmail || "Administrador",
+    createdAt: approvedAt,
+  });
+
+  return { ok: true, paymentId: paymentRef.id, status: "approved" };
+});
+
 export const approveTransferPayment = onCall(async (request) => {
   await requireRole(request, ["admin", "superadmin"]);
 

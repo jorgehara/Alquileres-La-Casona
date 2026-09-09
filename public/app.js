@@ -383,8 +383,15 @@ const elements = {
   adminReceiptUploadChargeId: null,
   adminReceiptUploadAmount: null,
   adminReceiptUploadFiles: null,
+  adminReceiptUploadContingencyPaidAt: null,
+  adminReceiptUploadContingencyMode: null,
+  adminReceiptUploadContingencyReason: null,
+  adminReceiptUploadContingencyReasonWrap: null,
+  adminReceiptUploadSubmitButton: null,
   adminReceiptUploadCopy: null,
   adminReceiptUploadCancelButton: null,
+  contingencyTenantSelect: null,
+  contingencyOpenButton: null,
   paymentInstructionsModal: document.querySelector(
     "#payment-instructions-modal",
   ),
@@ -843,9 +850,17 @@ function bindPrivateEvents() {
     "change",
     syncAdminReceiptUploadChargeSelection,
   );
+  elements.adminReceiptUploadContingencyMode?.addEventListener(
+    "change",
+    syncAdminReceiptUploadContingencyMode,
+  );
   elements.adminReceiptUploadModal?.addEventListener(
     "click",
     handleAdminReceiptUploadModalClick,
+  );
+  elements.contingencyOpenButton?.addEventListener(
+    "click",
+    handleContingencyOpenUpload,
   );
   elements.paymentInstructionsCloseButton?.addEventListener(
     "click",
@@ -1090,11 +1105,32 @@ function hydratePrivateElements() {
   elements.adminReceiptUploadFiles = document.querySelector(
     "#admin-receipt-upload-files",
   );
+  elements.adminReceiptUploadContingencyPaidAt = document.querySelector(
+    "#admin-receipt-upload-contingency-paid-at",
+  );
+  elements.adminReceiptUploadContingencyMode = document.querySelector(
+    "#admin-receipt-upload-contingency-mode",
+  );
+  elements.adminReceiptUploadContingencyReason = document.querySelector(
+    "#admin-receipt-upload-contingency-reason",
+  );
+  elements.adminReceiptUploadContingencyReasonWrap = document.querySelector(
+    "#admin-receipt-upload-contingency-reason-wrap",
+  );
+  elements.adminReceiptUploadSubmitButton = document.querySelector(
+    "#admin-receipt-upload-submit-button",
+  );
   elements.adminReceiptUploadCopy = document.querySelector(
     "#admin-receipt-upload-copy",
   );
   elements.adminReceiptUploadCancelButton = document.querySelector(
     "#admin-receipt-upload-cancel-button",
+  );
+  elements.contingencyTenantSelect = root.querySelector(
+    "#contingency-tenant-select",
+  );
+  elements.contingencyOpenButton = root.querySelector(
+    "#contingency-open-upload-button",
   );
   elements.paymentInstructionsModal = root.querySelector(
     "#payment-instructions-modal",
@@ -1251,6 +1287,7 @@ function enhancePrivateShellLayout() {
   if (isAdminRole()) {
     renameAdminNavigation();
     ensureAdminComprobantesSection();
+    ensureAdminContingencySection();
     ensureChargeRentUpdateSuite();
     ensureChargesSectionExperience();
     ensureAdminUserScopeControls();
@@ -1333,6 +1370,7 @@ function renameAdminNavigation() {
   const navLabels = {
     resumen: "Inicio",
     comprobantes: "Comprobantes",
+    contingencia: "Modo contingencia",
     cobros: "Cobros",
     inquilinos: "Inquilinos",
     propiedades: "Unidades",
@@ -1623,6 +1661,92 @@ function ensureAdminComprobantesSection() {
   }
 
   elements.adminPaymentReview = reviewList;
+}
+
+function ensureAdminContingencySection() {
+  if (!elements.appShell) {
+    return;
+  }
+
+  const workspace = elements.appShell.querySelector(".workspace");
+  const comprobantesSection = document.querySelector(
+    '.view-section[data-section="comprobantes"][data-admin-only="true"]',
+  );
+  if (!workspace) {
+    return;
+  }
+
+  let navButton = document.querySelector(
+    '.nav-item[data-nav-target="contingencia"]',
+  );
+  if (!navButton) {
+    const comprobantesNav = document.querySelector(
+      '.nav-item[data-nav-target="comprobantes"]',
+    );
+    navButton = document.createElement("button");
+    navButton.type = "button";
+    navButton.className = "nav-item";
+    navButton.dataset.navTarget = "contingencia";
+    navButton.dataset.adminOnly = "true";
+    navButton.textContent = "Modo contingencia";
+    navButton.addEventListener("click", () =>
+      setActiveSection(navButton.dataset.navTarget),
+    );
+    comprobantesNav?.insertAdjacentElement("afterend", navButton);
+    elements.navItems = Array.from(
+      elements.appShell.querySelectorAll(".nav-item"),
+    );
+  }
+
+  let section = document.querySelector(
+    '.view-section[data-section="contingencia"][data-admin-only="true"]',
+  );
+  if (!section) {
+    section = document.createElement("section");
+    section.className = "surface view-section contingency-surface";
+    section.dataset.section = "contingencia";
+    section.dataset.adminOnly = "true";
+    section.innerHTML = `
+      <div class="section-head">
+        <div>
+          <p class="section-label">Carga excepcional</p>
+          <h3>Modo contingencia</h3>
+          <p class="section-description">Usá esta herramienta solo cuando el sistema, internet o una interrupción impidieron cargar un comprobante en el flujo normal. El monto y la fecha tipeados por administración quedan como fuente de verdad del cobro seleccionado.</p>
+        </div>
+      </div>
+      <div class="owner-scope-note">
+        <strong>Acción administrativa sensible</strong><br>
+        Solo administradores pueden aprobar pagos por contingencia. El flujo normal de inquilinos no cambia.
+      </div>
+      <form id="contingency-launch-form" class="form-card settings-form">
+        <label>
+          Inquilino / unidad
+          <select id="contingency-tenant-select" required></select>
+        </label>
+        <div class="auth-actions">
+          <button id="contingency-open-upload-button" class="primary-action" type="button">Cargar comprobante en contingencia</button>
+        </div>
+      </form>
+    `;
+
+    if (comprobantesSection) {
+      comprobantesSection.insertAdjacentElement("afterend", section);
+    } else {
+      workspace.appendChild(section);
+    }
+  }
+
+  elements.contingencyTenantSelect = section.querySelector(
+    "#contingency-tenant-select",
+  );
+  elements.contingencyOpenButton = section.querySelector(
+    "#contingency-open-upload-button",
+  );
+  elements.contingencyOpenButton?.addEventListener(
+    "click",
+    handleContingencyOpenUpload,
+  );
+  renderAdminContingencyOptions();
 }
 
 function ensureChargeRentUpdateSuite() {
@@ -2014,9 +2138,21 @@ function ensureAdminReceiptUploadModal() {
           Comprobantes
           <input id="admin-receipt-upload-files" name="receipts" type="file" accept="image/*,.pdf" multiple required />
         </label>
-        <p class="panel-meta">Podés subir hasta 2 archivos. Se validarán igual que en el portal del inquilino.</p>
+        <label>
+          Fecha del pago/comprobante
+          <input id="admin-receipt-upload-contingency-paid-at" name="contingencyPaidAt" type="date" />
+        </label>
+        <label class="inline-check">
+          <input id="admin-receipt-upload-contingency-mode" name="contingencyMode" type="checkbox" />
+          Modo contingencia
+        </label>
+        <label id="admin-receipt-upload-contingency-reason-wrap" class="hidden">
+          Motivo de contingencia
+          <textarea id="admin-receipt-upload-contingency-reason" name="contingencyReason" rows="3" placeholder="Ej.: Sitio en mantenimiento; pago verificado manualmente por administración."></textarea>
+        </label>
+        <p class="panel-meta">Con contingencia apagada, se validará igual que en el portal del inquilino. Con contingencia encendida, el monto informado reemplaza el total del cobro y queda aprobado por administración.</p>
         <div class="auth-actions">
-          <button class="primary-action" type="submit">Validar y enviar a revisión</button>
+          <button id="admin-receipt-upload-submit-button" class="primary-action" type="submit">Validar y enviar a revisión</button>
           <button id="admin-receipt-upload-cancel-button" class="ghost-action" type="button">Cancelar</button>
         </div>
       </form>
@@ -3325,6 +3461,7 @@ async function loadScopedAdminDataset(currentScope) {
     renderProperties();
     renderTenants();
     renderMessageTenantOptions();
+    renderAdminContingencyOptions();
     renderSummary();
     renderCharges();
     renderChargeRentUpdateSuite();
@@ -3359,6 +3496,7 @@ async function loadScopedAdminDataset(currentScope) {
     renderProperties();
     renderTenants();
     renderMessageTenantOptions();
+    renderAdminContingencyOptions();
     renderSummary();
     renderCharges();
     renderChargeRentUpdateSuite();
@@ -3958,6 +4096,15 @@ async function handleAdminReceiptUploadSubmit(event) {
   const tenantId = elements.adminReceiptUploadTenantId?.value;
   const chargeId = elements.adminReceiptUploadChargeId?.value;
   const amountReported = Number(elements.adminReceiptUploadAmount?.value || 0);
+  const contingencyMode = Boolean(
+    elements.adminReceiptUploadContingencyMode?.checked,
+  );
+  const contingencyPaidAt = String(
+    elements.adminReceiptUploadContingencyPaidAt?.value || "",
+  ).trim();
+  const contingencyReason = String(
+    elements.adminReceiptUploadContingencyReason?.value || "",
+  ).trim();
   const files = Array.from(elements.adminReceiptUploadFiles?.files || []).slice(
     0,
     2,
@@ -3976,6 +4123,14 @@ async function handleAdminReceiptUploadSubmit(event) {
     return;
   }
 
+  if (contingencyMode && (!contingencyPaidAt || !contingencyReason)) {
+    setMessage(
+      "Indicá la fecha y el motivo de contingencia antes de aprobar el pago.",
+      "error",
+    );
+    return;
+  }
+
   const currentCharge = state.charges.find((charge) => charge.id === chargeId);
   if (!currentCharge) {
     setMessage("No se encontró el cobro seleccionado.", "error");
@@ -3991,19 +4146,34 @@ async function handleAdminReceiptUploadSubmit(event) {
       source: "admin_panel",
     });
 
-    setMessage("Validando comprobante...");
+    setMessage(
+      contingencyMode
+        ? "Registrando pago en modo contingencia..."
+        : "Validando comprobante...",
+    );
     const result = await callWithClaimsRefreshRetry(
-      "submitTransferPayment",
-      {
-        tenantId,
-        chargeId,
-        amountReported,
-        receiptIds,
-      },
+      contingencyMode
+        ? "submitContingencyTransferPayment"
+        : "submitTransferPayment",
+      contingencyMode
+        ? {
+            tenantId,
+            chargeId,
+            amountConfirmed: amountReported,
+            receiptIds,
+            contingencyPaidAt,
+            contingencyReason,
+          }
+        : {
+            tenantId,
+            chargeId,
+            amountReported,
+            receiptIds,
+          },
       { retryOnFailedPrecondition: true },
     );
 
-    if (result.data?.blocked) {
+    if (!contingencyMode && result.data?.blocked) {
       const validation = result.data?.validation || {};
       setMessage(
         `${result.data.reason} Esperado: ${formatCurrency(validation.expectedAmount || currentCharge.total || 0)}. Detectado: ${formatCurrency(validation.totalDetected || 0)}.`,
@@ -4015,10 +4185,12 @@ async function handleAdminReceiptUploadSubmit(event) {
     closeAdminReceiptUploadModal();
     await reloadScopedAdminOperation();
     setMessage(
-      result.data?.manualReviewRequired
-        ? "Comprobante cargado. La validación automática no estuvo disponible y quedó pendiente de revisión administrativa."
-        : "Comprobante cargado correctamente. El pago quedó en revisión administrativa.",
-      result.data?.manualReviewRequired ? "warning" : "success",
+      contingencyMode
+        ? "Pago cargado en modo contingencia. El cobro quedó pagado con el monto informado."
+        : result.data?.manualReviewRequired
+          ? "Comprobante cargado. La validación automática no estuvo disponible y quedó pendiente de revisión administrativa."
+          : "Comprobante cargado correctamente. El pago quedó en revisión administrativa.",
+      contingencyMode || !result.data?.manualReviewRequired ? "success" : "warning",
     );
   } catch (error) {
     console.error(error);
@@ -4884,7 +5056,7 @@ function openTenantEditModal(tenantId) {
   elements.tenantEditModal.classList.remove("hidden");
 }
 
-async function openAdminReceiptUploadModal(tenantId) {
+async function openAdminReceiptUploadModal(tenantId, options = {}) {
   const tenant = state.tenants.find((item) => item.id === tenantId);
 
   if (
@@ -4920,8 +5092,24 @@ async function openAdminReceiptUploadModal(tenantId) {
     )
     .join("");
   elements.adminReceiptUploadFiles.value = "";
+  if (elements.adminReceiptUploadContingencyMode) {
+    elements.adminReceiptUploadContingencyMode.checked = Boolean(
+      options.contingencyMode,
+    );
+  }
+  if (elements.adminReceiptUploadContingencyPaidAt) {
+    elements.adminReceiptUploadContingencyPaidAt.value = new Date()
+      .toISOString()
+      .slice(0, 10);
+  }
+  if (elements.adminReceiptUploadContingencyReason) {
+    elements.adminReceiptUploadContingencyReason.value = "";
+  }
+  syncAdminReceiptUploadContingencyMode();
   if (elements.adminReceiptUploadCopy) {
-    elements.adminReceiptUploadCopy.textContent = `Subí el comprobante recibido por ${tenant.fullName || "el inquilino"} para dejar el cobro seleccionado en revisión administrativa.`;
+    elements.adminReceiptUploadCopy.textContent = options.contingencyMode
+      ? `Cargá el comprobante de contingencia para ${tenant.fullName || "el inquilino"}. El monto y la fecha ingresados serán la fuente de verdad del cobro seleccionado.`
+      : `Subí el comprobante recibido por ${tenant.fullName || "el inquilino"} para dejar el cobro seleccionado en revisión administrativa.`;
   }
   syncAdminReceiptUploadChargeSelection();
   elements.adminReceiptUploadModal.classList.remove("hidden");
@@ -4951,6 +5139,29 @@ function syncAdminReceiptUploadChargeSelection() {
   }
 
   elements.adminReceiptUploadAmount.value = String(charge.total || 0);
+}
+
+function syncAdminReceiptUploadContingencyMode() {
+  const enabled = Boolean(elements.adminReceiptUploadContingencyMode?.checked);
+
+  elements.adminReceiptUploadContingencyReasonWrap?.classList.toggle(
+    "hidden",
+    !enabled,
+  );
+  if (elements.adminReceiptUploadContingencyPaidAt) {
+    elements.adminReceiptUploadContingencyPaidAt.required = enabled;
+  }
+  if (elements.adminReceiptUploadContingencyReason) {
+    elements.adminReceiptUploadContingencyReason.required = enabled;
+    if (!enabled) {
+      elements.adminReceiptUploadContingencyReason.value = "";
+    }
+  }
+  if (elements.adminReceiptUploadSubmitButton) {
+    elements.adminReceiptUploadSubmitButton.textContent = enabled
+      ? "Aprobar pago en contingencia"
+      : "Validar y enviar a revisión";
+  }
 }
 
 function openPaymentInstructionsModal() {
@@ -8488,6 +8699,45 @@ function renderAuditLogs() {
     : buildEmptyState(
         "Todavía no hay movimientos de auditoría para este alcance.",
       );
+}
+
+function renderAdminContingencyOptions() {
+  if (!elements.contingencyTenantSelect) {
+    return;
+  }
+
+  const activeTenants = getScopedTenants()
+    .filter(
+      (tenant) =>
+        !["inactive", "deleted"].includes(String(tenant.status || "active")),
+    )
+    .sort((left, right) =>
+      String(left.fullName || "").localeCompare(String(right.fullName || "")),
+    );
+
+  elements.contingencyTenantSelect.innerHTML = activeTenants.length
+    ? activeTenants
+        .map((tenant) => {
+          const property = state.properties.find(
+            (item) => item.id === tenant.propertyId,
+          );
+          const unitLabel = property
+            ? `${property.unitType || "Unidad"} ${property.unitCode || property.name || ""}`.trim()
+            : "Unidad sin asignar";
+          return `<option value="${tenant.id}">${tenant.fullName || "Sin nombre"} - ${unitLabel}</option>`;
+        })
+        .join("")
+    : `<option value="">No hay inquilinos disponibles</option>`;
+}
+
+async function handleContingencyOpenUpload() {
+  const tenantId = elements.contingencyTenantSelect?.value;
+  if (!tenantId) {
+    setMessage("Seleccioná un inquilino antes de cargar contingencia.", "error");
+    return;
+  }
+
+  await openAdminReceiptUploadModal(tenantId, { contingencyMode: true });
 }
 
 function renderMessageTenantOptions() {
