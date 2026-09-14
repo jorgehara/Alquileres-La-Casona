@@ -6292,13 +6292,14 @@ function renderSummary() {
     (charge) => String(charge.period || "") === summaryPeriod,
   );
   const reportCharges = summaryCharges.length ? summaryCharges : scopedCharges;
+  const monthlyConfirmedPayments = scopedPayments.filter((payment) =>
+    isPaymentConfirmedInPeriod(payment, summaryPeriod),
+  );
   const totalCharges = reportCharges.reduce(
     (sum, charge) => sum + Number(charge.total ?? 0),
     0,
   );
-  const totalCollected = reportCharges
-    .filter((charge) => charge.status === "paid")
-    .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
+  const totalCollected = sumPaymentTotals(monthlyConfirmedPayments);
   const openCharges = scopedCharges.filter((charge) =>
     ["pending", "overdue", "in_review"].includes(String(charge.status || "")),
   );
@@ -6312,7 +6313,11 @@ function renderSummary() {
     summaryPeriod,
   );
   const progress =
-    totalCharges > 0 ? Math.min((totalCollected / totalCharges) * 100, 100) : 0;
+    totalCharges > 0
+      ? Math.min((totalCollected / totalCharges) * 100, 100)
+      : totalCollected > 0
+        ? 100
+        : 0;
   const currentScopeLabel = normalizeOwnerLabel(getCurrentOwnerScope());
   const ownerSnapshots = {
     enzo: buildOwnerSnapshot("enzo"),
@@ -6328,8 +6333,8 @@ function renderSummary() {
   elements.collectedTotal.textContent = formatCurrency(totalCollected);
   elements.collectionProgress.style.width = `${Math.max(progress, 6)}%`;
   elements.collectionFootnote.textContent = isSuperadminRole()
-    ? `${Math.round(progress)}% del total de ${formatPeriodLabel(summaryPeriod)} ya figura como cobrado. ${receiptCount} recibos emitidos este período.`
-    : `${Math.round(progress)}% del total de ${formatPeriodLabel(summaryPeriod)} ya figura como cobrado para ${currentScopeLabel}. ${receiptCount} recibos emitidos.`;
+    ? `${monthlyConfirmedPayments.length} pagos confirmados en ${formatPeriodLabel(summaryPeriod)}. ${receiptCount} recibos emitidos este período.`
+    : `${monthlyConfirmedPayments.length} pagos confirmados en ${formatPeriodLabel(summaryPeriod)} para ${currentScopeLabel}. ${receiptCount} recibos emitidos.`;
 
   elements.urgentCharges.innerHTML = pendingCharges.length
     ? pendingCharges
@@ -6369,7 +6374,11 @@ function renderSummary() {
         const periodCharges = snapshot.charges.filter(
           (charge) => String(charge.period || "") === summaryPeriod,
         );
-        const ownerCollected = sumChargeTotals(periodCharges, ["paid"]);
+        const ownerCollected = sumPaymentTotals(
+          snapshot.payments.filter((payment) =>
+            isPaymentConfirmedInPeriod(payment, summaryPeriod),
+          ),
+        );
         const ownerPending = sumChargeTotals(periodCharges, [
           "pending",
           "overdue",
@@ -6461,9 +6470,12 @@ function renderSummaryReports(
     (sum, charge) => sum + Number(charge.total ?? 0),
     0,
   );
-  const collected = reportCharges
-    .filter((charge) => charge.status === "paid")
-    .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
+  const scopedPayments = getScopedPayments();
+  const scopedRentReceipts = getScopedRentReceipts();
+  const monthlyConfirmedPayments = scopedPayments.filter((payment) =>
+    isPaymentConfirmedInPeriod(payment, currentPeriod),
+  );
+  const collected = sumPaymentTotals(monthlyConfirmedPayments);
   const pending = reportCharges
     .filter((charge) => charge.status === "pending")
     .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
@@ -6473,16 +6485,14 @@ function renderSummaryReports(
   const inReview = reportCharges
     .filter((charge) => charge.status === "in_review")
     .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
-  const scopedPayments = getScopedPayments();
-  const scopedRentReceipts = getScopedRentReceipts();
-  const transferTotal = scopedPayments
+  const transferTotal = monthlyConfirmedPayments
     .filter((payment) => payment.method === "transfer")
     .reduce(
       (sum, payment) =>
         sum + Number(payment.amountConfirmed ?? payment.amountReported ?? 0),
       0,
     );
-  const cardTotal = scopedPayments
+  const cardTotal = monthlyConfirmedPayments
     .filter((payment) => payment.method === "mercado_pago")
     .reduce(
       (sum, payment) =>
@@ -6493,7 +6503,8 @@ function renderSummaryReports(
     (charge) => charge.status === "overdue",
   );
   const recentPayments = [...scopedPayments]
-    .sort((a, b) => sortByCreatedAtDesc(a, b))
+    .filter(isConfirmedPayment)
+    .sort((a, b) => sortByConfirmedPaymentAtDesc(a, b))
     .slice(0, 5);
   const pendingReviews = countPendingPaymentReviews(scopedPayments);
   const delinquentCount = countDelinquentCharges(scopedCharges);
@@ -6545,7 +6556,11 @@ function renderSummaryReports(
         const periodCharges = snapshot.charges.filter(
           (charge) => String(charge.period || "") === currentPeriod,
         );
-        const ownerCollected = sumChargeTotals(periodCharges, ["paid"]);
+        const ownerCollected = sumPaymentTotals(
+          snapshot.payments.filter((payment) =>
+            isPaymentConfirmedInPeriod(payment, currentPeriod),
+          ),
+        );
         const ownerPending = sumChargeTotals(periodCharges, [
           "pending",
           "overdue",
@@ -6652,7 +6667,7 @@ function renderSummaryReports(
                 </div>
                 <div>
                   <strong>${formatCurrency(payment.amountConfirmed ?? payment.amountReported ?? 0)}</strong>
-                  <p>${formatDateTime(resolveDisplayDate(payment.createdAt))}</p>
+                  <p>${formatDateTime(resolvePaymentConfirmedAt(payment))}</p>
               </div>
             </article>
           `;
@@ -10495,12 +10510,43 @@ function sortByCreatedAtDesc(left, right) {
   return rightValue - leftValue;
 }
 
-function formatConfidence(value) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "";
+function isConfirmedPayment(payment) {
+  return ["approved", "provider_confirmed"].includes(
+    String(payment?.status || ""),
+  );
+}
+
+function resolvePaymentConfirmedAt(payment) {
+  return resolveDisplayDate(
+    payment?.approvedAt ??
+      payment?.providerConfirmedAt ??
+      payment?.paidAt ??
+      payment?.reportedPaidAt ??
+      payment?.createdAt,
+  );
+}
+
+function isPaymentConfirmedInPeriod(payment, period) {
+  if (!isConfirmedPayment(payment)) {
+    return false;
   }
 
-  return `${Math.round(value * 100)}%`;
+  return resolvePaymentConfirmedAt(payment).startsWith(`${period}-`);
+}
+
+function sumPaymentTotals(payments) {
+  return payments.reduce(
+    (sum, payment) =>
+      sum + Number(payment.amountConfirmed ?? payment.amountReported ?? 0),
+    0,
+  );
+}
+
+function sortByConfirmedPaymentAtDesc(left, right) {
+  return (
+    resolveTimestamp(resolvePaymentConfirmedAt(right)) -
+    resolveTimestamp(resolvePaymentConfirmedAt(left))
+  );
 }
 
 function truncateText(value, maxLength = 160) {
@@ -10670,7 +10716,7 @@ function resolveCurrentPeriodValue() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function resolveSummaryPeriod(charges = []) {
+function resolveSummaryPeriod(_charges = []) {
   return resolveCurrentPeriodValue();
 }
 
