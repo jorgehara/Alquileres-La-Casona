@@ -6299,10 +6299,11 @@ function renderSummary() {
   const totalCollected = reportCharges
     .filter((charge) => charge.status === "paid")
     .reduce((sum, charge) => sum + Number(charge.total ?? 0), 0);
-  const pendingCharges = scopedCharges.filter(
-    (charge) => charge.status !== "paid",
+  const openCharges = scopedCharges.filter((charge) =>
+    ["pending", "overdue", "in_review"].includes(String(charge.status || "")),
   );
-  const overdueCharges = scopedCharges.filter(
+  const pendingCharges = openCharges;
+  const overdueCharges = openCharges.filter(
     (charge) => charge.status === "overdue",
   );
   const pendingReviews = countPendingPaymentReviews(scopedPayments);
@@ -10670,24 +10671,7 @@ function resolveCurrentPeriodValue() {
 }
 
 function resolveSummaryPeriod(charges = []) {
-  const currentPeriod = resolveCurrentPeriodValue();
-  const availablePeriods = [
-    ...new Set(
-      charges
-        .map((charge) => String(charge?.period || "").trim())
-        .filter(Boolean),
-    ),
-  ].sort((left, right) => right.localeCompare(left));
-
-  if (!availablePeriods.length) {
-    return currentPeriod;
-  }
-
-  if (availablePeriods.includes(currentPeriod)) {
-    return currentPeriod;
-  }
-
-  return availablePeriods[0];
+  return resolveCurrentPeriodValue();
 }
 
 function addMonthsToPeriod(period, months) {
