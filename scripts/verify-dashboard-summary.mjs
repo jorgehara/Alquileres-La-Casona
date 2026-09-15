@@ -32,20 +32,26 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /const monthlyConfirmedPayments = scopedPayments\.filter\(\(payment\) =>\s*isPaymentConfirmedInPeriod\(payment, summaryPeriod\),\s*\);/s,
-  "Monthly collection must be based on payments confirmed during the current month.",
+  /const monthlyConfirmedPayments = uniqueConfirmedPayments\(\s*scopedPayments\.filter\(\(payment\) =>\s*isPaymentConfirmedInPeriod\(payment, summaryPeriod\),\s*\),\s*\);/s,
+  "Monthly collection must be based on unique payments confirmed during the current month.",
 );
 
 assert.match(
   source,
-  /function resolvePaymentConfirmedAt\(payment\) \{\s*return resolveDisplayDate\([\s\S]*?payment\?\.approvedAt \?\?[\s\S]*?payment\?\.providerConfirmedAt \?\?[\s\S]*?payment\?\.paidAt \?\?[\s\S]*?payment\?\.reportedPaidAt \?\?[\s\S]*?payment\?\.createdAt,[\s\S]*?\);\s*\}/s,
-  "Confirmed payment date must include approved/provider/contingency paid dates before falling back to creation time.",
+  /function resolvePaymentConfirmedAt\(payment\) \{\s*return resolveDisplayDate\([\s\S]*?payment\?\.reportedPaidAt \?\?[\s\S]*?payment\?\.paidAt \?\?[\s\S]*?payment\?\.providerConfirmedAt \?\?[\s\S]*?payment\?\.approvedAt \?\?[\s\S]*?payment\?\.createdAt,[\s\S]*?\);\s*\}/s,
+  "Confirmed payment date must prefer the real paid/reported-paid date before approval timestamps.",
 );
 
 assert.match(
   source,
   /function sumPaymentTotals\(payments\) \{[\s\S]*?amountConfirmed \?\? payment\.amountReported/s,
   "Monthly collection must sum confirmed payment amounts, including contingency payments.",
+);
+
+assert.match(
+  source,
+  /function uniqueConfirmedPayments\(payments\) \{[\s\S]*?const byCharge = new Map\(\);[\s\S]*?String\(payment\.chargeId \|\| payment\.id \|\| ""\)/s,
+  "Monthly collection must deduplicate repeated confirmed payment records by charge before summing.",
 );
 
 console.log("Dashboard summary regression checks passed.");

@@ -4294,7 +4294,9 @@ async function handleAdminReceiptUploadSubmit(event) {
         : result.data?.manualReviewRequired
           ? "Comprobante cargado. La validación automática no estuvo disponible y quedó pendiente de revisión administrativa."
           : "Comprobante cargado correctamente. El pago quedó en revisión administrativa.",
-      contingencyMode || !result.data?.manualReviewRequired ? "success" : "warning",
+      contingencyMode || !result.data?.manualReviewRequired
+        ? "success"
+        : "warning",
     );
   } catch (error) {
     console.error(error);
@@ -6292,8 +6294,10 @@ function renderSummary() {
     (charge) => String(charge.period || "") === summaryPeriod,
   );
   const reportCharges = summaryCharges.length ? summaryCharges : scopedCharges;
-  const monthlyConfirmedPayments = scopedPayments.filter((payment) =>
-    isPaymentConfirmedInPeriod(payment, summaryPeriod),
+  const monthlyConfirmedPayments = uniqueConfirmedPayments(
+    scopedPayments.filter((payment) =>
+      isPaymentConfirmedInPeriod(payment, summaryPeriod),
+    ),
   );
   const totalCharges = reportCharges.reduce(
     (sum, charge) => sum + Number(charge.total ?? 0),
@@ -6375,9 +6379,11 @@ function renderSummary() {
           (charge) => String(charge.period || "") === summaryPeriod,
         );
         const ownerCollected = sumPaymentTotals(
-          snapshot.payments.filter((payment) =>
-            isPaymentConfirmedInPeriod(payment, summaryPeriod),
-          ),
+              uniqueConfirmedPayments(
+                snapshot.payments.filter((payment) =>
+                  isPaymentConfirmedInPeriod(payment, summaryPeriod),
+                ),
+              ),
         );
         const ownerPending = sumChargeTotals(periodCharges, [
           "pending",
@@ -6472,8 +6478,10 @@ function renderSummaryReports(
   );
   const scopedPayments = getScopedPayments();
   const scopedRentReceipts = getScopedRentReceipts();
-  const monthlyConfirmedPayments = scopedPayments.filter((payment) =>
-    isPaymentConfirmedInPeriod(payment, currentPeriod),
+  const monthlyConfirmedPayments = uniqueConfirmedPayments(
+    scopedPayments.filter((payment) =>
+      isPaymentConfirmedInPeriod(payment, currentPeriod),
+    ),
   );
   const collected = sumPaymentTotals(monthlyConfirmedPayments);
   const pending = reportCharges
@@ -6502,8 +6510,7 @@ function renderSummaryReports(
   const delinquentCharges = scopedCharges.filter(
     (charge) => charge.status === "overdue",
   );
-  const recentPayments = [...scopedPayments]
-    .filter(isConfirmedPayment)
+  const recentPayments = uniqueConfirmedPayments(scopedPayments)
     .sort((a, b) => sortByConfirmedPaymentAtDesc(a, b))
     .slice(0, 5);
   const pendingReviews = countPendingPaymentReviews(scopedPayments);
@@ -6557,9 +6564,11 @@ function renderSummaryReports(
           (charge) => String(charge.period || "") === currentPeriod,
         );
         const ownerCollected = sumPaymentTotals(
-          snapshot.payments.filter((payment) =>
-            isPaymentConfirmedInPeriod(payment, currentPeriod),
-          ),
+              uniqueConfirmedPayments(
+                snapshot.payments.filter((payment) =>
+                  isPaymentConfirmedInPeriod(payment, currentPeriod),
+                ),
+              ),
         );
         const ownerPending = sumChargeTotals(periodCharges, [
           "pending",
@@ -10518,10 +10527,10 @@ function isConfirmedPayment(payment) {
 
 function resolvePaymentConfirmedAt(payment) {
   return resolveDisplayDate(
-    payment?.approvedAt ??
-      payment?.providerConfirmedAt ??
+    payment?.reportedPaidAt ??
       payment?.paidAt ??
-      payment?.reportedPaidAt ??
+      payment?.providerConfirmedAt ??
+      payment?.approvedAt ??
       payment?.createdAt,
   );
 }
@@ -10540,6 +10549,28 @@ function sumPaymentTotals(payments) {
       sum + Number(payment.amountConfirmed ?? payment.amountReported ?? 0),
     0,
   );
+}
+
+function uniqueConfirmedPayments(payments) {
+  const byCharge = new Map();
+
+  payments.filter(isConfirmedPayment).forEach((payment) => {
+    const key = String(payment.chargeId || payment.id || "");
+    if (!key) {
+      return;
+    }
+
+    const current = byCharge.get(key);
+    if (
+      !current ||
+      resolveTimestamp(resolvePaymentConfirmedAt(payment)) >
+        resolveTimestamp(resolvePaymentConfirmedAt(current))
+    ) {
+      byCharge.set(key, payment);
+    }
+  });
+
+  return [...byCharge.values()];
 }
 
 function sortByConfirmedPaymentAtDesc(left, right) {
