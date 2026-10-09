@@ -1121,6 +1121,29 @@ export async function processTransferPaymentSubmission(input: {
     );
   }
 
+  const existingPayments = await db
+    .collection("payments")
+    .where("tenantId", "==", input.tenantId)
+    .where("chargeId", "==", input.chargeId)
+    .where("method", "==", "transfer")
+    .get();
+  const existingPayment = existingPayments.docs.find(
+    (payment) => String(payment.data().status ?? "") !== "rejected",
+  );
+  if (existingPayment) {
+    const payment = existingPayment.data();
+    return {
+      ok: true,
+      paymentId: existingPayment.id,
+      status: String(payment.status ?? ""),
+      alreadySubmitted: true,
+      validationStatus: String(payment.validationStatus ?? ""),
+      validationMessage: String(payment.validationMessage ?? ""),
+      manualReviewRequired:
+        payment.validationStatus === "manual_review_required",
+    };
+  }
+
   const tenantDoc = await db.collection("tenants").doc(input.tenantId).get();
   const tenant = tenantDoc.data() ?? {};
   const propertyId = String(tenant.propertyId ?? charge.propertyId ?? "");

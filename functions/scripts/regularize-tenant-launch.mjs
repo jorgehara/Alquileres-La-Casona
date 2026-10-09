@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 
 const PROJECT_ID = "alquileres-la-casona";
-const DEPARTMENT_RENT = 321680;
+const DEPARTMENT_RENT = 366715;
 const DEPARTMENT_EXPENSES = 10000;
 const ORPHAN_EMAILS_TO_NOTIFY = [
   "carlagauna1980@gmail.com",
@@ -199,7 +199,12 @@ async function readFirebaseCliAccessToken() {
     "firebase-tools.json"
   );
   const raw = await fs.readFile(configPath, "utf8");
-  const parsed = JSON.parse(raw);
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error("Invalid Firebase CLI configuration JSON.", { cause: error });
+  }
   const token = String(parsed?.tokens?.access_token ?? "").trim();
   if (!token) {
     throw new Error("No Firebase CLI access token found.");
@@ -287,9 +292,14 @@ async function listCollection(accessToken, collectionId) {
   let nextPageToken = "";
 
   do {
-    const url = new URL(
-      `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collectionId}`
-    );
+    let url;
+    try {
+      url = new URL(
+        `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collectionId}`
+      );
+    } catch (error) {
+      throw new Error("Could not build the Firestore collection URL.", { cause: error });
+    }
     url.searchParams.set("pageSize", "200");
     if (nextPageToken) {
       url.searchParams.set("pageToken", nextPageToken);
@@ -316,9 +326,14 @@ async function listCollection(accessToken, collectionId) {
 }
 
 async function patchDocument(accessToken, documentPath, data, fieldPaths) {
-  const url = new URL(
-    `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${documentPath}`
-  );
+  let url;
+  try {
+    url = new URL(
+      `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${documentPath}`
+    );
+  } catch (error) {
+    throw new Error("Could not build the Firestore document URL.", { cause: error });
+  }
   for (const fieldPath of fieldPaths) {
     url.searchParams.append("updateMask.fieldPaths", fieldPath);
   }

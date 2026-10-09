@@ -864,7 +864,10 @@ function bindPrivateEvents() {
     "click",
     handleContingencyOpenUpload,
   );
-  elements.manualChargeForm?.addEventListener("submit", handleManualChargeSubmit);
+  elements.manualChargeForm?.addEventListener(
+    "submit",
+    handleManualChargeSubmit,
+  );
   elements.paymentInstructionsCloseButton?.addEventListener(
     "click",
     closePaymentInstructionsModal,
@@ -1847,7 +1850,10 @@ function ensureManualChargeSection() {
     "#manual-charge-tenant-select",
   );
   elements.manualChargeForm = section.querySelector("#manual-charge-form");
-  elements.manualChargeForm?.addEventListener("submit", handleManualChargeSubmit);
+  elements.manualChargeForm?.addEventListener(
+    "submit",
+    handleManualChargeSubmit,
+  );
   renderManualChargeOptions();
 }
 
@@ -6379,11 +6385,11 @@ function renderSummary() {
           (charge) => String(charge.period || "") === summaryPeriod,
         );
         const ownerCollected = sumPaymentTotals(
-              uniqueConfirmedPayments(
-                snapshot.payments.filter((payment) =>
-                  isPaymentConfirmedInPeriod(payment, summaryPeriod),
-                ),
-              ),
+          uniqueConfirmedPayments(
+            snapshot.payments.filter((payment) =>
+              isPaymentConfirmedInPeriod(payment, summaryPeriod),
+            ),
+          ),
         );
         const ownerPending = sumChargeTotals(periodCharges, [
           "pending",
@@ -6564,11 +6570,11 @@ function renderSummaryReports(
           (charge) => String(charge.period || "") === currentPeriod,
         );
         const ownerCollected = sumPaymentTotals(
-              uniqueConfirmedPayments(
-                snapshot.payments.filter((payment) =>
-                  isPaymentConfirmedInPeriod(payment, currentPeriod),
-                ),
-              ),
+          uniqueConfirmedPayments(
+            snapshot.payments.filter((payment) =>
+              isPaymentConfirmedInPeriod(payment, currentPeriod),
+            ),
+          ),
         );
         const ownerPending = sumChargeTotals(periodCharges, [
           "pending",
@@ -8729,7 +8735,6 @@ function renderAdminPaymentReview() {
                          <button class="ghost-action small-button" type="button" data-reject-payment="${payment.id}" data-charge-id="${payment.chargeId}">Rechazar</button>`
                       : ""
                   }
-                  ${paymentReceipts[0]?.downloadURL ? `<a class="entity-link" href="${paymentReceipts[0].downloadURL}" target="_blank" rel="noreferrer">Ver comprobante</a>` : ""}
                   <button class="ghost-action small-button" type="button" data-open-section="mensajes">Enviar mensaje</button>
                   ${
                     rentReceipt?.pdfUrl
@@ -8887,7 +8892,10 @@ async function handleManualChargeSubmit(event) {
   const reason = String(form.reason?.value || "").trim();
 
   if (!tenantId || !period || !dueDate || !amount || !reason) {
-    setMessage("Completá inquilino, período, vencimiento, monto y motivo.", "error");
+    setMessage(
+      "Completá inquilino, período, vencimiento, monto y motivo.",
+      "error",
+    );
     return;
   }
 
@@ -8902,7 +8910,10 @@ async function handleManualChargeSubmit(event) {
     });
     form.reset();
     await reloadScopedAdminOperation();
-    setMessage("Cargo manual creado. Ya podés usarlo en modo contingencia.", "success");
+    setMessage(
+      "Cargo manual creado. Ya podés usarlo en modo contingencia.",
+      "success",
+    );
   } catch (error) {
     console.error(error);
     setMessage(
@@ -8917,7 +8928,10 @@ async function handleManualChargeSubmit(event) {
 async function handleContingencyOpenUpload() {
   const tenantId = elements.contingencyTenantSelect?.value;
   if (!tenantId) {
-    setMessage("Seleccioná un inquilino antes de cargar contingencia.", "error");
+    setMessage(
+      "Seleccioná un inquilino antes de cargar contingencia.",
+      "error",
+    );
     return;
   }
 
