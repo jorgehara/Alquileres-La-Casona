@@ -148,6 +148,48 @@ test("admin receipt list is the only receipt link source", () => {
   assert.equal((card.match(/>Ver comprobante<\/a>/g) ?? []).length, 1);
   assert.ok(!card.includes("paymentReceipts[0]"));
 });
+for (const status of ["paid", "cancelled", "pending"]) {
+  test(`${status} charge respects current displayed base rent precedence`, () => {
+    const app = read("public/app.js");
+    const resolveRent = vm.runInNewContext(
+      `${app.slice(
+        app.indexOf("function resolveDisplayedBaseRent("),
+        app.indexOf("function resolveChargeExpenseAmount("),
+      )}\nresolveDisplayedBaseRent`,
+      {
+        resolveCurrentPeriodValue: () => "2026-10",
+        addMonthsToPeriod: () => "",
+        getDefaultRentForUnitType: (unitType) => {
+          assert.equal(unitType, "Departamento");
+          return 366715;
+        },
+      },
+    );
+    const property = { unitType: "Departamento" };
+    const charge = {
+      status,
+      period: "2026-09",
+      items: [{ key: "rent", amount: 100000 }],
+    };
+    const expected = status === "pending" ? 100000 : 366715;
+    assert.equal(resolveRent({ baseRent: 366715 }, property, charge), expected);
+    assert.equal(resolveRent(null, property, charge), expected);
+    assert.equal(
+      resolveRent(
+        {
+          baseRent: 400000,
+          rentUpdateConfig: {
+            currentBaseRent: 366715,
+            billingEffectivePeriod: "2026-11",
+          },
+        },
+        property,
+        charge,
+      ),
+      expected,
+    );
+  });
+}
 test("confirmed rent feeds tenant, open charge, and default paths", () => {
   const regularize = read("functions/scripts/regularize-tenant-launch.mjs");
   assert.match(regularize, /const DEPARTMENT_RENT = 366715;/);

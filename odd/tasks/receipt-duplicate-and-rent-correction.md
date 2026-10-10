@@ -45,6 +45,15 @@ Prevent tenant transfer retries and duplicate-looking admin receipt links, and a
 - Work-unit commit: `126c872` (`fix: prevent duplicate receipt submissions`).
 - Native review approved and acknowledged for the candidate; two non-blocking reliability warnings remain informational.
 
+## Follow-up: historical terminal charge rent
+
+- Prevented paid and cancelled current-charge fallbacks from overriding displayed tenant base rent; non-terminal charges retain precedence.
+- Added isolated display regression cases for a historical September charge of ARS 100,000 versus current tenant rent of ARS 366,715, including configured tenant rent and an injected default provider.
+- RED: the paid and cancelled cases failed with `100000 !== 366715` (13 passed, 2 failed).
+- GREEN: `node --test scripts/verify-receipt-duplicate-rent-fix.mjs` passed all 15 tests, with zero failures or skips.
+- Updated the frontend department default to ARS 366,715; this follow-up changes charge precedence and does not mutate production data.
+- No deployment, commit, or data mutation performed.
+
 ## Next step
 
 - Push/deploy only through the normal user-authorized workflow. Production data is unchanged until the regularization script is explicitly run through the normal deployment/operations process.

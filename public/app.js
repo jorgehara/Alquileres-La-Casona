@@ -10634,14 +10634,17 @@ function resolveGeneralSettings() {
 function getDefaultRentForUnitType(unitType) {
   const normalizedUnitType = String(unitType || "").trim();
   if (normalizedUnitType === "Departamento") {
-    return 321680;
+    return 366715;
   }
   return Number(resolveGeneralSettings().defaultRents[normalizedUnitType] ?? 0);
 }
 
 function resolveDisplayedBaseRent(tenant, property, currentCharge = null) {
   const chargeRentAmount = resolveChargeRentAmount(currentCharge);
-  if (chargeRentAmount > 0) {
+  if (
+    !["paid", "cancelled"].includes(currentCharge?.status) &&
+    chargeRentAmount > 0
+  ) {
     return chargeRentAmount;
   }
 
