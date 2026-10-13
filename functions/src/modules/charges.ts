@@ -206,20 +206,48 @@ export async function ensureCurrentChargeForTenant(
   tenantId: string,
   actorUserId: string,
 ) {
-  const period = rentalPeriod();
-  const duePeriod = collectionPeriod();
+  const billedPeriod = rentalPeriod();
+  const latestAvailablePeriod = collectionPeriod();
   const generationDate = new Date();
   const generatedAt = generationDate.toISOString();
-  const existing = await db
+  const billedPeriodCharges = await db
     .collection("charges")
     .where("tenantId", "==", tenantId)
-    .where("period", "==", period)
-    .limit(1)
+    .where("period", "==", billedPeriod)
     .get();
+  const period = resolveEnsureChargePeriod(
+    billedPeriod,
+    latestAvailablePeriod,
+    billedPeriodCharges.docs.map((doc) => String(doc.get("status") ?? "")),
+  );
 
-  if (!existing.empty) {
-    return { ok: true, created: false, period };
+  if (!period) {
+    return {
+      ok: true,
+      created: false,
+      period: billedPeriod,
+      skippedReason: "period_already_exists",
+    };
   }
+
+  if (period !== billedPeriod) {
+    const nextPeriodCharge = await db
+      .collection("charges")
+      .where("tenantId", "==", tenantId)
+      .where("period", "==", period)
+      .limit(1)
+      .get();
+    if (!nextPeriodCharge.empty) {
+      return {
+        ok: true,
+        created: false,
+        period,
+        skippedReason: "period_already_exists",
+      };
+    }
+  }
+
+  const duePeriod = addMonthsToPeriod(period, 1);
 
   const settings = await getGeneralSettings();
   const tenantDoc = await db.collection("tenants").doc(tenantId).get();
@@ -487,6 +515,25 @@ function resolveTenantBaseRentForPeriod(
   return Number.isFinite(currentBaseRent) && currentBaseRent > 0
     ? currentBaseRent
     : 0;
+}
+
+function resolveEnsureChargePeriod(
+  billedPeriod: string,
+  latestAvailablePeriod: string,
+  existingStatuses: string[],
+) {
+  if (existingStatuses.length === 0) {
+    return billedPeriod;
+  }
+
+  const onlyTerminalCharges = existingStatuses.every((status) =>
+    ["paid", "cancelled"].includes(status),
+  );
+  if (onlyTerminalCharges && billedPeriod < latestAvailablePeriod) {
+    return latestAvailablePeriod;
+  }
+
+  return null;
 }
 
 function resolveTenantDueDayOfMonth(

@@ -5206,12 +5206,14 @@ async function openAdminReceiptUploadModal(tenantId, options = {}) {
     `Preparando carga manual para ${tenant.fullName || "el inquilino"}...`,
   );
   elements.adminReceiptUploadTenantId.value = tenantId;
-  elements.adminReceiptUploadChargeId.innerHTML = openCharges
-    .map(
-      (charge) =>
-        `<option value="${charge.id}">${formatPeriodLabel(charge.period)} · ${formatCurrency(charge.total || 0)} · ${humanizeChargeStatus(charge.status)}</option>`,
-    )
-    .join("");
+  elements.adminReceiptUploadChargeId.replaceChildren(
+    ...openCharges.map((charge) => {
+      const option = document.createElement("option");
+      option.value = charge.id;
+      option.textContent = `${formatPeriodLabel(charge.period)} · ${formatCurrency(charge.total || 0)} · ${humanizeChargeStatus(charge.status)}`;
+      return option;
+    }),
+  );
   elements.adminReceiptUploadFiles.value = "";
   if (elements.adminReceiptUploadContingencyMode) {
     elements.adminReceiptUploadContingencyMode.checked = Boolean(

@@ -190,6 +190,26 @@ for (const status of ["paid", "cancelled", "pending"]) {
     );
   });
 }
+test("missing-charge recovery advances past a terminal billed period", () => {
+  const charges = read("functions/src/modules/charges.ts");
+  const helperSource = charges.slice(
+    charges.indexOf("function resolveEnsureChargePeriod("),
+    charges.indexOf("function resolveTenantDueDayOfMonth("),
+  );
+  const helperCompiled = ts.transpileModule(helperSource, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const resolvePeriod = vm.runInNewContext(
+    `${helperCompiled}\nresolveEnsureChargePeriod`,
+  );
+
+  assert.equal(resolvePeriod("2026-09", "2026-10", []), "2026-09");
+  assert.equal(resolvePeriod("2026-09", "2026-10", ["paid"]), "2026-10");
+  assert.equal(resolvePeriod("2026-09", "2026-10", ["cancelled"]), "2026-10");
+  assert.equal(resolvePeriod("2026-09", "2026-10", ["pending"]), null);
+  assert.equal(resolvePeriod("2026-10", "2026-10", ["paid"]), null);
+});
+
 test("confirmed rent feeds tenant, open charge, and default paths", () => {
   const regularize = read("functions/scripts/regularize-tenant-launch.mjs");
   assert.match(regularize, /const DEPARTMENT_RENT = 366715;/);
