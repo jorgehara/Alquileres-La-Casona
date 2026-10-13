@@ -13,11 +13,11 @@ const ORPHAN_EMAILS_TO_NOTIFY = [
   "galatoro81@gmail.com",
   "adricolman2802@gmail.com",
   "eaguirre@carplan.com.ar",
-  "celes_017@hotmail.com"
+  "celes_017@hotmail.com",
 ];
 const EMAILS_TO_EXCLUDE = new Set([
   "sophiadulka6@gmail.com",
-  "celes_017@hotmai.com"
+  "celes_017@hotmai.com",
 ]);
 const EMAIL_TO_DELETE = "claramentepodcast@gmail.com";
 
@@ -34,13 +34,13 @@ async function main() {
   const authByEmail = new Map(
     authAccounts
       .filter((account) => account.email)
-      .map((account) => [String(account.email).trim().toLowerCase(), account])
+      .map((account) => [String(account.email).trim().toLowerCase(), account]),
   );
 
   const [properties, tenants, charges] = await Promise.all([
     listCollection(accessToken, "properties"),
     listCollection(accessToken, "tenants"),
-    listCollection(accessToken, "charges")
+    listCollection(accessToken, "charges"),
   ]);
 
   const propertiesById = new Map(properties.map((doc) => [doc.id, doc]));
@@ -60,11 +60,11 @@ async function main() {
       {
         baseRent: DEPARTMENT_RENT,
         rentUpdateConfig: {
-          ...(asPlainObject(tenant.data.rentUpdateConfig)),
-          currentBaseRent: DEPARTMENT_RENT
-        }
+          ...asPlainObject(tenant.data.rentUpdateConfig),
+          currentBaseRent: DEPARTMENT_RENT,
+        },
       },
-      ["baseRent", "rentUpdateConfig.currentBaseRent"]
+      ["baseRent", "rentUpdateConfig.currentBaseRent"],
     );
   }
 
@@ -78,7 +78,9 @@ async function main() {
       continue;
     }
 
-    const currentItems = Array.isArray(charge.data.items) ? charge.data.items : [];
+    const currentItems = Array.isArray(charge.data.items)
+      ? charge.data.items
+      : [];
     const preservedItems = currentItems.filter((item) => {
       const key = String(item?.key ?? "").trim();
       return key !== "rent" && key !== "expenses";
@@ -86,10 +88,10 @@ async function main() {
     const updatedItems = [
       { key: "rent", label: "Alquiler", amount: DEPARTMENT_RENT },
       { key: "expenses", label: "Expensas", amount: DEPARTMENT_EXPENSES },
-      ...preservedItems
+      ...preservedItems,
     ];
     const subtotal = roundCurrency(
-      updatedItems.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
+      updatedItems.reduce((sum, item) => sum + Number(item.amount ?? 0), 0),
     );
     const lateFeeAmount = Number(charge.data.lateFeeAmount ?? 0);
     const total = roundCurrency(subtotal + lateFeeAmount);
@@ -100,9 +102,9 @@ async function main() {
       {
         items: updatedItems,
         subtotal,
-        total
+        total,
       },
-      ["items", "subtotal", "total"]
+      ["items", "subtotal", "total"],
     );
   }
 
@@ -111,10 +113,10 @@ async function main() {
     "settings/general",
     {
       defaultRents: {
-        Departamento: DEPARTMENT_RENT
-      }
+        Departamento: DEPARTMENT_RENT,
+      },
     },
-    ["defaultRents.Departamento"]
+    ["defaultRents.Departamento"],
   );
 
   const deleteTarget = authByEmail.get(EMAIL_TO_DELETE);
@@ -138,7 +140,7 @@ async function main() {
       to: normalizedEmail,
       subject: "La Casona - Completa tu acceso",
       text: buildAccountCompletionEmailText(env.WEBAPP_URL, normalizedEmail),
-      html: buildAccountCompletionEmailHtml(env.WEBAPP_URL, normalizedEmail)
+      html: buildAccountCompletionEmailHtml(env.WEBAPP_URL, normalizedEmail),
     });
     sentEmails.push(normalizedEmail);
   }
@@ -149,19 +151,22 @@ async function main() {
         ok: true,
         deletedAuthEmail: deleteTarget?.email ?? null,
         notified: sentEmails,
-        updatedDepartmentTenants: departmentTenantIds.size
+        updatedDepartmentTenants: departmentTenantIds.size,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 }
 
 async function loadEnvFiles() {
-  const baseDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const baseDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+  );
   const files = [
     path.join(baseDir, ".env"),
-    path.join(baseDir, `.env.${PROJECT_ID}`)
+    path.join(baseDir, `.env.${PROJECT_ID}`),
   ];
   const env = {};
   for (const file of files) {
@@ -182,7 +187,14 @@ async function loadEnvFiles() {
     }
   }
 
-  for (const key of ["WEBAPP_URL", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM"]) {
+  for (const key of [
+    "WEBAPP_URL",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USER",
+    "SMTP_PASS",
+    "EMAIL_FROM",
+  ]) {
     if (!env[key]) {
       throw new Error(`Missing ${key} in functions env files.`);
     }
@@ -196,14 +208,16 @@ async function readFirebaseCliAccessToken() {
     os.homedir(),
     ".config",
     "configstore",
-    "firebase-tools.json"
+    "firebase-tools.json",
   );
   const raw = await fs.readFile(configPath, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error("Invalid Firebase CLI configuration JSON.", { cause: error });
+    throw new Error("Invalid Firebase CLI configuration JSON.", {
+      cause: error,
+    });
   }
   const token = String(parsed?.tokens?.access_token ?? "").trim();
   if (!token) {
@@ -219,13 +233,13 @@ async function queryAuthAccounts(accessToken) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         returnUserInfo: true,
-        maxResults: 1000
-      })
-    }
+        maxResults: 1000,
+      }),
+    },
   );
   await ensureOk(response, "query auth accounts");
   const payload = await response.json();
@@ -241,12 +255,12 @@ async function deleteAuthAccount(accessToken, localId) {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            localId
-          })
-        }
+            localId,
+          }),
+        },
       ),
     () =>
       fetch(
@@ -255,13 +269,13 @@ async function deleteAuthAccount(accessToken, localId) {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             localIds: [localId],
-            force: true
-          })
-        }
+            force: true,
+          }),
+        },
       ),
     () =>
       fetch(
@@ -269,10 +283,10 @@ async function deleteAuthAccount(accessToken, localId) {
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${accessToken}`
-          }
-        }
-      )
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      ),
   ];
 
   const failures = [];
@@ -295,10 +309,12 @@ async function listCollection(accessToken, collectionId) {
     let url;
     try {
       url = new URL(
-        `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collectionId}`
+        `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collectionId}`,
       );
     } catch (error) {
-      throw new Error("Could not build the Firestore collection URL.", { cause: error });
+      throw new Error("Could not build the Firestore collection URL.", {
+        cause: error,
+      });
     }
     url.searchParams.set("pageSize", "200");
     if (nextPageToken) {
@@ -307,8 +323,8 @@ async function listCollection(accessToken, collectionId) {
 
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
     await ensureOk(response, `list ${collectionId}`);
     const payload = await response.json();
@@ -316,7 +332,7 @@ async function listCollection(accessToken, collectionId) {
       results.push({
         name: document.name,
         id: document.name.split("/").at(-1),
-        data: fromFirestoreFields(document.fields ?? {})
+        data: fromFirestoreFields(document.fields ?? {}),
       });
     }
     nextPageToken = String(payload.nextPageToken ?? "").trim();
@@ -329,10 +345,12 @@ async function patchDocument(accessToken, documentPath, data, fieldPaths) {
   let url;
   try {
     url = new URL(
-      `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${documentPath}`
+      `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${documentPath}`,
     );
   } catch (error) {
-    throw new Error("Could not build the Firestore document URL.", { cause: error });
+    throw new Error("Could not build the Firestore document URL.", {
+      cause: error,
+    });
   }
   for (const fieldPath of fieldPaths) {
     url.searchParams.append("updateMask.fieldPaths", fieldPath);
@@ -342,11 +360,11 @@ async function patchDocument(accessToken, documentPath, data, fieldPaths) {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      fields: toFirestoreFields(data)
-    })
+      fields: toFirestoreFields(data),
+    }),
   });
   await ensureOk(response, `patch ${documentPath}`);
 }
@@ -366,8 +384,8 @@ function toFirestoreValue(value) {
   if (Array.isArray(value)) {
     return {
       arrayValue: {
-        values: value.map((item) => toFirestoreValue(item))
-      }
+        values: value.map((item) => toFirestoreValue(item)),
+      },
     };
   }
   if (typeof value === "number") {
@@ -412,7 +430,9 @@ function fromFirestoreValue(value) {
 }
 
 function asPlainObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
 }
 
 function createTransporter(env) {
@@ -422,8 +442,8 @@ function createTransporter(env) {
     secure: Number(env.SMTP_PORT || 465) === 465,
     auth: {
       user: env.SMTP_USER,
-      pass: env.SMTP_PASS
-    }
+      pass: env.SMTP_PASS,
+    },
   });
 }
 
@@ -447,7 +467,7 @@ function buildAccountCompletionEmailText(portalUrl, email) {
     "- Si no recuerdas la contraseña, utiliza la opción de recuperación en el acceso.",
     "",
     "Si necesitas ayuda, comunícate con administración.",
-    "La Casona Alquileres"
+    "La Casona Alquileres",
   ].join("\n");
 }
 
@@ -495,7 +515,7 @@ function escapeHtml(value) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
+    .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
 

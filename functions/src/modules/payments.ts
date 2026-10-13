@@ -16,6 +16,7 @@ import { nowIso } from "../lib/utils.js";
 import { analyzeStoredReceipt } from "./documents.js";
 import { generateAndSendPaymentReceiptInternal } from "./receipts.js";
 import { sendTenantNotification } from "./notifications.js";
+import { ensureCurrentChargeForTenant } from "./charges.js";
 
 export const submitTransferPayment = onCall(async (request) => {
   const data = request.data as {
@@ -103,7 +104,10 @@ export const submitContingencyTransferPayment = onCall(async (request) => {
 
   const receipts = await Promise.all(
     data.receiptIds.map(async (receiptId) => {
-      const receiptDoc = await db.collection("paymentReceipts").doc(receiptId).get();
+      const receiptDoc = await db
+        .collection("paymentReceipts")
+        .doc(receiptId)
+        .get();
       if (!receiptDoc.exists) {
         throw new HttpsError("not-found", "Uno de los comprobantes no existe.");
       }
@@ -123,7 +127,8 @@ export const submitContingencyTransferPayment = onCall(async (request) => {
         );
       }
 
-      let analyzed: Awaited<ReturnType<typeof analyzeStoredReceipt>> | null = null;
+      let analyzed: Awaited<ReturnType<typeof analyzeStoredReceipt>> | null =
+        null;
       try {
         analyzed = await analyzeStoredReceipt(receiptId, receipt);
         await receiptDoc.ref.set(
@@ -170,8 +175,7 @@ export const submitContingencyTransferPayment = onCall(async (request) => {
     createdBy: actorUid,
     reportedPaidAt: paidAt,
     validationStatus: "admin_contingency_override",
-    validationMessage:
-      "Pago aprobado por administración en modo contingencia.",
+    validationMessage: "Pago aprobado por administración en modo contingencia.",
     contingencyMode: true,
     contingencyReason,
   });
@@ -211,6 +215,11 @@ export const submitContingencyTransferPayment = onCall(async (request) => {
     },
     { merge: true },
   );
+
+  // A contingency approval closes the selected historical charge. Ensure the
+  // tenant immediately receives the current period charge instead of being
+  // left without a payment option until the monthly scheduler runs.
+  await ensureCurrentChargeForTenant(data.tenantId, actorUid);
 
   await db.collection("auditLogs").add({
     action: "payment.contingency_override",

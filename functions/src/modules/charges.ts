@@ -56,6 +56,15 @@ export const generateMonthlyCharges = onCall(async (request) => {
   return createMonthlyCharges(request.auth?.uid ?? "system");
 });
 
+export const ensureTenantCurrentCharge = onCall(async (request) => {
+  await requireRole(request, ["admin", "superadmin"]);
+  const tenantId = String(request.data?.tenantId ?? "").trim();
+  if (!tenantId) {
+    throw new HttpsError("invalid-argument", "tenantId es obligatorio.");
+  }
+  return ensureCurrentChargeForTenant(tenantId, request.auth?.uid ?? "system");
+});
+
 export const createManualCharge = onCall(async (request) => {
   await requireRole(request, ["admin", "superadmin"]);
 
@@ -73,7 +82,13 @@ export const createManualCharge = onCall(async (request) => {
   const amount = Number(data.amount ?? 0);
   const reason = String(data.reason ?? "").trim();
 
-  if (!tenantId || !/^\d{4}-\d{2}$/.test(period) || !dueDate || !amount || !reason) {
+  if (
+    !tenantId ||
+    !/^\d{4}-\d{2}$/.test(period) ||
+    !dueDate ||
+    !amount ||
+    !reason
+  ) {
     throw new HttpsError(
       "invalid-argument",
       "tenantId, period, dueDate, amount y reason son obligatorios.",
@@ -82,7 +97,10 @@ export const createManualCharge = onCall(async (request) => {
 
   const dueDateValue = new Date(`${dueDate}T00:00:00`);
   if (Number.isNaN(dueDateValue.getTime())) {
-    throw new HttpsError("invalid-argument", "La fecha de vencimiento no es válida.");
+    throw new HttpsError(
+      "invalid-argument",
+      "La fecha de vencimiento no es válida.",
+    );
   }
 
   const tenantDoc = await db.collection("tenants").doc(tenantId).get();

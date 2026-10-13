@@ -5182,8 +5182,17 @@ async function openAdminReceiptUploadModal(tenantId, options = {}) {
 
   let openCharges = getTenantReceiptableCharges(tenantId);
   if (!openCharges.length) {
-    await reloadScopedAdminOperation();
-    openCharges = getTenantReceiptableCharges(tenantId);
+    try {
+      const ensureCurrentCharge = httpsCallable(
+        functions,
+        "ensureTenantCurrentCharge",
+      );
+      await ensureCurrentCharge({ tenantId });
+      await reloadScopedAdminOperation();
+      openCharges = getTenantReceiptableCharges(tenantId);
+    } catch (error) {
+      console.warn("Unable to ensure current tenant charge", error);
+    }
   }
   if (!openCharges.length) {
     setMessage(
