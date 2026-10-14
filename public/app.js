@@ -5699,7 +5699,49 @@ async function handlePaymentReviewAction(event) {
   const approveButton = event.target.closest("[data-approve-payment]");
   const rejectButton = event.target.closest("[data-reject-payment]");
   const analyzeButton = event.target.closest("[data-analyze-receipt]");
+  const deleteReceiptButton = event.target.closest(
+    "[data-delete-payment-receipt]",
+  );
   const sendReceiptButton = event.target.closest("[data-send-rent-receipt]");
+
+  if (deleteReceiptButton) {
+    const receiptId = deleteReceiptButton.dataset.deletePaymentReceipt;
+    const receipt = state.receipts.find((item) => item.id === receiptId);
+    if (!receiptId || !receipt) {
+      setMessage("No se pudo identificar el comprobante a eliminar.", "error");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      [
+        "Vas a eliminar este comprobante de forma permanente.",
+        "",
+        `Archivo: ${receipt.fileName || "Sin nombre"}`,
+        "El pago y el recibo oficial, si existe, no serán eliminados.",
+        "",
+        "¿Confirmás la eliminación?",
+      ].join("\n"),
+    );
+    if (!confirmed) {
+      setMessage("Eliminación cancelada.");
+      return;
+    }
+
+    try {
+      deleteReceiptButton.disabled = true;
+      setMessage("Eliminando comprobante...");
+      const deleteReceipt = httpsCallable(functions, "deletePaymentReceipt");
+      await deleteReceipt({ receiptId });
+      await reloadScopedAdminOperation();
+      setMessage("Comprobante eliminado correctamente.", "success");
+    } catch (error) {
+      console.error(error);
+      setMessage(humanizeFunctionError(error), "error");
+    } finally {
+      deleteReceiptButton.disabled = false;
+    }
+    return;
+  }
 
   if (analyzeButton) {
     await handleReceiptAnalysis(analyzeButton.dataset.analyzeReceipt);
@@ -8731,6 +8773,7 @@ function renderAdminPaymentReview() {
                               <div class="entity-card-actions">
                                 <a class="entity-link" href="${receipt.downloadURL}" target="_blank" rel="noreferrer">Ver comprobante</a>
                                 <button class="ghost-action small-button" type="button" data-analyze-receipt="${receipt.id}">Analizar</button>
+                                <button class="ghost-action danger-action small-button" type="button" data-delete-payment-receipt="${receipt.id}">Eliminar</button>
                               </div>
                             </article>
                           `,
@@ -10372,6 +10415,7 @@ function humanizeAuditAction(action) {
     payment_link_created: "Link único",
     payment_approved: "Pago aprobado",
     payment_rejected: "Pago rechazado",
+    payment_receipt_deleted: "Comprobante eliminado",
     receipt_generated: "Comprobante emitido",
     receipt_regenerated: "Comprobante regenerado",
     receipt_resent: "Comprobante reenviado",
@@ -10387,6 +10431,7 @@ function humanizeAuditEntity(entityType) {
     charge: "Cobro",
     settings: "Configuración",
     receipt: "Comprobante",
+    paymentReceipt: "Archivo de comprobante",
     user: "Usuario",
   };
 
@@ -10433,14 +10478,6 @@ function humanizeReceiptDocumentType(type) {
   };
 
   return labels[type] || "Documento no identificado";
-}
-
-function buildReceiptVerificationUrl(verificationCode) {
-  if (!verificationCode) {
-    return `${window.location.origin}/verificar-comprobante.html`;
-  }
-
-  return `${window.location.origin}/verificar-comprobante.html?code=${encodeURIComponent(verificationCode)}`;
 }
 
 function humanizeInvitationStatus(status) {
