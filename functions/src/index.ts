@@ -63,7 +63,10 @@ export {
   extractUtilityBillData,
   extractPaymentReceiptData,
 } from "./modules/documents.js";
-export { deletePaymentReceipt } from "./modules/receiptDeletion.js";
+export {
+  deletePaymentReceipt,
+  deletePaymentSubmission,
+} from "./modules/receiptDeletion.js";
 export { prepareRentReceiptsZip } from "./modules/downloads.js";
 export { writeAuditLog } from "./modules/audit.js";
 export { getScopedAdminDataset } from "./modules/adminData.js";

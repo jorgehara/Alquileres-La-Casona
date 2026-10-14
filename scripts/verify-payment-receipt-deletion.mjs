@@ -6,26 +6,36 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf8");
-const require = createRequire(new URL("functions/package.json", root));
-const ts = require("typescript");
+const ts = createRequire(new URL("functions/package.json", root))(
+  "typescript",
+);
 
-function loadDeletionCore(dependencies) {
+function loadCore(symbol, nextSymbol, dependencies) {
   const source = read("functions/src/modules/receiptDeletion.ts");
-  const start = source.indexOf(
-    "export async function deletePaymentReceiptRecord",
-  );
-  const end = source.indexOf("export const deletePaymentReceipt", start);
-  assert.notEqual(start, -1, "missing deletion core");
-  assert.notEqual(end, -1, "missing deletion callable boundary");
+  const start = source.indexOf(`export async function ${symbol}`);
+  const end = source.indexOf(nextSymbol, start);
+  assert.notEqual(start, -1, `missing ${symbol} core`);
+  assert.notEqual(end, -1, `missing ${symbol} boundary`);
   const compiled = ts.transpileModule(
     source.slice(start, end).replace("export async function", "async function"),
     { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
   ).outputText;
-  return vm.runInNewContext(
-    `${compiled}\ndeletePaymentReceiptRecord`,
+  return vm.runInNewContext(`${compiled}\n${symbol}`, dependencies);
+}
+
+const loadDeletionCore = (dependencies) =>
+  loadCore(
+    "deletePaymentReceiptRecord",
+    "export const deletePaymentReceipt",
     dependencies,
   );
-}
+
+const loadPaymentDeletionCore = (dependencies) =>
+  loadCore(
+    "deletePaymentSubmissionRecord",
+    "export const deletePaymentSubmission",
+    dependencies,
+  );
 
 function createDependencies({ storageError = null } = {}) {
   const calls = [];
@@ -34,7 +44,11 @@ function createDependencies({ storageError = null } = {}) {
       calls.push(["delete-document", ref.path]);
     },
     set(ref, value) {
-      calls.push(["audit", ref.path, value]);
+      calls.push([
+        ref.path.startsWith("auditLogs/") ? "audit" : "set-document",
+        ref.path,
+        value,
+      ]);
     },
     async commit() {
       calls.push(["commit"]);
@@ -137,15 +151,133 @@ test("unexpected storage failures preserve the Firestore record", async () => {
   assert.ok(!calls.some(([name]) => name === "commit"));
 });
 
-test("callable is exported and enforces scoped admin access", () => {
+test("deleting a duplicate payment removes its complete local graph and preserves a valid payment", async () => {
+  const { calls, dependencies } = createDependencies();
+  const remove = loadPaymentDeletionCore(dependencies);
+  const result = await remove({
+    paymentId: "payment-duplicate",
+    payment: {
+      chargeId: "charge-1",
+      tenantId: "tenant-1",
+      status: "approved",
+    },
+    charge: { status: "paid" },
+    paymentReceipts: [
+      {
+        id: "receipt-1",
+        data: {
+          storagePath: "payment-receipts/user/payment/duplicate.jpg",
+        },
+      },
+    ],
+    rentReceipts: [
+      {
+        id: "payment_payment-duplicate",
+        data: {
+          pdfStoragePath:
+            "rent-receipts/tenant-1/payment_payment-duplicate/receipt.pdf",
+        },
+      },
+    ],
+    remainingPayments: [
+      {
+        id: "payment-valid",
+        data: {
+          status: "approved",
+          reportedPaidAt: "2026-10-10T12:00:00.000Z",
+        },
+      },
+    ],
+    actor: deletionInput.actor,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.paymentId, "payment-duplicate");
+  assert.ok(
+    calls.some(
+      (call) =>
+        call[0] === "delete-document" &&
+        call[1] === "payments/payment-duplicate",
+    ),
+  );
+  assert.ok(
+    calls.some(
+      (call) =>
+        call[0] === "delete-document" &&
+        call[1] === "paymentReceipts/receipt-1",
+    ),
+  );
+  assert.ok(
+    calls.some(
+      (call) =>
+        call[0] === "delete-document" &&
+        call[1] === "rentReceipts/payment_payment-duplicate",
+    ),
+  );
+  assert.ok(
+    calls.some(
+      (call) =>
+        call[0] === "set-document" &&
+        call[1] === "charges/charge-1" &&
+        call[2].status === "paid",
+    ),
+  );
+  assert.ok(
+    calls.some(
+      (call) => call[0] === "audit" && call[2].action === "payment_deleted",
+    ),
+  );
+});
+
+test("deleting the only payment reopens the monthly charge", async () => {
+  const { calls, dependencies } = createDependencies();
+  const remove = loadPaymentDeletionCore(dependencies);
+  const result = await remove({
+    paymentId: "payment-only",
+    payment: {
+      chargeId: "charge-1",
+      tenantId: "tenant-1",
+      status: "in_review",
+    },
+    charge: { status: "in_review" },
+    paymentReceipts: [],
+    rentReceipts: [],
+    remainingPayments: [],
+    actor: deletionInput.actor,
+  });
+
+  assert.equal(result.chargeStatus, "pending");
+  assert.ok(
+    calls.some(
+      (call) =>
+        call[0] === "set-document" &&
+        call[1] === "charges/charge-1" &&
+        call[2].status === "pending" &&
+        call[2].paidAt === null &&
+        call[2].reportedPaidAt === null,
+    ),
+  );
+});
+
+test("payment deletion callable is exported and enforces scoped admin access", () => {
   const index = read("functions/src/index.ts");
   const backend = read("functions/src/modules/receiptDeletion.ts");
-  assert.match(index, /deletePaymentReceipt/);
+  assert.match(index, /deletePaymentSubmission/);
   assert.match(backend, /requireRole\(request, \["admin", "superadmin"\]\)/);
   assert.match(backend, /assertOwnerScopeAccess\(request, propertyId\)/);
 });
 
-test("admin receipt cards expose deletion and the handler confirms then refreshes", () => {
+test("the previously deployed receipt action deletes its linked payment too", () => {
+  const backend = read("functions/src/modules/receiptDeletion.ts");
+  const receiptCallable = backend.slice(
+    backend.indexOf("export const deletePaymentReceipt"),
+    backend.indexOf("async function resolveReceiptPropertyId"),
+  );
+  assert.match(receiptCallable, /receipt\.paymentId/);
+  assert.match(receiptCallable, /deletePaymentSubmissionForRequest/);
+});
+
+test("admin payment cards delete the payment submission and then refresh", () => {
   const app = read("public/app.js");
   const card = app.slice(
     app.indexOf('<div class="receipt-review-list">'),
@@ -160,8 +292,12 @@ test("admin receipt cards expose deletion and the handler confirms then refreshe
     app.indexOf("async function handleRentReceiptSend", handlerStart),
   );
 
-  assert.match(card, /data-delete-payment-receipt="\$\{receipt\.id\}"/);
+  assert.doesNotMatch(card, /data-delete-payment-receipt/);
+  assert.match(handler, /data-delete-payment-submission/);
   assert.match(handler, /window\.confirm/);
-  assert.match(handler, /httpsCallable\(functions, "deletePaymentReceipt"\)/);
+  assert.match(
+    handler,
+    /httpsCallable\(\s*functions,\s*"deletePaymentSubmission",?\s*\)/,
+  );
   assert.match(handler, /reloadScopedAdminOperation\(\)/);
 });

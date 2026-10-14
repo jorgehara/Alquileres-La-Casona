@@ -5699,28 +5699,51 @@ async function handlePaymentReviewAction(event) {
   const approveButton = event.target.closest("[data-approve-payment]");
   const rejectButton = event.target.closest("[data-reject-payment]");
   const analyzeButton = event.target.closest("[data-analyze-receipt]");
-  const deleteReceiptButton = event.target.closest(
-    "[data-delete-payment-receipt]",
+  const deletePaymentButton = event.target.closest(
+    "[data-delete-payment-submission]",
   );
   const sendReceiptButton = event.target.closest("[data-send-rent-receipt]");
 
-  if (deleteReceiptButton) {
-    const receiptId = deleteReceiptButton.dataset.deletePaymentReceipt;
-    const receipt = state.receipts.find((item) => item.id === receiptId);
-    if (!receiptId || !receipt) {
-      setMessage("No se pudo identificar el comprobante a eliminar.", "error");
+  if (deletePaymentButton) {
+    const paymentId = deletePaymentButton.dataset.deletePaymentSubmission;
+    const payment = state.payments.find((item) => item.id === paymentId);
+    const charge = state.charges.find(
+      (item) => item.id === payment?.chargeId,
+    );
+    const tenant = state.tenants.find(
+      (item) => item.id === payment?.tenantId,
+    );
+    const property = state.properties.find(
+      (item) => item.id === charge?.propertyId,
+    );
+    const attachedReceipts = state.receipts.filter(
+      (receipt) => receipt.paymentId === paymentId,
+    );
+    if (!paymentId || !payment) {
+      setMessage("No se pudo identificar el pago a eliminar.", "error");
       return;
     }
 
     const confirmed = window.confirm(
       [
-        "Vas a eliminar este comprobante de forma permanente.",
+        "Vas a eliminar este pago duplicado o erróneo de forma permanente.",
         "",
-        `Archivo: ${receipt.fileName || "Sin nombre"}`,
-        "El pago y el recibo oficial, si existe, no serán eliminados.",
+        `Inquilino: ${tenant?.fullName || "Sin nombre"}`,
+        `Unidad: ${property?.name || "Sin unidad"}`,
+        `Período: ${charge?.period || "Sin período"}`,
+        `Monto: ${formatCurrency(payment.amountReported ?? payment.amountConfirmed ?? 0)}`,
+        `Comprobantes adjuntos: ${attachedReceipts.length}`,
         "",
-        "¿Confirmás la eliminación?",
-      ].join("\n"),
+        "También se eliminarán sus archivos y el recibo oficial asociado.",
+        "El cobro mensual se conservará y recalculará según los otros pagos.",
+        payment.financialSyncStatus === "synced"
+          ? "ATENCIÓN: la operación ya sincronizada con Finanzas debe revertirse allí por separado."
+          : "",
+        "",
+        "¿Confirmás la eliminación completa?",
+      ]
+        .filter(Boolean)
+        .join("\n"),
     );
     if (!confirmed) {
       setMessage("Eliminación cancelada.");
@@ -5728,17 +5751,25 @@ async function handlePaymentReviewAction(event) {
     }
 
     try {
-      deleteReceiptButton.disabled = true;
-      setMessage("Eliminando comprobante...");
-      const deleteReceipt = httpsCallable(functions, "deletePaymentReceipt");
-      await deleteReceipt({ receiptId });
+      deletePaymentButton.disabled = true;
+      setMessage("Eliminando pago duplicado...");
+      const deletePayment = httpsCallable(
+        functions,
+        "deletePaymentSubmission",
+      );
+      const result = await deletePayment({ paymentId });
       await reloadScopedAdminOperation();
-      setMessage("Comprobante eliminado correctamente.", "success");
+      setMessage(
+        result.data?.financeReversalRequired
+          ? "Pago eliminado del sistema. Falta revertir la operación sincronizada en Finanzas."
+          : "Pago duplicado eliminado correctamente.",
+        result.data?.financeReversalRequired ? "warning" : "success",
+      );
     } catch (error) {
       console.error(error);
       setMessage(humanizeFunctionError(error), "error");
     } finally {
-      deleteReceiptButton.disabled = false;
+      deletePaymentButton.disabled = false;
     }
     return;
   }
@@ -8773,7 +8804,6 @@ function renderAdminPaymentReview() {
                               <div class="entity-card-actions">
                                 <a class="entity-link" href="${receipt.downloadURL}" target="_blank" rel="noreferrer">Ver comprobante</a>
                                 <button class="ghost-action small-button" type="button" data-analyze-receipt="${receipt.id}">Analizar</button>
-                                <button class="ghost-action danger-action small-button" type="button" data-delete-payment-receipt="${receipt.id}">Eliminar</button>
                               </div>
                             </article>
                           `,
@@ -8790,6 +8820,7 @@ function renderAdminPaymentReview() {
                       : ""
                   }
                   <button class="ghost-action small-button" type="button" data-open-section="mensajes">Enviar mensaje</button>
+                  <button class="ghost-action danger-action small-button" type="button" data-delete-payment-submission="${payment.id}">Eliminar pago duplicado</button>
                   ${
                     rentReceipt?.pdfUrl
                       ? `<button class="ghost-action small-button" type="button" data-view-rent-receipt="${rentReceipt.pdfUrl}">Ver recibo</button>`
@@ -10415,6 +10446,7 @@ function humanizeAuditAction(action) {
     payment_link_created: "Link único",
     payment_approved: "Pago aprobado",
     payment_rejected: "Pago rechazado",
+    payment_deleted: "Pago eliminado",
     payment_receipt_deleted: "Comprobante eliminado",
     receipt_generated: "Comprobante emitido",
     receipt_regenerated: "Comprobante regenerado",
