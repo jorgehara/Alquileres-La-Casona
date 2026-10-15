@@ -340,6 +340,121 @@ export const approveTransferPayment = onCall(async (request) => {
   return { ok: true, receipt: receiptResult };
 });
 
+export const createMercadoPagoDebtCheckout = onCall(async (request) => {
+  await requireRole(request, ["admin", "superadmin"]);
+  const tenantId = String(request.data?.tenantId ?? "").trim();
+  if (!tenantId)
+    throw new HttpsError("invalid-argument", "tenantId es obligatorio.");
+  const tenantDoc = await db.collection("tenants").doc(tenantId).get();
+  if (!tenantDoc.exists)
+    throw new HttpsError("not-found", "No existe el inquilino indicado.");
+  const propertyId = String(tenantDoc.data()?.propertyId ?? "");
+  await assertOwnerScopeAccess(request, propertyId);
+  const requestedIds = Array.isArray(request.data?.chargeIds)
+    ? request.data.chargeIds.map((id: unknown) => String(id))
+    : [];
+  const snapshot = requestedIds.length
+    ? await Promise.all(
+        requestedIds.map((id: string) =>
+          db.collection("charges").doc(id).get(),
+        ),
+      )
+    : (await db.collection("charges").where("tenantId", "==", tenantId).get())
+        .docs;
+  const charges = snapshot.filter(
+    (doc) =>
+      doc.exists &&
+      String(doc.data()?.tenantId ?? "") === tenantId &&
+      !["paid", "cancelled"].includes(String(doc.data()?.status ?? "")),
+  );
+  if (!charges.length)
+    throw new HttpsError(
+      "failed-precondition",
+      "El inquilino no tiene deuda abierta.",
+    );
+  const total = charges.reduce(
+    (sum, doc) => sum + Number(doc.data()?.total ?? 0),
+    0,
+  );
+  if (!Number.isFinite(total) || total <= 0)
+    throw new HttpsError(
+      "failed-precondition",
+      "La deuda no tiene un importe válido.",
+    );
+  const accessToken = mercadoPagoAccessToken.value();
+  const apiBaseUrl = backendBaseUrl.value();
+  if (!accessToken || !apiBaseUrl)
+    throw new HttpsError(
+      "failed-precondition",
+      "Falta configurar Mercado Pago.",
+    );
+  const chargeIds = charges.map((doc) => doc.id);
+  const paymentRef = db.collection("payments").doc();
+  await paymentRef.set({
+    tenantId,
+    chargeId: chargeIds[0],
+    chargeIds,
+    method: "mercado_pago",
+    amountReported: total,
+    amountConfirmed: 0,
+    status: "reported",
+    createdAt: nowIso(),
+    createdBy: request.auth?.uid ?? "system",
+  });
+  const preferenceResponse = await fetch(
+    "https://api.mercadopago.com/checkout/preferences",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        items: [
+          {
+            id: paymentRef.id,
+            title: `Deuda de alquiler - ${charges.length} períodos`,
+            quantity: 1,
+            currency_id: "ARS",
+            unit_price: total,
+          },
+        ],
+        external_reference: paymentRef.id,
+        notification_url: `${apiBaseUrl}/handleMercadoPagoWebhook`,
+        back_urls: {
+          success: `${webAppUrl.value()}/?mp_status=success`,
+          failure: `${webAppUrl.value()}/?mp_status=failure`,
+          pending: `${webAppUrl.value()}/?mp_status=pending`,
+        },
+        auto_return: "approved",
+        metadata: { paymentId: paymentRef.id, tenantId, chargeIds },
+      }),
+    },
+  );
+  if (!preferenceResponse.ok)
+    throw new HttpsError(
+      "internal",
+      `Mercado Pago no pudo crear la preferencia: ${await preferenceResponse.text()}`,
+    );
+  const preference = (await preferenceResponse.json()) as {
+    id: string;
+    init_point?: string;
+    sandbox_init_point?: string;
+  };
+  const checkoutUrl =
+    preference.init_point ?? preference.sandbox_init_point ?? "";
+  await paymentRef.set(
+    {
+      mercadoPagoPreferenceId: preference.id,
+      checkoutUrl,
+      mercadoPagoStatus: "preference_created",
+      updatedAt: nowIso(),
+    },
+    { merge: true },
+  );
+  return { ok: true, paymentId: paymentRef.id, checkoutUrl, chargeIds, total };
+});
+
 export const createMercadoPagoCheckout = onCall(async (request) => {
   const data = request.data as {
     tenantId?: string;
@@ -636,22 +751,27 @@ export const handleMercadoPagoWebhook = onRequest(async (request, response) => {
   );
 
   if (isApproved) {
-    await db
-      .collection("charges")
-      .doc(String(paymentData.chargeId))
-      .set(
-        {
-          status: "paid",
-          paidAt: nowIso(),
-          overdueDays: 0,
-          lateFeeAmount: 0,
-          total: Number(
-            paymentData.amountReported ?? paymentData.amountConfirmed ?? 0,
+    const paidChargeIds =
+      Array.isArray(paymentData.chargeIds) && paymentData.chargeIds.length
+        ? paymentData.chargeIds.map(String)
+        : [String(paymentData.chargeId)];
+    await Promise.all(
+      paidChargeIds.map((chargeId) =>
+        db
+          .collection("charges")
+          .doc(chargeId)
+          .set(
+            {
+              status: "paid",
+              paidAt: nowIso(),
+              overdueDays: 0,
+              lateFeeAmount: 0,
+              updatedAt: nowIso(),
+            },
+            { merge: true },
           ),
-          updatedAt: nowIso(),
-        },
-        { merge: true },
-      );
+      ),
+    );
 
     try {
       const receiptResult = await generateAndSendPaymentReceiptInternal(

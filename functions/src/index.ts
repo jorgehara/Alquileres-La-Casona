@@ -37,6 +37,7 @@ export {
   submitContingencyTransferPayment,
   approveTransferPayment,
   createMercadoPagoCheckout,
+  createMercadoPagoDebtCheckout,
   handleMercadoPagoWebhook,
   syncMercadoPagoPayment,
   syncAllStuckMercadoPagoPayments,

@@ -5707,12 +5707,8 @@ async function handlePaymentReviewAction(event) {
   if (deletePaymentButton) {
     const paymentId = deletePaymentButton.dataset.deletePaymentSubmission;
     const payment = state.payments.find((item) => item.id === paymentId);
-    const charge = state.charges.find(
-      (item) => item.id === payment?.chargeId,
-    );
-    const tenant = state.tenants.find(
-      (item) => item.id === payment?.tenantId,
-    );
+    const charge = state.charges.find((item) => item.id === payment?.chargeId);
+    const tenant = state.tenants.find((item) => item.id === payment?.tenantId);
     const property = state.properties.find(
       (item) => item.id === charge?.propertyId,
     );
@@ -5753,10 +5749,7 @@ async function handlePaymentReviewAction(event) {
     try {
       deletePaymentButton.disabled = true;
       setMessage("Eliminando pago duplicado...");
-      const deletePayment = httpsCallable(
-        functions,
-        "deletePaymentSubmission",
-      );
+      const deletePayment = httpsCallable(functions, "deletePaymentSubmission");
       const result = await deletePayment({ paymentId });
       await reloadScopedAdminOperation();
       setMessage(
@@ -6010,6 +6003,23 @@ async function handleChargeAction(event) {
 }
 
 async function handleMercadoPagoAction(event) {
+  const debtButton = event.target.closest("[data-create-debt-link]");
+  if (debtButton) {
+    if (!isAdminRole()) return;
+    try {
+      setMessage("Generando link de Mercado Pago por la deuda total...");
+      const createCheckout = httpsCallable(functions, "createMercadoPagoDebtCheckout");
+      const result = await createCheckout({ tenantId: debtButton.dataset.createDebtLink });
+      const checkoutUrl = result.data?.checkoutUrl;
+      if (!checkoutUrl) throw new Error("No se recibió la URL de pago.");
+      await navigator.clipboard.writeText(checkoutUrl);
+      setMessage("Link de Mercado Pago generado y copiado al portapapeles.");
+    } catch (error) {
+      console.error(error);
+      setMessage(error?.message || "No se pudo generar el link de Mercado Pago.", "error");
+    }
+    return;
+  }
   const payButton = event.target.closest("[data-pay-card]");
   if (!payButton) {
     return;
@@ -7336,6 +7346,10 @@ function renderCharges() {
             charge.id,
           );
           const cardId = `charge-card-${charge.id}`;
+          const tenantOpenCharges = scopedCharges.filter((item) => item.tenantId === charge.tenantId && !["paid", "cancelled"].includes(String(item.status ?? "")));
+          const debtLinkButton = tenantOpenCharges[0]?.id === charge.id && tenantOpenCharges.length > 1
+            ? `<button class="primary-action small-button" type="button" data-create-debt-link="${charge.tenantId}">Generar link por deuda total (${tenantOpenCharges.length} meses)</button>`
+            : "";
 
           return `
             <article class="entity-card charge-card charge-card-collapsible">
@@ -7383,11 +7397,12 @@ function renderCharges() {
                   <div class="charge-meta">
                     <strong>${formatCurrency(charge.total ?? 0)}</strong>
                     <p>${visualStatus.helpText}</p>
+                    ${debtLinkButton}
                     ${
                       pendingReviewPayment
                         ? `<button class="primary-action small-button" type="button" data-review-charge-payment="${charge.id}">
                             Revisar comprobante
-                          </button>`
+                          </button>
                         : ""
                     }
                     <button class="ghost-action small-button" type="button" data-create-charge-link="${charge.id}">
