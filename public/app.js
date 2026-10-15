@@ -19,11 +19,9 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   setDoc,
   addDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
@@ -109,7 +107,7 @@ function renderRuntimeStartupFailure(error) {
     mode = window.LaCasonaRuntime?.getMode
       ? window.LaCasonaRuntime.getMode()
       : "desconocido";
-  } catch (_) {
+  } catch {
     mode = "inválido";
   }
   const origin = window.location?.origin || "origen desconocido";
@@ -1150,7 +1148,7 @@ function hydratePrivateElements() {
   );
 }
 
-async function mountPrivateApp(role) {
+async function mountPrivateApp() {
   if (elements.appShell || !elements.privateAppHost) {
     return;
   }
@@ -7416,7 +7414,7 @@ function renderCharges() {
                       pendingReviewPayment
                         ? `<button class="primary-action small-button" type="button" data-review-charge-payment="${charge.id}">
                             Revisar comprobante
-                          </button>
+                          </button>`
                         : ""
                     }
                     <button class="ghost-action small-button" type="button" data-create-charge-link="${charge.id}">
@@ -7731,15 +7729,6 @@ async function requestRentReceiptsZip(receipts, period = "") {
   triggerFileDownload(downloadUrl, fileName);
 }
 
-function buildRentReceiptDownloadName(receipt, tenant, property) {
-  const period = String(receipt.period || "sin-periodo");
-  const unit = sanitizeDownloadSegment(
-    property?.unitCode || property?.name || "unidad",
-  );
-  const tenantName = sanitizeDownloadSegment(tenant?.fullName || "inquilino");
-  return `recibo-${period}-${unit}-${tenantName}.pdf`;
-}
-
 function sanitizeDownloadSegment(value) {
   return (
     String(value || "")
@@ -7775,17 +7764,6 @@ function buildRentReceiptZipName(receipts, period = "") {
   const from = sortedPeriods[0] || "inicio";
   const to = sortedPeriods[sortedPeriods.length - 1] || "fin";
   return `recibos-${from}-a-${to}.zip`;
-}
-
-function saveBlobAsFile(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function triggerFileDownload(url, filename) {
