@@ -6003,6 +6003,20 @@ async function handleChargeAction(event) {
 }
 
 async function handleMercadoPagoAction(event) {
+  const invalidateButton = event.target.closest("[data-invalidate-debt-links]");
+  if (invalidateButton) {
+    if (!isAdminRole()) return;
+    if (!window.confirm("¿Invalidar los links pendientes de esta inquilina?")) return;
+    try {
+      const invalidate = httpsCallable(functions, "invalidateMercadoPagoDebtCheckouts");
+      const result = await invalidate({ tenantId: invalidateButton.dataset.invalidateDebtLinks });
+      setMessage(`Se invalidaron ${result.data?.invalidated ?? 0} link(s) anteriores.`);
+    } catch (error) {
+      console.error(error);
+      setMessage("No se pudieron invalidar los links anteriores.", "error");
+    }
+    return;
+  }
   const debtButton = event.target.closest("[data-create-debt-link]");
   if (debtButton) {
     if (!isAdminRole()) return;
@@ -7348,7 +7362,7 @@ function renderCharges() {
           const cardId = `charge-card-${charge.id}`;
           const tenantOpenCharges = scopedCharges.filter((item) => item.tenantId === charge.tenantId && !["paid", "cancelled"].includes(String(item.status ?? "")));
           const debtLinkButton = tenantOpenCharges[0]?.id === charge.id && tenantOpenCharges.length > 1
-            ? `<button class="primary-action small-button" type="button" data-create-debt-link="${charge.tenantId}">Generar link por deuda total (${tenantOpenCharges.length} meses)</button>`
+            ? `<div class="button-row"><button class="primary-action small-button" type="button" data-create-debt-link="${charge.tenantId}">Generar link por deuda total (${tenantOpenCharges.length} meses)</button><button class="ghost-action small-button" type="button" data-invalidate-debt-links="${charge.tenantId}">Invalidar links anteriores</button></div>`
             : "";
 
           return `

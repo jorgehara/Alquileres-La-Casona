@@ -340,6 +340,49 @@ export const approveTransferPayment = onCall(async (request) => {
   return { ok: true, receipt: receiptResult };
 });
 
+async function invalidateMercadoPagoDebtPayments(tenantId: string) {
+  const payments = await db
+    .collection("payments")
+    .where("tenantId", "==", tenantId)
+    .where("method", "==", "mercado_pago")
+    .get();
+  const pending = payments.docs.filter((doc) =>
+    ["reported", "pending"].includes(String(doc.data()?.status ?? "")),
+  );
+  await Promise.all(
+    pending.map((doc) =>
+      doc.ref.set(
+        {
+          status: "cancelled",
+          cancelledAt: nowIso(),
+          cancellationReason: "Link invalidado por administrador.",
+          updatedAt: nowIso(),
+        },
+        { merge: true },
+      ),
+    ),
+  );
+  return pending.length;
+}
+
+export const invalidateMercadoPagoDebtCheckouts = onCall(async (request) => {
+  await requireRole(request, ["admin", "superadmin"]);
+  const tenantId = String(request.data?.tenantId ?? "").trim();
+  if (!tenantId)
+    throw new HttpsError("invalid-argument", "tenantId es obligatorio.");
+  const tenantDoc = await db.collection("tenants").doc(tenantId).get();
+  if (!tenantDoc.exists)
+    throw new HttpsError("not-found", "No existe el inquilino indicado.");
+  await assertOwnerScopeAccess(
+    request,
+    String(tenantDoc.data()?.propertyId ?? ""),
+  );
+  return {
+    ok: true,
+    invalidated: await invalidateMercadoPagoDebtPayments(tenantId),
+  };
+});
+
 export const createMercadoPagoDebtCheckout = onCall(async (request) => {
   await requireRole(request, ["admin", "superadmin"]);
   const tenantId = String(request.data?.tenantId ?? "").trim();
@@ -757,19 +800,16 @@ export const handleMercadoPagoWebhook = onRequest(async (request, response) => {
         : [String(paymentData.chargeId)];
     await Promise.all(
       paidChargeIds.map((chargeId) =>
-        db
-          .collection("charges")
-          .doc(chargeId)
-          .set(
-            {
-              status: "paid",
-              paidAt: nowIso(),
-              overdueDays: 0,
-              lateFeeAmount: 0,
-              updatedAt: nowIso(),
-            },
-            { merge: true },
-          ),
+        db.collection("charges").doc(chargeId).set(
+          {
+            status: "paid",
+            paidAt: nowIso(),
+            overdueDays: 0,
+            lateFeeAmount: 0,
+            updatedAt: nowIso(),
+          },
+          { merge: true },
+        ),
       ),
     );
 
